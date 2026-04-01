@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = "https://buildtrace-va.onrender.com";
 
 export async function runBuildTrace(input: string) {
   const {
