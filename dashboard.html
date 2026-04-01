@@ -1,0 +1,633 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Build Logger Command Center</title>
+  <style>
+    :root{
+      --bg:#06101b;
+      --panel:rgba(12,22,38,.9);
+      --border:rgba(102,182,255,.16);
+      --text:#eef6ff;
+      --muted:#8ea7c6;
+      --cyan:#66d4ff;
+      --blue:#6eb7ff;
+      --green:#1be39f;
+      --amber:#ffbf58;
+      --red:#ff5d7c;
+      --radius:16px;
+      --shadow:0 14px 34px rgba(0,0,0,.28);
+    }
+
+    * { box-sizing:border-box; }
+    html, body { height:100%; }
+    body{
+      margin:0;
+      font-family:Inter, Arial, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(102,212,255,.14), transparent 26%),
+        radial-gradient(circle at top right, rgba(110,183,255,.08), transparent 18%),
+        linear-gradient(180deg, #040b14 0%, #07111c 100%);
+      overflow:hidden;
+    }
+
+    .shell{
+      width:100%;
+      height:100vh;
+      padding:10px;
+      display:grid;
+      grid-template-columns:1.08fr 1fr;
+      grid-template-rows:0.9fr 1.1fr;
+      gap:10px;
+    }
+
+    .box{
+      min-height:0;
+      min-width:0;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(14px);
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+    }
+
+    .top-left{
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:10px;
+      position:relative;
+    }
+
+    .status-bar{
+      height:8px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.06);
+    }
+
+    .status-bar-fill{
+      height:100%;
+      width:100%;
+    }
+
+    .status-bar-fill.green{
+      background:linear-gradient(90deg, rgba(27,227,159,.95), rgba(102,212,255,.55));
+    }
+
+    .status-bar-fill.amber{
+      background:linear-gradient(90deg, rgba(255,191,88,.95), rgba(102,212,255,.35));
+    }
+
+    .status-bar-fill.red{
+      background:linear-gradient(90deg, rgba(255,93,124,.95), rgba(255,191,88,.35));
+    }
+
+    .top-right{
+      display:flex;
+      flex-direction:column;
+    }
+
+    .bottom-wrap{
+      grid-column:1 / span 2;
+      display:grid;
+      grid-template-columns:0.9fr 0.92fr 1.22fr;
+      gap:10px;
+      min-height:0;
+    }
+
+    .box-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:8px;
+    }
+
+    .box-title h2{
+      margin:0;
+      font-size:14px;
+      letter-spacing:-.02em;
+    }
+
+    .eyebrow{
+      color:var(--cyan);
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.16em;
+      white-space:nowrap;
+    }
+
+    .headline{
+      font-size:24px;
+      line-height:1.03;
+      font-weight:800;
+      letter-spacing:-.04em;
+      max-width:88%;
+    }
+
+    .subcopy{
+      color:var(--muted);
+      font-size:11px;
+      line-height:1.4;
+      max-width:90%;
+      margin-top:2px;
+    }
+
+    .status-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.14em;
+      font-weight:800;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.03);
+    }
+
+    .status-chip.green{ color:var(--green); }
+    .status-chip.amber{ color:var(--amber); }
+    .status-chip.red{ color:var(--red); }
+
+    .signal-card{
+      border:1px solid rgba(102,212,255,.18);
+      background:rgba(102,212,255,.07);
+      border-radius:14px;
+      padding:12px;
+      display:grid;
+      gap:6px;
+      min-height:0;
+    }
+
+    .micro{
+      color:var(--cyan);
+      font-size:9px;
+      text-transform:uppercase;
+      letter-spacing:.15em;
+    }
+
+    .signal-impact{
+      font-size:18px;
+      font-weight:700;
+      line-height:1.25;
+    }
+
+    .signal-next{
+      color:var(--text);
+      font-size:12px;
+      line-height:1.35;
+    }
+
+    .signal-channel{
+      color:var(--muted);
+      font-size:11px;
+      line-height:1.3;
+    }
+
+    .next-command{
+      border-radius:12px;
+      padding:9px 10px;
+      background:rgba(2,8,18,.8);
+      border:1px solid rgba(102,212,255,.14);
+      color:#c4efff;
+      font-family:Consolas, monospace;
+      font-size:11px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      grid-auto-rows:minmax(72px, 1fr);
+      gap:8px;
+      flex:1;
+      min-height:0;
+    }
+
+    .metric{
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.05);
+      border-radius:14px;
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      min-width:0;
+    }
+
+    .metric-label{
+      color:var(--muted);
+      font-size:9px;
+      text-transform:uppercase;
+      letter-spacing:.14em;
+      margin-bottom:7px;
+    }
+
+    .metric-value{
+      font-size:20px;
+      font-weight:800;
+      line-height:1.05;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .metric.good .metric-value{ color:var(--green); }
+    .metric.warn .metric-value{ color:var(--amber); }
+    .metric.bad .metric-value{ color:var(--red); }
+    .metric.info .metric-value{ color:var(--cyan); }
+
+    .action-list{
+      display:grid;
+      grid-template-rows:repeat(3, 1fr);
+      gap:8px;
+      flex:1;
+      min-height:0;
+    }
+
+    .action-row{
+      min-height:0;
+      border-radius:14px;
+      padding:10px;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.05);
+      display:grid;
+      grid-template-rows:auto auto auto auto auto;
+      gap:5px;
+      overflow:hidden;
+    }
+
+    .action-row.high{ border-color:rgba(255,93,124,.2); }
+    .action-row.medium{ border-color:rgba(255,191,88,.18); }
+    .action-row.low{ border-color:rgba(27,227,159,.14); }
+
+    .action-top{
+      display:flex;
+      align-items:center;
+      gap:7px;
+      min-width:0;
+    }
+
+    .action-title{
+      font-size:13px;
+      font-weight:800;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .action-channel{
+      color:var(--cyan);
+      font-size:10px;
+      line-height:1.2;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .pill, .tag{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      padding:4px 7px;
+      font-size:9px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      flex-shrink:0;
+    }
+
+    .pill.high{ background:rgba(255,93,124,.12); color:var(--red); }
+    .pill.medium{ background:rgba(255,191,88,.12); color:var(--amber); }
+    .pill.low{ background:rgba(27,227,159,.12); color:var(--green); }
+
+    .action-impact{
+      color:var(--text);
+      font-size:11px;
+      line-height:1.3;
+      max-height:30px;
+      overflow:hidden;
+    }
+
+    .action-next{
+      color:var(--muted);
+      font-size:10px;
+      line-height:1.25;
+      max-height:26px;
+      overflow:hidden;
+    }
+
+    .action-command{
+      margin-top:auto;
+      border-radius:10px;
+      padding:6px 8px;
+      background:rgba(2,8,18,.8);
+      border:1px solid rgba(102,212,255,.12);
+      color:#c4efff;
+      font-family:Consolas, monospace;
+      font-size:10px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .health-stack{
+      display:grid;
+      grid-template-rows:1fr 1fr 1fr;
+      gap:8px;
+      flex:1;
+      min-height:0;
+    }
+
+    .mini-card{
+      min-height:0;
+      border-radius:14px;
+      padding:10px;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.05);
+      overflow:hidden;
+      font-size:11px;
+      line-height:1.35;
+      color:var(--muted);
+    }
+
+    .mini-card strong{
+      display:block;
+      margin-bottom:5px;
+      color:var(--text);
+      font-size:11px;
+    }
+
+    .directory-list{
+      display:grid;
+      gap:6px;
+      margin-top:4px;
+    }
+
+    .directory-row{
+      border-radius:12px;
+      padding:8px 9px;
+      background:rgba(255,255,255,.025);
+      border:1px solid rgba(255,255,255,.05);
+      overflow:hidden;
+    }
+
+    .directory-name{
+      color:var(--text);
+      font-size:10px;
+      font-weight:700;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      margin-bottom:3px;
+    }
+
+    .directory-stats{
+      color:var(--muted);
+      font-size:10px;
+      line-height:1.25;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .feed-list{
+      display:grid;
+      grid-template-rows:repeat(4, 1fr);
+      gap:8px;
+      flex:1;
+      min-height:0;
+    }
+
+    .feed-row{
+      min-height:0;
+      border-radius:14px;
+      padding:10px;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.05);
+      display:grid;
+      grid-template-rows:auto 1fr auto auto;
+      gap:6px;
+      overflow:hidden;
+    }
+
+    .feed-top{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+
+    .feed-copy{
+      color:var(--text);
+      font-size:11px;
+      line-height:1.3;
+      overflow:hidden;
+      max-height:30px;
+    }
+
+    .feed-time{
+      color:var(--muted);
+      font-size:10px;
+    }
+
+    .tag.platform{ background:rgba(102,212,255,.12); color:var(--cyan); }
+    .tag.account{ background:rgba(110,183,255,.12); color:var(--blue); }
+    .tag.posted{ background:rgba(27,227,159,.12); color:var(--green); }
+
+    .footer{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:10px;
+    }
+
+    @media (max-width: 1280px){
+      body{ overflow:auto; }
+      .shell{
+        height:auto;
+        min-height:100vh;
+        grid-template-columns:1fr;
+        grid-template-rows:auto;
+      }
+      .bottom-wrap{
+        grid-column:auto;
+        grid-template-columns:1fr;
+      }
+      .kpi-grid{
+        grid-template-columns:repeat(2, 1fr);
+      }
+      .box{
+        min-height:280px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="box top-left">
+      <div class="status-bar">
+        <div class="status-bar-fill green"></div>
+      </div>
+
+      <div class="box-title">
+        <h2>Mission Control</h2>
+        <div class="eyebrow">Current Priority</div>
+      </div>
+
+      <div>
+        <div class="headline">Proof of work should drive the next move.</div>
+        <div class="subcopy">
+          Daily command view for queue pressure, execution health, and published output across accounts.
+        </div>
+      </div>
+
+      <div class="status-chip green">Stable</div>
+
+      <div class="signal-card">
+        <div class="micro">Primary Signal</div>
+        <div class="signal-impact">System is operating normally.</div>
+        <div class="micro">Affected Channel</div>
+        <div class="signal-channel">All channels</div>
+        <div class="micro">Recommended Move</div>
+        <div class="signal-next">Keep scheduler alive.</div>
+      </div>
+
+      <div class="next-command">node scheduler.js</div>
+    </section>
+
+    <section class="box top-right">
+      <div class="box-title">
+        <h2>System Snapshot</h2>
+        <div class="eyebrow">Live State</div>
+      </div>
+      <div class="kpi-grid">
+        
+    <div class="metric info">
+      <div class="metric-label">Total Posts</div>
+      <div class="metric-value">0</div>
+    </div>
+  
+        
+    <div class="metric good">
+      <div class="metric-label">Pending</div>
+      <div class="metric-value">0</div>
+    </div>
+  
+        
+    <div class="metric good">
+      <div class="metric-label">Posted</div>
+      <div class="metric-value">0</div>
+    </div>
+  
+        
+    <div class="metric good">
+      <div class="metric-label">Failed</div>
+      <div class="metric-value">0</div>
+    </div>
+  
+        
+    <div class="metric good">
+      <div class="metric-label">Duplicate Drift</div>
+      <div class="metric-value">0</div>
+    </div>
+  
+        
+    <div class="metric info">
+      <div class="metric-label">Active Channels</div>
+      <div class="metric-value">0</div>
+    </div>
+  
+        
+    <div class="metric info">
+      <div class="metric-label">Active Personas</div>
+      <div class="metric-value">0</div>
+    </div>
+  
+        
+    <div class="metric info">
+      <div class="metric-label">Heartbeat</div>
+      <div class="metric-value">3/30/2026, 10:27:33 AM</div>
+    </div>
+  
+      </div>
+    </section>
+
+    <section class="bottom-wrap">
+      <section class="box">
+        <div class="box-title">
+          <h2>Priority Actions</h2>
+          <div class="eyebrow">Top 3 Moves</div>
+        </div>
+        <div class="action-list">
+          
+    <div class="action-row low">
+      <div class="action-top">
+        <span class="pill low">LOW</span>
+        <div class="action-title">Stable state</div>
+      </div>
+      <div class="action-channel">All channels</div>
+      <div class="action-impact">System is operating normally.</div>
+      <div class="action-next">Keep scheduler alive.</div>
+      <div class="action-command">node scheduler.js</div>
+    </div>
+  
+        </div>
+      </section>
+
+      <section class="box">
+        <div class="box-title">
+          <h2>System Health</h2>
+          <div class="eyebrow">Risk / Drift / Channels</div>
+        </div>
+        <div class="health-stack">
+          <div class="mini-card">
+            <strong>Channel Directory</strong>
+            <div class="directory-list">
+              <div class="directory-row"><div class="directory-name">No channels detected</div></div>
+            </div>
+          </div>
+
+          <div class="mini-card">
+            <strong>Persona Mix</strong>
+            No persona data yet.
+          </div>
+
+          <div class="mini-card">
+            <strong>Duplicate Drift</strong>
+            Platform totals:
+            <br><br>
+            No duplicate drift recorded.
+            <br><br>
+            Next window: None queued
+          </div>
+        </div>
+      </section>
+
+      <section class="box">
+        <div class="box-title">
+          <h2>Published Feed</h2>
+          <div class="eyebrow">Recent Output</div>
+        </div>
+        <div class="feed-list">
+          <div class="mini-card"><strong>Published Feed</strong>No posted items yet.</div>
+        </div>
+        <div class="footer">Generated 3/30/2026, 10:27:33 AM</div>
+      </section>
+    </section>
+  </div>
+</body>
+</html>
+  

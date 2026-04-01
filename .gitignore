@@ -1,0 +1,14 @@
+*.log
+.DS_Store
+.env
+.expo/
+accounts/*.json
+logs
+mobile/.expo/
+mobile/node_modules/
+node_modules
+outputs
+queue/*.json
+uploads
+.env*
+.env*

@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "BuildTrace",
+    "slug": "buildtrace-mobile",
+    "scheme": "buildtrace",
+    "plugins": ["expo-router"],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

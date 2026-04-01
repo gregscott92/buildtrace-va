@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-03-30T15:27:33.491Z",
+  "summary": {
+    "total_posts": 0,
+    "pending_posts": 0,
+    "posted_posts": 0,
+    "failed_posts": 0,
+    "duplicate_attempts_total": 0,
+    "next_scheduled_post_at": null,
+    "scheduler_heartbeat_at": "2026-03-30T15:27:33.491Z",
+    "active_channels": 0,
+    "active_personas": 0
+  },
+  "mission_status": {
+    "label": "Stable",
+    "tone": "green"
+  },
+  "by_platform": {},
+  "by_persona": {},
+  "by_post_mode": {},
+  "drift": {
+    "duplicate_attempts_total": 0,
+    "duplicate_attempts_by_platform": {},
+    "duplicate_attempts_by_reason": {},
+    "events": []
+  },
+  "insights": {
+    "suspiciousPosts": [],
+    "readyNow": [],
+    "futurePending": [],
+    "dueSoon": [],
+    "actions": [
+      {
+        "priority": "low",
+        "title": "Stable state",
+        "channel": "All channels",
+        "impact": "System is operating normally.",
+        "nextMove": "Keep scheduler alive.",
+        "command": "node scheduler.js"
+      }
+    ]
+  },
+  "channel_directory": [],
+  "persona_directory": [],
+  "recent_posted_items": []
+}

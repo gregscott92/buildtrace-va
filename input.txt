@@ -1,0 +1,16 @@
+Date: March 17
+
+Worked on:
+- Testing build logger
+
+Built:
+- First version of agent
+
+Fixes:
+- None
+
+Blockers:
+- Learning setup
+
+Ideas:
+- Automate everything

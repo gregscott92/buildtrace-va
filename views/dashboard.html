@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BuildTrace VA Dashboard</title>
+  <style>
+    body {
+      background: #0b0f19;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    h1 {
+      font-size: 54px;
+      line-height: 1.05;
+      margin: 8px 0 12px;
+      font-weight: 800;
+    }
+    .sub {
+      color: #9fb0d1;
+      font-size: 20px;
+      margin-bottom: 28px;
+    }
+    .topbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    button, .btn {
+      border: none;
+      border-radius: 14px;
+      padding: 14px 18px;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .primary { background: #2563eb; color: white; }
+    .danger { background: #991b1b; color: white; }
+
+    .card {
+      background: #0f172a;
+      border: 1px solid #22314d;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .label {
+      color: #7fb0ff;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .value {
+      font-size: 22px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    @media (min-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .msg {
+      color: #ff6b6b;
+      min-height: 24px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<div style="margin: 0 0 18px 0; padding: 14px; border: 1px solid #5b6b8a; border-radius: 10px; background: #111a2e; color: #dbe7ff; line-height: 1.45;">
+  <div style="font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: #8fb3ff; margin-bottom: 8px;">
+    Claim-Prep Notice
+  </div>
+
+<div style="margin: 0 0 18px 0; padding: 14px; border: 1px solid #4f5d75; border-radius: 10px; background: #161b26; color: #d9e2f2; line-height: 1.45;">
+  <div style="font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: #9cc0ff; margin-bottom: 8px;">
+    Privacy &amp; Storage Notice
+  </div>
+  <div style="font-size: 14px;">
+    Text you enter and paperwork you upload may be processed and stored to generate claim-prep results and show your saved history. Only upload information you are comfortable storing here. This tool is for claim preparation, not emergency, legal, or medical decision-making.
+  </div>
+</div>
+
+  <div style="font-size: 14px;">
+    BuildTrace VA is a claim-prep tool only. It provides starter estimates, not legal advice, not a final VA rating, and not a replacement for a VSO, attorney, DBQ, C&amp;P exam, or VA decision.
+  </div>
+</div>
+
+  <div class="wrap">
+    <h1>BuildTrace VA Dashboard</h1>
+    <div class="sub">You are logged in.</div>
+
+    <div class="topbar">
+      <a class="btn primary" href="/dashboard">Refresh</a>
+      <button id="logoutBtn" class="danger" type="button">Logout</button>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="label">Logged in email</div>
+        <div id="emailValue" class="value">No email found in browser storage</div>
+      </div>
+
+      <div class="card">
+        <div class="label">Status</div>
+        <div class="value">Authenticated and ready for VA tools.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Next</div>
+      <div class="value">
+        Next move is wiring this dashboard into the VA entry form and saved entries list.
+      </div>
+      <div id="msg" class="msg"></div>
+    
+<div class="card">
+  <div class="label">VA Claim Input</div>
+  <textarea id="vaInput" placeholder="Describe your condition, service history, symptoms..." style="width:100%;height:120px;border-radius:10px;padding:10px;margin-bottom:10px;"></textarea>
+  <input id="paperworkFile" type="file" accept="image/*,.pdf" style="display:block;margin-bottom:12px;color:white;" />
+<button id="uploadPaperworkBtn" style="margin-left:12px;">Upload Paperwork</button>
+
+<button id="analyzeBtn" class="primary">Analyze</button>
+</div>
+
+<div class="card">
+  <div class="label">VA Result</div>
+  <div id="vaResult" class="value">No analysis yet</div>
+</div>
+
+  </div>
+
+  
+
+<div style="margin-top:20px;">
+  <h3>Saved VA Claims</h3>
+  <div id="claimsList">Loading...</div>
+</div>
+
+<script>
+async function loadClaims() {
+  try {
+    const res = await fetch("/claims");
+    const data = await res.json();
+
+    const el = document.getElementById("claimsList");
+
+    if (!data.claims || data.claims.length === 0) {
+      el.innerText = "No claims yet.";
+      return;
+    }
+
+    el.innerHTML = data.claims.map(c => {
+      const healedCondition = c.detected_condition || extractLineValue(c.result_text, "Condition") || "Unknown";
+      const healedRating = (c.estimated_rating !== null && c.estimated_rating !== undefined)
+        ? c.estimated_rating + "%"
+        : (extractLineValue(c.result_text, "Estimated VA Rating") || "Unknown");
+      const healedConfidence = c.confidence_label || extractLineValue(c.result_text, "Confidence") || "Unknown";
+      const healedSummary = c.export_summary || c.result_text || "";
+
+      return `
+      <div style="margin-bottom:15px; padding:12px; border:1px solid #444; border-radius:8px; background:#111;">
+        <div><b>Condition:</b> ${healedCondition}</div>
+        <div><b>Estimated Rating:</b> ${healedRating}</div>
+        <div><b>Confidence:</b> ${healedConfidence}</div>
+        <div><b>Source:</b> ${c.source_type || "Unknown"}</div>
+        <div style="margin-top:4px;"><b>Input:</b><pre style="white-space:pre-wrap;">${c.input_text || ""}</pre></div>
+        <div style="margin-top:4px;"><b>Detected Symptoms:</b><pre style="white-space:pre-wrap;">${c.extracted_text || ""}</pre></div>
+        <div style="margin-top:4px;"><b>Result:</b><pre style="white-space:pre-wrap;">${c.result_text || ""}</pre></div>
+        
+      </div>
+      `;
+    }).join("");
+  } catch (err) {
+    document.getElementById("claimsList").innerText = "Failed to load claims";
+  }
+}
+
+loadClaims();
+</script>
+
+
+
+
+
+<script>
+(function () {
+  function getFileInput() {
+    return document.querySelector('input[type="file"]');
+  }
+
+  function getUploadButton() {
+    return Array.from(document.querySelectorAll("button")).find(
+      (btn) => (btn.textContent || "").trim().toLowerCase().includes("upload paperwork")
+    );
+  }
+
+  function getResultEl() {
+    return (
+      document.getElementById("vaResult") ||
+      document.querySelector("[data-va-result]") ||
+      Array.from(document.querySelectorAll("div, pre, p")).find(
+        (el) => (el.textContent || "").trim() === "No analysis yet"
+      )
+    );
+  }
+
+  function setResult(message) {
+    const el = getResultEl();
+    if (el) el.innerText = message;
+  }
+
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function uploadPaperworkNow() {
+    const fileInput = getFileInput();
+    const uploadBtn = getUploadButton();
+
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+      setResult("Choose a file first");
+      return;
+    }
+
+    const file = fileInput.files[0];
+
+    try {
+      if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.innerText = "Uploading...";
+      }
+
+      setResult("Uploading and analyzing paperwork...");
+
+      const imageBase64 = await fileToDataUrl(file);
+
+      const res = await fetch("/upload-paperwork-json", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          imageBase64: imageBase64
+        })
+      });
+
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        setResult("Server returned non-JSON:\n\n" + raw);
+        return;
+      }
+
+      if (!res.ok) {
+        setResult(data.error || data.details || "Upload failed");
+        return;
+      }
+
+      setResult(data.result || "Upload complete");
+
+      if (typeof loadClaims === "function") {
+        try { loadClaims(); } catch (_) {}
+      }
+    } catch (err) {
+      setResult(err.message || "Upload failed");
+    } finally {
+      if (uploadBtn) {
+        uploadBtn.disabled = false;
+        uploadBtn.innerText = "Upload Paperwork";
+      }
+    }
+  }
+
+  window.addEventListener("load", function () {
+    const uploadBtn = getUploadButton();
+    if (!uploadBtn) return;
+
+    const replacement = uploadBtn.cloneNode(true);
+    uploadBtn.parentNode.replaceChild(replacement, uploadBtn);
+
+    replacement.type = "button";
+    replacement.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadPaperworkNow();
+    });
+  });
+})();
+</script>
+
+
+<script>
+function extractLineValue(resultText, label) {
+  const text = String(resultText || "");
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp("^" + escaped + ":\\s*(.+)$", "mi");
+  const match = text.match(regex);
+  return match ? match[1].trim() : null;
+}
+</script>
+
+</body>
+
+</html>
