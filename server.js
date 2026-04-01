@@ -47,6 +47,10 @@ const {
 } = require("./lib/va-helpers");
 
 app.use(express.json({ limit: "20mb" }));
+app.use((req, res, next) => {
+  console.log("REQ:", req.method, req.url);
+  next();
+});
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 const PORT = process.env.PORT || 3000;
@@ -282,6 +286,10 @@ function checkAuth(req, res, next) {
 
 // PUBLIC ROUTES
 // =======================
+
+app.get("/ping", (req, res) => {
+  return res.send("pong");
+});
 
 app.get("/health", (req, res) => {
   res.json({ ok: true, service: "build-logger-api" });
