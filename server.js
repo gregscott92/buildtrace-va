@@ -50,6 +50,15 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 const PORT = process.env.PORT || 3000;
+if (!process.env.OPENAI_API_KEY) {
+  console.log("Warning: OPENAI_API_KEY is missing");
+}
+if (!process.env.SUPABASE_URL) {
+  console.log("Warning: SUPABASE_URL is missing");
+}
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.log("Warning: SUPABASE_SERVICE_ROLE_KEY is missing");
+}
 const ENABLE_LOCAL_CRON =
   String(process.env.ENABLE_LOCAL_CRON).toLowerCase() === "true";
 
