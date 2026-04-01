@@ -266,6 +266,7 @@ loadClaims();
       const imageBase64 = await fileToDataUrl(file);
 
       const res = await fetch("/upload-paperwork-json", {
+        credentials: "same-origin",
         method: "POST",
         headers: {
           "Content-Type": "application/json"
