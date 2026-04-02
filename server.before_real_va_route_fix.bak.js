@@ -4087,35 +4087,22 @@ app.post("/va/analyze", upload.single("image"), async (req, res) => {
     const serviceContext = req.body?.serviceContext || "";
     const hasImage = !!req.file;
 
-    const input = [
-      issue,
-      serviceContext,
-      hasImage ? "User uploaded VA evidence image." : ""
-    ]
-      .filter(Boolean)
-      .join("
-
-");
-
-    if (!input.trim()) {
-      return res.status(400).json({
-        error: "issue, serviceContext, or image is required"
-      });
-    }
-
-    const result = analyzeCfr38(input);
-
     return res.json({
       success: true,
-      likelihood: "See analysis",
-      summary: result,
-      nextSteps: []
+      likelihood: issue || serviceContext || hasImage ? "Possible" : "Unknown",
+      summary: hasImage
+        ? "Evidence received. Initial placeholder analysis suggests the claim may need human review plus supporting service connection details."
+        : "Text received. Initial placeholder analysis suggests the claim needs supporting records, symptoms timeline, and service connection details.",
+      nextSteps: [
+        "Gather diagnosis and treatment records",
+        "Document service connection clearly",
+        "Add onset timeline and symptom severity",
+        "Prepare for human review",
+      ],
     });
   } catch (err) {
-    console.log("MOBILE VA ANALYZE ERROR:", err);
     return res.status(500).json({
-      error: "VA analysis failed",
-      details: err.message
+      error: err.message || "VA analysis failed",
     });
   }
 });
