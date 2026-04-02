@@ -44,7 +44,6 @@ app.get("/dashboard", (req, res) => {
 // MIDDLEWARE
 // ----------------------------
 app.use(express.json({ limit: "10mb" }));
-app.use(express.json());
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 // ----------------------------
@@ -109,10 +108,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const supabaseAuth = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+const supabaseAuth =
+  process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+    ? createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_ANON_KEY
+      )
+    : null;
 
 // BASIC HELPERS
 // STARTUP
@@ -322,12 +324,20 @@ app.get("/health", (req, res) => {
 });
 
 
+
 app.post("/login", async (req, res) => {
   try {
+    console.log("LOGIN HIT");
+    console.log("LOGIN BODY:", req.body);
+
     const { email, password } = req.body || {};
 
     if (!email || !password) {
-      return res.status(400).json({ error: "Missing email or password" });
+      return res.status(400).json({
+        error: "Missing email or password",
+        route: "/login",
+        body_received: req.body || null
+      });
     }
 
     const { data, error } = await supabaseAuth.auth.signInWithPassword({
@@ -335,21 +345,33 @@ app.post("/login", async (req, res) => {
       password,
     });
 
+    console.log("LOGIN RESULT:", {
+      hasData: !!data,
+      error: error ? error.message : null
+    });
+
     if (error) {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({
+        error: error.message,
+        route: "/login"
+      });
     }
 
-    return res.json({ success: true, data });
+    return res.json({
+      success: true,
+      route: "/login",
+      data
+    });
   } catch (err) {
     console.error("LOGIN CRASH:", err);
     return res.status(500).json({
       error: err.message,
+      route: "/login",
       name: err.name || null,
       cause: err.cause ? String(err.cause) : null
     });
   }
 });
-
 
 app.post("/logout", (req, res) => {
   clearAuthCookie(res);
@@ -358,7 +380,12 @@ app.post("/logout", (req, res) => {
 
 // everything except login/health is protected
 app.use((req, res, next) => {
-  if (req.path.startsWith("/login") || req.path === "/health") {
+  if (
+    req.path.startsWith("/login") ||
+    req.path.startsWith("/signup") ||
+    req.path === "/health" ||
+    req.path === "/ping"
+  ) {
     return next();
   }
 
@@ -3819,13 +3846,19 @@ app.post("/upload-paperwork-json", async (req, res) => {
    AUTH - SIGNUP (FIXED)
 ========================= */
 
+
 app.post("/signup", async (req, res) => {
   try {
+    console.log("SIGNUP HIT");
+    console.log("SIGNUP BODY:", req.body);
+
     const { email, password } = req.body || {};
 
     if (!email || !password) {
       return res.status(400).json({
-        error: "Missing email or password"
+        error: "Missing email or password",
+        route: "/signup",
+        body_received: req.body || null
       });
     }
 
@@ -3834,17 +3867,28 @@ app.post("/signup", async (req, res) => {
       password,
     });
 
+    console.log("SIGNUP RESULT:", {
+      hasData: !!data,
+      error: error ? error.message : null
+    });
+
     if (error) {
       return res.status(400).json({
-        error: error.message
+        error: error.message,
+        route: "/signup"
       });
     }
 
-    return res.json({ success: true, data });
+    return res.json({
+      success: true,
+      route: "/signup",
+      data
+    });
   } catch (err) {
     console.error("SIGNUP CRASH:", err);
     return res.status(500).json({
       error: "Signup server error",
+      route: "/signup",
       details: err.message,
       name: err.name || null,
       cause: err.cause ? String(err.cause) : null
