@@ -94,47 +94,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-function fileToDataUrl(filePath, mimeType) {
-  const base64 = fs.readFileSync(filePath, "base64");
-  return `data:${mimeType};base64,${base64}`;
-}
-
-async function extractVisionTextFromUpload(uploadedFile, issue, serviceContext) {
-  if (!uploadedFile) return "";
-
-  const mimeType = uploadedFile.mimetype || "image/jpeg";
-  const imageUrl = fileToDataUrl(uploadedFile.path, mimeType);
-
-  const response = await openai.responses.create({
-    model: "gpt-4.1-mini",
-    input: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text:
-              "You are helping with a VA disability evidence intake workflow. " +
-              "Read this uploaded image and extract only useful claim-related details. " +
-              "Focus on diagnoses, symptoms, severity, frequency, functional impact, checked boxes, range-of-motion findings, mental health findings, dates, service-connection clues, DBQ-style findings, and any rating-relevant details. " +
-              "Return plain text only. If the image is unclear, say what is unclear. " +
-              "User issue: " + (issue || "") + ". " +
-              "User service context: " + (serviceContext || "") + "."
-          },
-          {
-            type: "input_image",
-            image_url: imageUrl,
-            detail: "high"
-          }
-        ]
-      }
-    ]
-  });
-
-  return (response.output_text || "").trim();
-}
-
-
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -4134,21 +4093,10 @@ app.post("/va/analyze", upload.single("image"), async (req, res) => {
       });
     }
 
-    let visionText = "";
-    if (hasImage) {
-      try {
-        visionText = await extractVisionTextFromUpload(req.file, issue, serviceContext);
-      } catch (visionErr) {
-        console.log("VISION EXTRACTION ERROR:", visionErr);
-        visionText = "Image uploaded, but automatic image extraction failed.";
-      }
-    }
-
     const input = [
       issue,
       serviceContext,
-      visionText ? "Extracted image details:\n" + visionText : "",
-      hasImage && !visionText ? "User uploaded VA evidence image." : ""
+      hasImage ? "User uploaded VA evidence image. No OCR text extracted yet." : ""
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -4171,7 +4119,6 @@ app.post("/va/analyze", upload.single("image"), async (req, res) => {
       likelihood: parsed.estimatedRating || "See analysis",
       summary: result,
       parsed,
-      visionExtract: visionText,
       disclaimer:
         "This tool provides an estimate based on submitted information and does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
     });
