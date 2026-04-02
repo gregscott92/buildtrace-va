@@ -298,8 +298,7 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Email and password are required",
-        user: null,
-        session: null,
+        user: null
       });
     }
 
@@ -312,24 +311,23 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({
         success: false,
         error: error.message,
-        user: null,
-        session: null,
+        user: null
       });
     }
 
     return res.json({
       success: true,
       error: null,
-      user: data?.user ?? data?.session?.user ?? null,
-      session: data?.session ?? null,
+      user: {
+        id: data?.user?.id,
+        email: data?.user?.email
+      }
     });
   } catch (err) {
-    console.error("Login error:", err);
     return res.status(500).json({
       success: false,
-      error: err.message || "Server error",
-      user: null,
-      session: null,
+      error: err.message,
+      user: null
     });
   }
 });
@@ -4025,8 +4023,7 @@ app.post("/signup", async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Email and password are required",
-        user: null,
-        session: null,
+        user: null
       });
     }
 
@@ -4039,24 +4036,23 @@ app.post("/signup", async (req, res) => {
       return res.status(400).json({
         success: false,
         error: error.message,
-        user: null,
-        session: null,
+        user: null
       });
     }
 
     return res.json({
       success: true,
       error: null,
-      user: data?.user ?? data?.session?.user ?? null,
-      session: data?.session ?? null,
+      user: {
+        id: data?.user?.id,
+        email: data?.user?.email
+      }
     });
   } catch (err) {
-    console.error("Signup error:", err);
     return res.status(500).json({
       success: false,
-      error: err.message || "Server error",
-      user: null,
-      session: null,
+      error: err.message,
+      user: null
     });
   }
 });
