@@ -357,6 +357,8 @@ app.post("/login", async (req, res) => {
       });
     }
 
+    setAuthCookie(res);
+
     return res.json({
       success: true,
       route: "/login",
