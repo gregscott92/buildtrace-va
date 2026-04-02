@@ -80,6 +80,9 @@ if (!process.env.SUPABASE_URL) {
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.log("Warning: SUPABASE_SERVICE_ROLE_KEY is missing");
 }
+if (!process.env.SUPABASE_ANON_KEY) {
+  console.log("Warning: SUPABASE_ANON_KEY is missing");
+}
 const ENABLE_LOCAL_CRON =
   String(process.env.ENABLE_LOCAL_CRON).toLowerCase() === "true";
 
@@ -104,6 +107,11 @@ const openai = new OpenAI({
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const supabaseAuth = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
 );
 
 // BASIC HELPERS
@@ -322,7 +330,7 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Missing email or password" });
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabaseAuth.auth.signInWithPassword({
       email,
       password,
     });
@@ -333,7 +341,12 @@ app.post("/login", async (req, res) => {
 
     return res.json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error("LOGIN CRASH:", err);
+    return res.status(500).json({
+      error: err.message,
+      name: err.name || null,
+      cause: err.cause ? String(err.cause) : null
+    });
   }
 });
 
@@ -3816,7 +3829,7 @@ app.post("/signup", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await supabaseAuth.auth.signUp({
       email,
       password,
     });
@@ -3829,9 +3842,12 @@ app.post("/signup", async (req, res) => {
 
     return res.json({ success: true, data });
   } catch (err) {
+    console.error("SIGNUP CRASH:", err);
     return res.status(500).json({
       error: "Signup server error",
-      details: err.message
+      details: err.message,
+      name: err.name || null,
+      cause: err.cause ? String(err.cause) : null
     });
   }
 });
