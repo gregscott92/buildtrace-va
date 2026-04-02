@@ -4130,54 +4130,42 @@ app.post("/va/analyze", upload.single("image"), async (req, res) => {
   try {
     const issue = String(req.body?.issue || "").trim();
     const serviceContext = String(req.body?.serviceContext || "").trim();
-    const hasImage = !!req.file;
 
-    if (!issue && !serviceContext && !hasImage) {
+    console.log("REQ BODY:", req.body);
+    console.log("REQ FILE:", req.file);
+
+    if (!issue && !serviceContext && !req.file) {
       return res.status(400).json({
         error: "Provide text or upload an image"
       });
     }
 
-    let visionText = "";
-    if (hasImage && typeof extractVisionTextFromUpload === "function") {
-      try {
-        visionText = await extractVisionTextFromUpload(req.file, issue, serviceContext);
-      } catch (visionErr) {
-        console.log("VISION EXTRACTION ERROR:", visionErr);
-        visionText = "";
-      }
-    }
+    const hasImage = !!req.file;
 
     const input = [
       issue,
       serviceContext,
-      visionText ? "Extracted image details:\n" + visionText : "",
-      hasImage && !visionText ? "User uploaded VA evidence image." : ""
+      hasImage ? "User uploaded VA evidence image." : ""
     ]
       .filter(Boolean)
       .join("\n\n");
 
-    const resultText = analyzeCfr38(input);
-
-    const structured = {
-      condition: extractSection(resultText, "Condition") || "N/A",
-      diagnosticCode: extractSection(resultText, "Diagnostic Code") || "N/A",
-      estimatedRating: extractSection(resultText, "Estimated VA Rating") || "See analysis",
-      confidence: extractSection(resultText, "Confidence") || "N/A",
-      reasoning: extractSection(resultText, "Reasoning") || resultText || "N/A",
-      evidenceNeeded: extractSection(resultText, "Evidence Still Needed") || "N/A",
-      nextSteps: extractSection(resultText, "Next Steps") || "N/A",
-      important: extractSection(resultText, "Important") || "N/A"
-    };
+    const result = analyzeCfr38(input);
 
     return res.json({
       success: true,
-      likelihood: structured.estimatedRating,
-      summary: resultText,
-      parsed: structured,
-      visionExtract: visionText,
+      likelihood: "See analysis",
+      summary: result,
+      structured: {
+        condition: result.includes("Condition:")
+          ? result.split("Condition:")[1]?.split("\n")[0]?.trim()
+          : "Unknown",
+        estimatedRating: result.includes("Estimated VA Rating:")
+          ? result.split("Estimated VA Rating:")[1]?.split("\n")[0]?.trim()
+          : "Unknown"
+      },
       disclaimer:
-        "This tool provides an estimate based on submitted information and does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
+        "This tool provides an estimate only. Final VA decisions are made by the VA."
     });
   } catch (err) {
     console.log("MOBILE VA ANALYZE ERROR:", err);
