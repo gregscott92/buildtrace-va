@@ -4272,13 +4272,13 @@ app.post("/upload-paperwork-json", async (req, res) => {
   let tempPath = null;
 
   try {
-    const { normalizedImageBase64, filename } = req.body || {};
+    const { imageBase64, filename } = req.body || {};
 
-    if (!normalizedImageBase64) {
-      return res.status(400).json({ error: "Missing normalizedImageBase64" });
+    if (!imageBase64) {
+      return res.status(400).json({ error: "Missing imageBase64" });
     }
 
-    const match = String(normalizedImageBase64).match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+    const match = String(imageBase64).match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
 
     if (!match) {
       return res.status(400).json({ error: "Invalid image payload" });
@@ -4529,30 +4529,19 @@ const structured = {
 
 
 app.post("/va/analyze-base64", async (req, res) => {
-
-    // 🔥 FORCE BASE64 NORMALIZATION FIX
-    let normalizedImageBase64 = "";
-    if (req.body && typeof req.body.normalizedImageBase64 === "string") {
-      normalizedImageBase64 = req.body.normalizedImageBase64
-        .replace(/^data:image\/[^;]+;base64,/, "")
-        .replace(/\s+/g, "")
-        .trim();
-    }
-
-
   let tempPath = null;
 
   try {
     const issue = String(req.body?.issue || "").trim();
     const serviceContext = String(req.body?.serviceContext || "").trim();
-    const normalizedImageBase64 = String(req.body?.normalizedImageBase64 || "").trim();
+    const imageBase64 = String(req.body?.imageBase64 || "").trim();
 
     console.log("=== /va/analyze-base64 hit ===");
     console.log("issue:", issue);
     console.log("serviceContext:", serviceContext);
-    console.log("has normalizedImageBase64:", !!normalizedImageBase64);
+    console.log("has imageBase64:", !!imageBase64);
 
-    if (!issue && !serviceContext && !normalizedImageBase64) {
+    if (!issue && !serviceContext && !imageBase64) {
       return res.status(400).json({
         error: "Provide text or upload an image"
       });
@@ -4560,8 +4549,8 @@ app.post("/va/analyze-base64", async (req, res) => {
 
     let visionExtract = "";
 
-    if (normalizedImageBase64) {
-      const match = normalizedImageBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+    if (imageBase64) {
+      const match = imageBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
 
       if (!match) {
         return res.status(400).json({

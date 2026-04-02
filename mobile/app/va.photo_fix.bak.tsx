@@ -25,26 +25,6 @@ function bulletize(value: any): string[] {
     .map((x) => x.replace(/^-+\s*/, "").trim());
 }
 
-async function uriToBase64(uri: string): Promise<string> {
-  const res = await fetch(uri);
-  const blob = await res.blob();
-
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      try {
-        const result = String(reader.result || "");
-        const base64 = result.includes(",") ? result.split(",")[1] : result;
-        resolve(base64);
-      } catch (e) {
-        reject(e);
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
 export default function VaScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -72,15 +52,9 @@ export default function VaScreen() {
 
       if (!res.canceled && res.assets?.length) {
         const asset = res.assets[0];
-        const uri = asset.uri || null;
-        const b64 = asset.base64 || null;
-
-        setImageUri(uri);
-        setImageBase64(b64);
+        setImageUri(asset.uri || null);
+        setImageBase64(asset.base64 || null);
         setDebugText("");
-
-        console.log("IMAGE PICKED URI:", uri);
-        console.log("PICKER BASE64 LENGTH:", b64?.length || 0);
       }
     } catch (err: any) {
       Alert.alert("Image error", err?.message || "Could not load image.");
@@ -88,7 +62,7 @@ export default function VaScreen() {
   }
 
   async function handleAnalyze() {
-    if (!issue.trim() && !serviceContext.trim() && !imageUri && !imageBase64) {
+    if (!issue.trim() && !serviceContext.trim() && !imageBase64) {
       Alert.alert("Missing info", "Add a description, service context, or image.");
       return;
     }
@@ -98,24 +72,13 @@ export default function VaScreen() {
       setLoading(true);
       setResult(null);
 
-      let finalBase64 = imageBase64 || "";
-
-      if (!finalBase64 && imageUri) {
-        console.log("No picker base64 found. Converting URI to base64...");
-        finalBase64 = await uriToBase64(imageUri);
-      }
-
-      const imagePayload = finalBase64
-        ? `data:image/jpeg;base64,${finalBase64}`
-        : "";
-
       const payload = {
         issue: issue.trim(),
         serviceContext: serviceContext.trim(),
-        imageBase64: imagePayload,
+        imageBase64: imageBase64 || "",
       };
 
-      console.log("FINAL IMAGE PAYLOAD LENGTH:", payload.imageBase64?.length || 0);
+      console.log("IMAGE BASE64 LENGTH:", payload.imageBase64?.length || 0);
 
       const response = await fetch(`${API_BASE}/va/analyze-base64`, {
         method: "POST",

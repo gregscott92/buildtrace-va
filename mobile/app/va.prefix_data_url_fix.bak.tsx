@@ -105,17 +105,13 @@ export default function VaScreen() {
         finalBase64 = await uriToBase64(imageUri);
       }
 
-      const imagePayload = finalBase64
-        ? `data:image/jpeg;base64,${finalBase64}`
-        : "";
-
       const payload = {
         issue: issue.trim(),
         serviceContext: serviceContext.trim(),
-        imageBase64: imagePayload,
+        imageBase64: finalBase64,
       };
 
-      console.log("FINAL IMAGE PAYLOAD LENGTH:", payload.imageBase64?.length || 0);
+      console.log("FINAL IMAGE BASE64 LENGTH:", payload.imageBase64?.length || 0);
 
       const response = await fetch(`${API_BASE}/va/analyze-base64`, {
         method: "POST",

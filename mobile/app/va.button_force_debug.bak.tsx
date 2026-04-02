@@ -10,114 +10,151 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-
-const SHOW_DEBUG = false;
-const API_BASE = "https://buildtrace-va.onrender.com";
+import * as Clipboard from "expo-clipboard";
 
 function bulletize(value: any): string[] {
   if (!value) return [];
   if (Array.isArray(value)) return value.filter(Boolean).map(String);
 
   return String(value)
-    .split(/\n|•|^- /gm)
+    .split(/\n|•|- /)
     .map((x) => x.trim())
-    .filter(Boolean)
-    .map((x) => x.replace(/^-+\s*/, "").trim());
+    .filter(Boolean);
 }
 
-async function uriToBase64(uri: string): Promise<string> {
-  const res = await fetch(uri);
-  const blob = await res.blob();
 
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      try {
-        const result = String(reader.result || "");
-        const base64 = result.includes(",") ? result.split(",")[1] : result;
-        resolve(base64);
-      } catch (e) {
-        reject(e);
+
+const handleAnalyze = async () => {
+  try {
+    console.log("ANALYZE CLICKED");
+
+    setLoading(true);
+    setResult(null);
+
+    let imageBase64 = null;
+
+    if (image?.base64) {
+      imageBase64 = image.base64;
+    } else if (image?.uri) {
+      const res = await fetch(image.uri);
+      const blob = await res.blob();
+
+      const reader = new FileReader();
+      imageBase64 = await new Promise((resolve) => {
+        reader.onloadend = () => {
+          const base64 = reader.result.split(",")[1];
+          resolve(base64);
+        };
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    console.log("IMAGE BASE64 LENGTH:", imageBase64?.length);
+
+    const response = await fetch(
+      "https://buildtrace-va.onrender.com/va/analyze-base64",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          issue: issue || "",
+          serviceContext: serviceContext || "",
+          imageBase64,
+        }),
       }
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
+    );
+
+    console.log("RESPONSE STATUS:", response.status);
+
+    const data = await response.json();
+
+    console.log("RESPONSE DATA:", data);
+
+    if (!data.success) {
+      throw new Error(data.error || "Unknown error");
+    }
+
+    setResult(data);
+  } catch (err) {
+    console.log("ANALYZE ERROR:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
 export default function VaScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState("");
   const [issue, setIssue] = useState("");
   const [serviceContext, setServiceContext] = useState("");
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [debugText, setDebugText] = useState("");
+  const [showDebug, setShowDebug] = useState(false);
+
+  const SHOW_DEBUG = false;
 
   async function pickImage() {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (!permission.granted) {
-        Alert.alert("Permission needed", "Please allow photo library access.");
-        return;
-      }
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo library access.");
+      return;
+    }
 
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"] as any,
-        quality: 0.9,
-        allowsEditing: true,
-        base64: true,
-      });
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"] as any,
+      quality: 0.8,
+      allowsEditing: true,
+      base64: true,
+    });
 
-      if (!res.canceled && res.assets?.length) {
-        const asset = res.assets[0];
-        const uri = asset.uri || null;
-        const b64 = asset.base64 || null;
+    if (res.canceled || !res.assets?.length) {
+      return;
+    }
 
-        setImageUri(uri);
-        setImageBase64(b64);
-        setDebugText("");
+    const asset = res.assets[0];
 
-        console.log("IMAGE PICKED URI:", uri);
-        console.log("PICKER BASE64 LENGTH:", b64?.length || 0);
-      }
-    } catch (err: any) {
-      Alert.alert("Image error", err?.message || "Could not load image.");
+    if (!asset?.uri) {
+      Alert.alert("Image error", "Selected image did not return a usable URI.");
+      return;
+    }
+
+    setImageUri(asset.uri);
+
+    if (asset.base64) {
+      setImageBase64(`data:image/jpeg;base64,${asset.base64}`);
+      setDebugText(
+        `Image ready.\nURI: ${asset.uri}\nBase64 length: ${asset.base64.length}`
+      );
+    } else {
+      setImageBase64("");
+      setDebugText(
+        `Image selected but no base64 returned.\nURI: ${asset.uri}`
+      );
     }
   }
 
   async function handleAnalyze() {
-    if (!issue.trim() && !serviceContext.trim() && !imageUri && !imageBase64) {
+    if (!issue.trim() && !serviceContext.trim() && !imageBase64) {
       Alert.alert("Missing info", "Add a description, service context, or image.");
       return;
     }
 
     try {
-      console.log("ANALYZE CLICKED");
       setLoading(true);
       setResult(null);
-
-      let finalBase64 = imageBase64 || "";
-
-      if (!finalBase64 && imageUri) {
-        console.log("No picker base64 found. Converting URI to base64...");
-        finalBase64 = await uriToBase64(imageUri);
-      }
-
-      const imagePayload = finalBase64
-        ? `data:image/jpeg;base64,${finalBase64}`
-        : "";
+      setDebugText("Submitting request...");
 
       const payload = {
         issue: issue.trim(),
         serviceContext: serviceContext.trim(),
-        imageBase64: imagePayload,
+        imageBase64: imageBase64 || "",
       };
 
-      console.log("FINAL IMAGE PAYLOAD LENGTH:", payload.imageBase64?.length || 0);
-
-      const response = await fetch(`${API_BASE}/va/analyze-base64`, {
+      const res = await fetch("https://buildtrace-va.onrender.comva/analyze-base64", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -125,43 +162,78 @@ export default function VaScreen() {
         body: JSON.stringify(payload),
       });
 
-      const raw = await response.text();
-      console.log("RESPONSE STATUS:", response.status);
-      console.log("RAW RESPONSE:", raw);
+      const text = await res.text();
 
-      setDebugText(`Status: ${response.status}\n${raw}`);
+      setDebugText(
+        `Response status: ${res.status}\n` +
+        `Sent imageBase64: ${imageBase64 ? "YES" : "NO"}\n` +
+        `Raw: ${text}`
+      );
 
       let data: any = {};
       try {
-        data = JSON.parse(raw);
+        data = JSON.parse(text);
       } catch {
-        throw new Error(raw || "Invalid server response");
+        data = { error: text || "Invalid server response" };
       }
 
-      if (!response.ok || !data.success) {
-        throw new Error(data?.error || data?.details || "Analysis failed");
+      if (!res.ok) {
+        Alert.alert(
+          "Analysis failed",
+          data?.error || data?.details || "Server error"
+        );
+        return;
       }
 
       setResult(data);
     } catch (err: any) {
-      console.log("ANALYZE ERROR:", err);
-      setDebugText(`Request failed: ${err?.message || "Unknown error"}`);
-      Alert.alert("Analysis failed", err?.message || "Unknown error");
+      const msg = err?.message || "Unknown error";
+      setDebugText(`Request failed: ${msg}`);
+      Alert.alert("Analysis failed", msg);
     } finally {
       setLoading(false);
     }
   }
 
   const structured = result?.structured || result?.parsed || {};
+
+  async function copySummary() {
+    if (!result) return;
+
+    const output = [
+      `Condition: ${structured.condition || "N/A"}`,
+      `Diagnostic Code: ${structured.diagnosticCode || "N/A"}`,
+      `Estimated Rating: ${structured.estimatedRating || result?.likelihood || "N/A"}`,
+      `Confidence: ${structured.confidence || "N/A"}`,
+      "",
+      "Reasoning:",
+      structured.reasoning || "N/A",
+      "",
+      "Evidence Still Needed:",
+      structured.evidenceNeeded || "N/A",
+      "",
+      "Next Steps:",
+      structured.nextSteps || "N/A",
+      "",
+      "Important:",
+      structured.important || "N/A",
+      "",
+      `Disclaimer: ${result?.disclaimer || "This tool provides an estimate only. Final determinations are made by the VA."}`
+    ].join("\n");
+
+    await Clipboard.setStringAsync(output);
+    Alert.alert("Copied", "Claim summary copied.");
+  }
+
   const confidenceValue = structured.confidence || "N/A";
 
   const confidenceColor =
     confidenceValue === "High"
-      ? "#15803d"
+      ? "#16a34a"
       : confidenceValue === "Medium"
-      ? "#d97706"
+      ? "#f59e0b"
       : confidenceValue === "Low"
-      ? "#b91c1c"
+      ? "#dc2626"
       : "#111827";
 
   const reasoningItems = bulletize(structured.reasoning);
@@ -325,6 +397,21 @@ export default function VaScreen() {
             Result
           </Text>
 
+          <Pressable
+            onPress={copySummary}
+            style={{
+              backgroundColor: "#0f172a",
+              paddingVertical: 12,
+              borderRadius: 12,
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ color: "white", fontSize: 16, fontWeight: "700" }}>
+              Copy Summary
+            </Text>
+          </Pressable>
+
           {hasEvidenceGap ? (
             <View
               style={{
@@ -378,7 +465,7 @@ export default function VaScreen() {
             Reasoning
           </Text>
           {reasoningItems.length ? (
-            reasoningItems.map((item, i) => (
+            reasoningItems.map((item: string, i: number) => (
               <Text key={i} style={{ fontSize: 15, marginBottom: 6 }}>
                 • {item}
               </Text>
@@ -389,18 +476,11 @@ export default function VaScreen() {
             </Text>
           )}
 
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "700",
-              marginTop: 12,
-              marginBottom: 8,
-            }}
-          >
+          <Text style={{ fontSize: 18, fontWeight: "700", marginTop: 12, marginBottom: 8 }}>
             Evidence Still Needed
           </Text>
           {evidenceItems.length ? (
-            evidenceItems.map((item, i) => (
+            evidenceItems.map((item: string, i: number) => (
               <Text key={i} style={{ fontSize: 15, marginBottom: 6 }}>
                 • {item}
               </Text>
@@ -411,21 +491,14 @@ export default function VaScreen() {
             </Text>
           )}
 
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "700",
-              marginTop: 12,
-              marginBottom: 8,
-            }}
-          >
+          <Text style={{ fontSize: 18, fontWeight: "700", marginTop: 12, marginBottom: 8 }}>
             Next Steps
           </Text>
           <Text style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>
             Focus here first to improve the claim.
           </Text>
           {nextStepItems.length ? (
-            nextStepItems.map((item, i) => (
+            nextStepItems.map((item: string, i: number) => (
               <Text key={i} style={{ fontSize: 15, marginBottom: 6 }}>
                 • {item}
               </Text>
@@ -436,18 +509,11 @@ export default function VaScreen() {
             </Text>
           )}
 
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "700",
-              marginTop: 12,
-              marginBottom: 8,
-            }}
-          >
+          <Text style={{ fontSize: 18, fontWeight: "700", marginTop: 12, marginBottom: 8 }}>
             Important
           </Text>
           {importantItems.length ? (
-            importantItems.map((item, i) => (
+            importantItems.map((item: string, i: number) => (
               <Text key={i} style={{ fontSize: 15, marginBottom: 6 }}>
                 • {item}
               </Text>
@@ -468,19 +534,11 @@ export default function VaScreen() {
               marginTop: 16,
             }}
           >
-            <Text
-              style={{
-                fontSize: 14,
-                color: "#9a3412",
-                fontWeight: "700",
-                marginBottom: 6,
-              }}
-            >
+            <Text style={{ fontSize: 14, color: "#9a3412", fontWeight: "700", marginBottom: 6 }}>
               Disclaimer
             </Text>
             <Text style={{ fontSize: 14, color: "#7c2d12" }}>
-              {result.disclaimer ||
-                "This tool provides an estimate only. Final determinations are made by the VA."}
+              {result.disclaimer || "This tool provides an estimate only. Final determinations are made by the VA."}
             </Text>
           </View>
         </View>
