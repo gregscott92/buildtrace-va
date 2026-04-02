@@ -4083,46 +4083,33 @@ app.post("/signup", async (req, res) => {
 
 app.post("/va/analyze", upload.single("image"), async (req, res) => {
   try {
-    const issue = (req.body?.issue || "").trim();
-    const serviceContext = (req.body?.serviceContext || "").trim();
+    const issue = req.body?.issue || "";
+    const serviceContext = req.body?.serviceContext || "";
     const hasImage = !!req.file;
 
-    if (!issue && !serviceContext && !hasImage) {
+    const input = [
+      issue,
+      serviceContext,
+      hasImage ? "User uploaded VA evidence image." : ""
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+
+    if (!input.trim()) {
       return res.status(400).json({
         error: "issue, serviceContext, or image is required"
       });
     }
 
-    const input = [
-      issue,
-      serviceContext,
-      hasImage ? "User uploaded VA evidence image. No OCR text extracted yet." : ""
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
     const result = analyzeCfr38(input);
-
-    const parsed = {
-      condition: extractSection(result, "Condition"),
-      diagnosticCode: extractSection(result, "Diagnostic Code"),
-      estimatedRating: extractSection(result, "Estimated VA Rating"),
-      confidence: extractSection(result, "Confidence"),
-      reasoning: extractSection(result, "Reasoning"),
-      evidenceNeeded: extractSection(result, "Evidence Still Needed"),
-      nextSteps: extractSection(result, "Next Steps"),
-      important: extractSection(result, "Important"),
-    };
 
     return res.json({
       success: true,
-      likelihood: parsed.estimatedRating || "See analysis",
+      likelihood: "See analysis",
       summary: result,
-      parsed,
-      disclaimer:
-        "This tool provides an estimate based on submitted information and does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
+      nextSteps: []
     });
-
   } catch (err) {
     console.log("MOBILE VA ANALYZE ERROR:", err);
     return res.status(500).json({
