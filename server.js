@@ -73,6 +73,7 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 const PORT = process.env.PORT || 3000;
+
 const ENABLE_LOCAL_CRON =
   String(process.env.ENABLE_LOCAL_CRON).toLowerCase() === "true";
 
@@ -115,8 +116,8 @@ async function extractVisionTextFromUpload(uploadedFile, issue, serviceContext) 
             type: "input_text",
             text:
               "You are helping with a VA disability evidence intake workflow. " +
-              "Read this uploaded image and extract only useful claim-related details. " +
-              "Focus on diagnoses, symptoms, severity, frequency, functional impact, checked boxes, range-of-motion findings, mental health findings, dates, service-connection clues, DBQ-style findings, and any rating-relevant details. " +
+              "Read this uploaded image && extract only useful claim-related details. " +
+              "Focus on diagnoses, symptoms, severity, frequency, functional impact, checked boxes, range-of-motion findings, mental health findings, dates, service-connection clues, DBQ-style findings, && any rating-relevant details. " +
               "Return plain text only. If the image is unclear, say what is unclear. " +
               "User issue: " + (issue || "") + ". " +
               "User service context: " + (serviceContext || "") + "."
@@ -134,6 +135,269 @@ async function extractVisionTextFromUpload(uploadedFile, issue, serviceContext) 
   return (response.output_text || "").trim();
 }
 
+
+
+function mhHas(text, phrases) {
+  const t = String(text || "").toLowerCase();
+  return phrases.some((p) => t.includes(String(p).toLowerCase()));
+}
+
+function mhCount(text, phraseMap) {
+  const hits = [];
+  for (const item of phraseMap) {
+    if (mhHas(text, item.phrases)) {
+      hits.push(item.label);
+    }
+  }
+  return hits;
+}
+
+function uniq(arr) {
+  return [...new Set((arr || []).filter(Boolean))];
+}
+
+
+function scoreMentalHealthDbq(text) {
+  const t = text.toLowerCase();
+
+  const has = (phrase) => t.includes(phrase);
+
+  let seventy = [];
+  let fifty = [];
+  let thirty = [];
+
+  // --- 70% CRITERIA ---
+  if (has("panic attacks more than once a week")) seventy.push("panic");
+  if (has("difficulty adapting")) seventy.push("stress");
+  if (has("neglect of personal appearance")) seventy.push("hygiene");
+  if (has("intermittent inability to perform activities")) seventy.push("adl");
+
+  // --- 50% CRITERIA ---
+  if (has("panic attacks")) fifty.push("panic");
+  if (has("memory loss")) fifty.push("memory");
+  if (has("disturbances of motivation")) fifty.push("motivation");
+
+  // --- 30% CRITERIA ---
+  if (has("depressed mood")) thirty.push("mood");
+  if (has("anxiety")) thirty.push("anxiety");
+
+  // --- DECISION ---
+  let rating = "0%";
+  let confidence = "Low";
+
+  if (seventy.length >= 2) {
+    rating = "70%";
+    confidence = "Medium";
+  } else if (fifty.length >= 2) {
+    rating = "50%";
+    confidence = "Medium";
+  } else if (thirty.length >= 2) {
+    rating = "30%";
+    confidence = "Low";
+  }
+
+  return {
+    condition: "PTSD / Mental Health",
+    diagnosticCode: "9411 / General Rating Formula for Mental Disorders",
+    estimatedRating: rating,
+    confidence,
+    reasoning: `Matched symptoms → 70:${seventy.length} 50:${fifty.length} 30:${thirty.length}`,
+    evidenceNeeded: "Service connection + medical diagnosis + severity documentation",
+    nextSteps: "Submit DBQ + nexus + treatment records",
+    important: "Ratings depend on severity, frequency, and functional impact"
+  };
+}
+
+
+function scoreMentalHealthDbq(visionExtract) {
+  const text = String(visionExtract || "").trim();
+  if (!text) return null;
+
+  const mentalAnchorTerms = [
+    "depressed mood",
+    "anxiety",
+    "panic attacks",
+    "difficulty adapting to stressful circumstances",
+    "neglect of personal appearance && hygiene",
+    "difficulty in establishing && maintaining effective work && social relationships",
+    "inability to establish && maintain effective relationships",
+    "suicidal ideation",
+    "obsessional rituals",
+    "near-continuous panic",
+    "near continuous panic",
+    "impaired impulse control",
+    "spatial disorientation",
+    "gross impairment in thought processes",
+    "persistent delusions",
+    "persistent hallucinations",
+    "intermittent inability to perform activities of daily living",
+    "disorientation to time",
+    "disorientation to place",
+    "memory loss for names of close relatives",
+    "mental health",
+    "ptsd"
+  ];
+
+  const looksMental = mhHas(text, mentalAnchorTerms);
+  if (!looksMental) return null;
+
+  const oneHundred = mhCount(text, [
+    { label: "gross impairment in thought processes or communication", phrases: ["gross impairment in thought processes", "gross impairment in communication", "gross impairment in thought processes or communication"] },
+    { label: "persistent delusions or hallucinations", phrases: ["persistent delusions", "persistent hallucinations"] },
+    { label: "grossly inappropriate behavior", phrases: ["grossly inappropriate behavior"] },
+    { label: "persistent danger of hurting self or others", phrases: ["persistent danger of hurting self", "persistent danger of hurting others", "persistent danger of hurting self or others"] },
+    { label: "intermittent inability to perform activities of daily living", phrases: ["intermittent inability to perform activities of daily living", "inability to maintain minimal personal hygiene", "maintenance of minimal personal hygiene"] },
+    { label: "disorientation to time or place", phrases: ["disorientation to time", "disorientation to place", "disorientation to time or place"] },
+    { label: "severe memory loss", phrases: ["memory loss for names of close relatives", "memory loss for own occupation", "memory loss for own name"] },
+  ]);
+
+  const seventy = mhCount(text, [
+    { label: "suicidal ideation", phrases: ["suicidal ideation"] },
+    { label: "obsessional rituals", phrases: ["obsessional rituals"] },
+    { label: "illogical or irrelevant speech", phrases: ["speech intermittently illogical", "obscure", "irrelevant"] },
+    { label: "near-continuous panic or depression", phrases: ["near-continuous panic", "near continuous panic", "near-continuous depression", "near continuous depression"] },
+    { label: "impaired impulse control", phrases: ["impaired impulse control", "unprovoked irritability with periods of violence"] },
+    { label: "spatial disorientation", phrases: ["spatial disorientation"] },
+    { label: "neglect of personal appearance && hygiene", phrases: ["neglect of personal appearance && hygiene"] },
+    { label: "difficulty adapting to stressful circumstances", phrases: ["difficulty adapting to stressful circumstances", "including work or a work like setting", "work-like setting"] },
+    { label: "inability to establish && maintain effective relationships", phrases: ["inability to establish && maintain effective relationships"] },
+  ]);
+
+  const fifty = mhCount(text, [
+    { label: "flattened affect", phrases: ["flattened affect"] },
+    { label: "circumstantial/circumlocutory/stereotyped speech", phrases: ["circumstantial", "circumlocutory", "stereotyped speech"] },
+    { label: "panic attacks more than once a week", phrases: ["panic attacks more than once a week"] },
+    { label: "difficulty understanding complex commands", phrases: ["difficulty in understanding complex commands"] },
+    { label: "memory impairment", phrases: ["impairment of short && long term memory", "mild memory loss", "retention of only highly learned material", "forgetting to complete tasks"] },
+    { label: "impaired judgment", phrases: ["impaired judgment"] },
+    { label: "impaired abstract thinking", phrases: ["impaired abstract thinking"] },
+    { label: "disturbances of motivation && mood", phrases: ["disturbances of motivation && mood"] },
+    { label: "difficulty establishing && maintaining effective work && social relationships", phrases: ["difficulty in establishing && maintaining effective work && social relationships"] },
+  ]);
+
+  const thirty = mhCount(text, [
+    { label: "depressed mood", phrases: ["depressed mood"] },
+    { label: "anxiety", phrases: ["anxiety"] },
+    { label: "suspiciousness", phrases: ["suspiciousness"] },
+    { label: "panic attacks weekly or less often", phrases: ["panic attacks that occur weekly or less often"] },
+    { label: "chronic sleep impairment", phrases: ["chronic sleep impairment"] },
+    { label: "mild memory loss", phrases: ["mild memory loss"] },
+  ]);
+
+  const ten = mhCount(text, [
+    { label: "mild or transient symptoms", phrases: ["mild", "transient"] },
+  ]);
+
+  let estimatedRating = "0%";
+  let confidence = "Low";
+  let whyNotHigher = [];
+  let reasoning = [];
+  let evidenceNeeded = [];
+  let nextSteps = [];
+  let important = [];
+
+  if (oneHundred.length >= 2) {
+    estimatedRating = "100%";
+    confidence = "Medium";
+    reasoning = [
+      "The extracted evidence contains multiple 100% mental-health indicators.",
+      "The presentation suggests total occupational && social impairment may be in play."
+    ];
+    whyNotHigher = [];
+  } else if (seventy.length >= 2 || (seventy.length >= 1 && fifty.length >= 2)) {
+    estimatedRating = "70%";
+    confidence = "Medium";
+    reasoning = [
+      "The extracted evidence supports deficiencies in most areas such as work, judgment, thinking, or mood.",
+      "Multiple 70% indicators are present in the uploaded DBQ-style evidence."
+    ];
+    whyNotHigher = [
+      "No strong 100% indicator cluster was established.",
+      "The evidence does not clearly show total occupational && social impairment."
+    ];
+  } else if (fifty.length >= 2 || (fifty.length >= 1 && thirty.length >= 2)) {
+    estimatedRating = "50%";
+    confidence = "Medium";
+    reasoning = [
+      "The extracted evidence supports reduced reliability && productivity.",
+      "Several 50% indicators are present."
+    ];
+    whyNotHigher = [
+      "The evidence does not clearly establish the stronger 70% pattern.",
+      "Higher-tier indicators like suicidal ideation, neglect of hygiene, or inability to maintain relationships were not established strongly enough."
+    ];
+  } else if (thirty.length >= 2) {
+    estimatedRating = "30%";
+    confidence = "Medium";
+    reasoning = [
+      "The extracted evidence supports occasional decrease in work efficiency with intermittent periods of inability to perform occupational tasks.",
+      "The symptom cluster is more consistent with the 30% tier than the higher tiers."
+    ];
+    whyNotHigher = [
+      "Weekly-plus panic, major relationship impairment, or higher-severity functional deficits were not established strongly enough."
+    ];
+  } else if (thirty.length >= 1 || ten.length >= 1) {
+    estimatedRating = "10%";
+    confidence = "Low";
+    reasoning = [
+      "The evidence shows mental-health symptoms, but the severity pattern is not yet well developed.",
+      "The file supports at least mild functional impact, but not a confident higher tier."
+    ];
+    whyNotHigher = [
+      "The extracted symptoms do not yet establish the stronger 30%, 50%, or 70% thresholds."
+    ];
+  } else {
+    return {
+      condition: "PTSD / Mental Health",
+      diagnosticCode: "9411 / General Rating Formula for Mental Disorders",
+      estimatedRating: "0%",
+      confidence: "Low",
+      reasoning: "The image appears mental-health related, but the engine could not confidently score the symptom pattern.",
+      evidenceNeeded: "A clearer DBQ, treatment notes, diagnosis history, && occupational/social impairment details are needed.",
+      nextSteps: "Upload a clearer DBQ image && add diagnosis, treatment, && functional impact context.",
+      important: "Final ratings depend on the total medical && service record, exam findings, && adjudicator review."
+    };
+  }
+
+  const symptomSummary = uniq([
+    ...oneHundred.map((x) => `100% indicator: ${x}`),
+    ...seventy.map((x) => `70% indicator: ${x}`),
+    ...fifty.map((x) => `50% indicator: ${x}`),
+    ...thirty.map((x) => `30% indicator: ${x}`),
+  ]);
+
+  evidenceNeeded = [
+    "Formal diagnosis && treatment history.",
+    "Occupational && social impairment details.",
+    "Therapy notes, DBQ pages, && medication history.",
+    "Lay statements or work-impact evidence if available.",
+    ...whyNotHigher.map((x) => `Gap to next tier: ${x}`)
+  ];
+
+  nextSteps = [
+    "Upload all DBQ pages, not just symptoms.",
+    "Add work impact, family/social impact, && frequency/duration details.",
+    "Add treatment records, medication history, && provider notes.",
+    "Add a personal statement describing daily functional impact."
+  ];
+
+  important = [
+    "This engine estimates likely tiering from extracted symptoms only.",
+    "The final rating depends on the complete record && VA adjudication.",
+    ...symptomSummary.slice(0, 6)
+  ];
+
+  return {
+    condition: "PTSD / Mental Health",
+    diagnosticCode: "9411 / General Rating Formula for Mental Disorders",
+    estimatedRating,
+    confidence,
+    reasoning: reasoning.join("\n- "),
+    evidenceNeeded: evidenceNeeded.join("\n- "),
+    nextSteps: nextSteps.join("\n- "),
+    important: important.join("\n- ")
+  };
+}
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -361,7 +625,7 @@ app.post("/login", async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: "Email and password are required",
+        error: "Email && password are required",
         user: null
       });
     }
@@ -3583,15 +3847,39 @@ app.post("/analyze", async (req, res) => {
     
     const resultText = analyzeCfr38(input);
 
-    const structured = {
-      condition: extractSection(resultText, "Condition") || "Lumbar Back Condition",
-      diagnosticCode: extractSection(resultText, "Diagnostic Code") || "General Spine",
-      estimatedRating: extractSection(resultText, "Estimated VA Rating") || "10%",
-      confidence: extractSection(resultText, "Confidence") || "Low",
-      reasoning: extractSection(resultText, "Reasoning") || resultText,
-      evidenceNeeded: extractSection(resultText, "Evidence Still Needed") || "Additional supporting evidence needed",
-      nextSteps: extractSection(resultText, "Next Steps") || "Upload records and clarify impact",
-      important: extractSection(resultText, "Important") || "Final VA review determines rating"
+    
+// --- DBQ AUTO SCORING ---
+let mhStructured = null;
+
+if (visionExtract && visionExtract.length > 50) {
+  try {
+    mhStructured = scoreMentalHealthDbq(visionExtract);
+  } catch (e) {
+    console.log("MH scoring error:", e.message);
+  }
+}
+
+if (mhStructured && mhStructured.estimatedRating !== "0%") {
+  Object.assign(structured, mhStructured);
+}
+
+const structured = {
+      condition: extractSection(result, "Condition") || (result.includes("Condition:")
+        ? ((result.split("Condition:")[1] || "").split("\\n")[0] || "").trim()
+        : "N/A"),
+      diagnosticCode: extractSection(result, "Diagnostic Code") || (result.includes("Diagnostic Code:")
+        ? ((result.split("Diagnostic Code:")[1] || "").split("\\n")[0] || "").trim()
+        : "N/A"),
+      estimatedRating: extractSection(result, "Estimated VA Rating") || (result.includes("Estimated VA Rating:")
+        ? ((result.split("Estimated VA Rating:")[1] || "").split("\\n")[0] || "").trim()
+        : "N/A"),
+      confidence: extractSection(result, "Confidence") || (result.includes("Confidence:")
+        ? ((result.split("Confidence:")[1] || "").split("\\n")[0] || "").trim()
+        : "N/A"),
+      reasoning: extractSection(result, "Reasoning") || "N/A",
+      evidenceNeeded: extractSection(result, "Evidence Still Needed") || "N/A",
+      nextSteps: extractSection(result, "Next Steps") || "N/A",
+      important: extractSection(result, "Important") || "N/A"
     };
 
     return res.json({
@@ -3600,7 +3888,7 @@ app.post("/analyze", async (req, res) => {
       summary: resultText,
       parsed: structured,
       disclaimer:
-        "This tool provides an estimate based on submitted information and does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
+        "This tool provides an estimate based on submitted information && does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
     });
 
   } catch (err) {
@@ -4090,7 +4378,7 @@ app.post("/signup", async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: "Email and password are required",
+        error: "Email && password are required",
         user: null
       });
     }
@@ -4126,13 +4414,22 @@ app.post("/signup", async (req, res) => {
 });
 
 
+
 app.post("/va/analyze", upload.single("image"), async (req, res) => {
+  console.log("=== /va/analyze hit ===");
   try {
     const issue = String(req.body?.issue || "").trim();
     const serviceContext = String(req.body?.serviceContext || "").trim();
 
-    console.log("REQ BODY:", req.body);
-    console.log("REQ FILE:", req.file);
+    console.log("issue:", issue);
+    console.log("serviceContext:", serviceContext);
+    console.log("file exists:", !!req.file);
+    console.log("file info:", req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      path: req.file.path,
+      size: req.file.size
+    } : null);
 
     if (!issue && !serviceContext && !req.file) {
       return res.status(400).json({
@@ -4140,30 +4437,73 @@ app.post("/va/analyze", upload.single("image"), async (req, res) => {
       });
     }
 
-    const hasImage = !!req.file;
+    let visionExtract = "";
+    if (req.file) {
+      try {
+        visionExtract = await extractVisionTextFromUpload(req.file, issue, serviceContext);
+        console.log("visionExtract length:", visionExtract.length);
+        console.log("visionExtract preview:", visionExtract.slice(0, 500));
+      } catch (visionErr) {
+        console.log("VISION EXTRACT ERROR:", visionErr.message);
+        visionExtract = "";
+      }
+    }
 
-    const input = [
-      issue,
-      serviceContext,
-      hasImage ? "User uploaded VA evidence image." : ""
-    ]
+    const input = [issue, serviceContext, visionExtract]
       .filter(Boolean)
       .join("\n\n");
 
+    console.log("combined input length:", input.length);
+    console.log("combined input preview:", input.slice(0, 800));
+
     const result = analyzeCfr38(input);
+
+    console.log("analysis result preview:", String(result).slice(0, 800));
+
+    function readSection(label) {
+      const source = String(result || "");
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped + ":\\s*([\\s\\S]*?)(?=\\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)", "i");
+      const match = source.match(regex);
+      if (!match || !match[1]) return "N/A";
+      return String(match[1]).trim().replace(/^[•-]\s*/gm, "").trim() || "N/A";
+    }
+
+    
+const structured = {
+      condition: readSection("Condition"),
+      diagnosticCode: readSection("Diagnostic Code"),
+      estimatedRating: readSection("Estimated VA Rating"),
+      confidence: readSection("Confidence"),
+      reasoning: readSection("Reasoning"),
+      evidenceNeeded: readSection("Evidence Still Needed"),
+      nextSteps: readSection("Next Steps"),
+      important: readSection("Important")
+    };
+
+    const mhStructured = scoreMentalHealthDbq(visionExtract);
+    if (mhStructured) {
+      structured.condition = mhStructured.condition;
+      structured.diagnosticCode = mhStructured.diagnosticCode;
+      structured.estimatedRating = mhStructured.estimatedRating;
+      structured.confidence = mhStructured.confidence;
+      structured.reasoning = mhStructured.reasoning;
+      structured.evidenceNeeded = mhStructured.evidenceNeeded;
+      structured.nextSteps = mhStructured.nextSteps;
+      structured.important = mhStructured.important;
+    }
+
+    console.log("structured:", structured);
 
     return res.json({
       success: true,
-      likelihood: "See analysis",
+      likelihood:
+        structured.estimatedRating && structured.estimatedRating !== "N/A"
+          ? structured.estimatedRating
+          : "See analysis",
       summary: result,
-      structured: {
-        condition: result.includes("Condition:")
-          ? result.split("Condition:")[1]?.split("\n")[0]?.trim()
-          : "Unknown",
-        estimatedRating: result.includes("Estimated VA Rating:")
-          ? result.split("Estimated VA Rating:")[1]?.split("\n")[0]?.trim()
-          : "Unknown"
-      },
+      structured,
+      visionExtract,
       disclaimer:
         "This tool provides an estimate only. Final VA decisions are made by the VA."
     });
@@ -4173,8 +4513,146 @@ app.post("/va/analyze", upload.single("image"), async (req, res) => {
       error: "VA analysis failed",
       details: err.message
     });
+  } finally {
+    try {
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+        console.log("temp upload deleted:", req.file.path);
+      }
+    } catch (cleanupErr) {
+      console.log("UPLOAD CLEANUP ERROR:", cleanupErr.message);
+    }
   }
 });
+
+
+
+
+app.post("/va/analyze-base64", async (req, res) => {
+  let tempPath = null;
+
+  try {
+    const issue = String(req.body?.issue || "").trim();
+    const serviceContext = String(req.body?.serviceContext || "").trim();
+    const imageBase64 = String(req.body?.imageBase64 || "").trim();
+
+    console.log("=== /va/analyze-base64 hit ===");
+    console.log("issue:", issue);
+    console.log("serviceContext:", serviceContext);
+    console.log("has imageBase64:", !!imageBase64);
+
+    if (!issue && !serviceContext && !imageBase64) {
+      return res.status(400).json({
+        error: "Provide text or upload an image"
+      });
+    }
+
+    let visionExtract = "";
+
+    if (imageBase64) {
+      const match = imageBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+
+      if (!match) {
+        return res.status(400).json({
+          error: "Invalid image payload"
+        });
+      }
+
+      const mimeType = match[1];
+      const base64Data = match[2];
+
+      let ext = ".jpg";
+      if (mimeType.includes("png")) ext = ".png";
+      if (mimeType.includes("jpeg")) ext = ".jpg";
+      if (mimeType.includes("jpg")) ext = ".jpg";
+      if (mimeType.includes("webp")) ext = ".webp";
+
+      const uploadsDir = path.join(__dirname, "uploads");
+      fs.mkdirSync(uploadsDir, { recursive: true });
+
+      tempPath = path.join(uploadsDir, `va_upload_${Date.now()}${ext}`);
+      fs.writeFileSync(tempPath, Buffer.from(base64Data, "base64"));
+
+      const uploadedFile = {
+        path: tempPath,
+        mimetype: mimeType,
+        originalname: "upload" + ext
+      };
+
+      try {
+        visionExtract = await extractVisionTextFromUpload(uploadedFile, issue, serviceContext);
+        console.log("visionExtract length:", visionExtract.length);
+        console.log("visionExtract preview:", String(visionExtract).slice(0, 500));
+      } catch (visionErr) {
+        console.log("VISION EXTRACT ERROR:", visionErr.message);
+        visionExtract = "";
+      }
+    }
+
+    const input = [issue, serviceContext, visionExtract]
+      .filter(Boolean)
+      .join("\\n\\n");
+
+    console.log("combined input length:", input.length);
+    console.log("combined input preview:", String(input).slice(0, 800));
+
+    const result = analyzeCfr38(input);
+
+    function readSection(label) {
+      const source = String(result || "");
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(
+        escaped + ":\\s*([\\s\\S]*?)(?=\\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
+        "i"
+      );
+      const match = source.match(regex);
+      if (!match || !match[1]) return "N/A";
+      return String(match[1]).trim().replace(/^[•-]\s*/gm, "").trim() || "N/A";
+    }
+
+    
+const structured = {
+      condition: readSection("Condition"),
+      diagnosticCode: readSection("Diagnostic Code"),
+      estimatedRating: readSection("Estimated VA Rating"),
+      confidence: readSection("Confidence"),
+      reasoning: readSection("Reasoning"),
+      evidenceNeeded: readSection("Evidence Still Needed"),
+      nextSteps: readSection("Next Steps"),
+      important: readSection("Important")
+    };
+
+    return res.json({
+      success: true,
+      likelihood:
+        structured.estimatedRating && structured.estimatedRating !== "N/A"
+          ? structured.estimatedRating
+          : "See analysis",
+      summary: result,
+      structured,
+      visionExtract,
+      disclaimer:
+        "This tool provides an estimate only. Final VA decisions are made by the VA."
+    });
+  } catch (err) {
+    console.log("VA ANALYZE BASE64 ERROR:", err);
+    return res.status(500).json({
+      error: "VA analysis failed",
+      details: err.message
+    });
+  } finally {
+    try {
+      if (tempPath && fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
+        console.log("temp upload deleted:", tempPath);
+      }
+    } catch (cleanupErr) {
+      console.log("UPLOAD CLEANUP ERROR:", cleanupErr.message);
+    }
+  }
+});
+
+
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
 });

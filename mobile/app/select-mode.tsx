@@ -6,72 +6,45 @@ export default function SelectModeScreen() {
     <View
       style={{
         flex: 1,
-        backgroundColor: "#0f172a",
-        padding: 24,
+        backgroundColor: "#06153a",
         justifyContent: "center",
+        padding: 24,
       }}
     >
       <Text
         style={{
           color: "white",
-          fontSize: 28,
+          fontSize: 34,
           fontWeight: "700",
-          marginBottom: 12,
           textAlign: "center",
+          marginBottom: 12,
         }}
       >
-        Choose Mode
+        VA Mode
       </Text>
 
       <Text
         style={{
-          color: "#94a3b8",
+          color: "#aab4c8",
           fontSize: 16,
-          marginBottom: 32,
           textAlign: "center",
+          marginBottom: 28,
         }}
       >
-        Where do you want to go?
+        Continue to VA analysis
       </Text>
-
-      <Pressable
-        onPress={() => router.replace("/dashboard")}
-        style={{
-          backgroundColor: "#2563eb",
-          padding: 16,
-          borderRadius: 12,
-          marginBottom: 16,
-        }}
-      >
-        <Text
-          style={{
-            color: "white",
-            fontSize: 18,
-            fontWeight: "700",
-            textAlign: "center",
-          }}
-        >
-          BuildTrace
-        </Text>
-      </Pressable>
 
       <Pressable
         onPress={() => router.replace("/va")}
         style={{
           backgroundColor: "#16a34a",
-          padding: 16,
-          borderRadius: 12,
+          paddingVertical: 20,
+          borderRadius: 18,
+          alignItems: "center",
         }}
       >
-        <Text
-          style={{
-            color: "white",
-            fontSize: 18,
-            fontWeight: "700",
-            textAlign: "center",
-          }}
-        >
-          VA
+        <Text style={{ color: "white", fontSize: 22, fontWeight: "700" }}>
+          Open VA
         </Text>
       </Pressable>
     </View>

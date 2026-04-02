@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as Clipboard from "expo-clipboard";
 
 function bulletize(value: any): string[] {
   if (!value) return [];
@@ -23,11 +24,15 @@ function bulletize(value: any): string[] {
 
 export default function VaScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState("");
   const [issue, setIssue] = useState("");
   const [serviceContext, setServiceContext] = useState("");
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [debugText, setDebugText] = useState("");
+  const [showDebug, setShowDebug] = useState(false);
+
+  const SHOW_DEBUG = false;
 
   async function pickImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -41,15 +46,37 @@ export default function VaScreen() {
       mediaTypes: ["images"] as any,
       quality: 0.8,
       allowsEditing: true,
+      base64: true,
     });
 
-    if (!res.canceled && res.assets?.length) {
-      setImageUri(res.assets[0].uri);
+    if (res.canceled || !res.assets?.length) {
+      return;
+    }
+
+    const asset = res.assets[0];
+
+    if (!asset?.uri) {
+      Alert.alert("Image error", "Selected image did not return a usable URI.");
+      return;
+    }
+
+    setImageUri(asset.uri);
+
+    if (asset.base64) {
+      setImageBase64(`data:image/jpeg;base64,${asset.base64}`);
+      setDebugText(
+        `Image ready.\nURI: ${asset.uri}\nBase64 length: ${asset.base64.length}`
+      );
+    } else {
+      setImageBase64("");
+      setDebugText(
+        `Image selected but no base64 returned.\nURI: ${asset.uri}`
+      );
     }
   }
 
   async function handleAnalyze() {
-    if (!issue.trim() && !serviceContext.trim() && !imageUri) {
+    if (!issue.trim() && !serviceContext.trim() && !imageBase64) {
       Alert.alert("Missing info", "Add a description, service context, or image.");
       return;
     }
@@ -59,35 +86,27 @@ export default function VaScreen() {
       setResult(null);
       setDebugText("Submitting request...");
 
-      const formData = new FormData();
+      const payload = {
+        issue: issue.trim(),
+        serviceContext: serviceContext.trim(),
+        imageBase64: imageBase64 || "",
+      };
 
-      if (issue.trim()) {
-        formData.append("issue", issue.trim());
-      }
-
-      if (serviceContext.trim()) {
-        formData.append("serviceContext", serviceContext.trim());
-      }
-
-      if (imageUri) {
-        formData.append("image", {
-          uri: imageUri,
-          name: "upload.jpg",
-          type: "image/jpeg",
-        } as any);
-      }
-
-      const res = await fetch("http://10.124.48.159:3000/va/analyze", {
+      const res = await fetch("http://10.124.48.159:3000/va/analyze-base64", {
         method: "POST",
-        body: formData,
         headers: {
-          "Content-Type": "multipart/form-data",
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify(payload),
       });
 
       const text = await res.text();
-      setDebugText(`Response status: ${res.status}
-Raw: ${text}`);
+
+      setDebugText(
+        `Response status: ${res.status}\n` +
+        `Sent imageBase64: ${imageBase64 ? "YES" : "NO"}\n` +
+        `Raw: ${text}`
+      );
 
       let data: any = {};
       try {
@@ -97,24 +116,73 @@ Raw: ${text}`);
       }
 
       if (!res.ok) {
-        Alert.alert("Analysis failed", data?.error || "Server error");
+        Alert.alert(
+          "Analysis failed",
+          data?.error || data?.details || "Server error"
+        );
         return;
       }
 
       setResult(data);
     } catch (err: any) {
-      setDebugText(`Request failed: ${err?.message || "Unknown error"}`);
-      Alert.alert("Analysis failed", err?.message || "Unknown error");
+      const msg = err?.message || "Unknown error";
+      setDebugText(`Request failed: ${msg}`);
+      Alert.alert("Analysis failed", msg);
     } finally {
       setLoading(false);
     }
   }
 
-  const parsed = result?.parsed || {};
-  const reasoningItems = bulletize(parsed.reasoning);
-  const evidenceItems = bulletize(parsed.evidenceNeeded);
-  const nextStepItems = bulletize(parsed.nextSteps);
-  const importantItems = bulletize(parsed.important);
+  const structured = result?.structured || result?.parsed || {};
+
+  async function copySummary() {
+    if (!result) return;
+
+    const output = [
+      `Condition: ${structured.condition || "N/A"}`,
+      `Diagnostic Code: ${structured.diagnosticCode || "N/A"}`,
+      `Estimated Rating: ${structured.estimatedRating || result?.likelihood || "N/A"}`,
+      `Confidence: ${structured.confidence || "N/A"}`,
+      "",
+      "Reasoning:",
+      structured.reasoning || "N/A",
+      "",
+      "Evidence Still Needed:",
+      structured.evidenceNeeded || "N/A",
+      "",
+      "Next Steps:",
+      structured.nextSteps || "N/A",
+      "",
+      "Important:",
+      structured.important || "N/A",
+      "",
+      `Disclaimer: ${result?.disclaimer || "This tool provides an estimate only. Final determinations are made by the VA."}`
+    ].join("\n");
+
+    await Clipboard.setStringAsync(output);
+    Alert.alert("Copied", "Claim summary copied.");
+  }
+
+  const confidenceValue = structured.confidence || "N/A";
+
+  const confidenceColor =
+    confidenceValue === "High"
+      ? "#16a34a"
+      : confidenceValue === "Medium"
+      ? "#f59e0b"
+      : confidenceValue === "Low"
+      ? "#dc2626"
+      : "#111827";
+
+  const reasoningItems = bulletize(structured.reasoning);
+  const evidenceItems = bulletize(structured.evidenceNeeded);
+  const nextStepItems = bulletize(structured.nextSteps);
+  const importantItems = bulletize(structured.important);
+
+  const hasEvidenceGap =
+    structured.evidenceNeeded &&
+    structured.evidenceNeeded !== "N/A" &&
+    bulletize(structured.evidenceNeeded).length > 0;
 
   return (
     <ScrollView
@@ -238,7 +306,7 @@ Raw: ${text}`);
         </Text>
       ) : null}
 
-      {debugText ? (
+      {SHOW_DEBUG && debugText ? (
         <View
           style={{
             backgroundColor: "#0f172a",
@@ -267,38 +335,82 @@ Raw: ${text}`);
             Result
           </Text>
 
+          <Pressable
+            onPress={copySummary}
+            style={{
+              backgroundColor: "#0f172a",
+              paddingVertical: 12,
+              borderRadius: 12,
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ color: "white", fontSize: 16, fontWeight: "700" }}>
+              Copy Summary
+            </Text>
+          </Pressable>
+
+          {hasEvidenceGap ? (
+            <View
+              style={{
+                backgroundColor: "#fff7ed",
+                borderColor: "#fdba74",
+                borderWidth: 1,
+                borderRadius: 12,
+                padding: 12,
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: "#9a3412",
+                  fontWeight: "700",
+                  marginBottom: 4,
+                }}
+              >
+                Warning
+              </Text>
+              <Text style={{ fontSize: 14, color: "#7c2d12" }}>
+                Your claim may be weak without the missing evidence listed below.
+              </Text>
+            </View>
+          ) : null}
+
           <Text style={{ fontSize: 16, marginBottom: 8 }}>
             <Text style={{ fontWeight: "700" }}>Condition:</Text>{" "}
-            {result?.structured?.condition || parsed.condition || "N/A"}
+            {structured.condition || "N/A"}
           </Text>
 
           <Text style={{ fontSize: 16, marginBottom: 8 }}>
             <Text style={{ fontWeight: "700" }}>Diagnostic Code:</Text>{" "}
-            {parsed.diagnosticCode || "N/A"}
+            {structured.diagnosticCode || "N/A"}
           </Text>
 
           <Text style={{ fontSize: 16, marginBottom: 8 }}>
             <Text style={{ fontWeight: "700" }}>Estimated Rating:</Text>{" "}
-            {result?.structured?.estimatedRating || parsed.estimatedRating || result.likelihood || "N/A"}
+            {structured.estimatedRating || result.likelihood || "N/A"}
           </Text>
 
           <Text style={{ fontSize: 16, marginBottom: 12 }}>
             <Text style={{ fontWeight: "700" }}>Confidence:</Text>{" "}
-            {parsed.confidence || "N/A"}
+            <Text style={{ color: confidenceColor, fontWeight: "700" }}>
+              {confidenceValue}
+            </Text>
           </Text>
 
           <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 8 }}>
             Reasoning
           </Text>
           {reasoningItems.length ? (
-            reasoningItems.map((item, i) => (
+            reasoningItems.map((item: string, i: number) => (
               <Text key={i} style={{ fontSize: 15, marginBottom: 6 }}>
                 • {item}
               </Text>
             ))
           ) : (
             <Text style={{ fontSize: 15, marginBottom: 12 }}>
-              {parsed.reasoning || "N/A"}
+              {structured.reasoning || "N/A"}
             </Text>
           )}
 
@@ -306,29 +418,32 @@ Raw: ${text}`);
             Evidence Still Needed
           </Text>
           {evidenceItems.length ? (
-            evidenceItems.map((item, i) => (
+            evidenceItems.map((item: string, i: number) => (
               <Text key={i} style={{ fontSize: 15, marginBottom: 6 }}>
                 • {item}
               </Text>
             ))
           ) : (
             <Text style={{ fontSize: 15, marginBottom: 12 }}>
-              {parsed.evidenceNeeded || "N/A"}
+              {structured.evidenceNeeded || "N/A"}
             </Text>
           )}
 
           <Text style={{ fontSize: 18, fontWeight: "700", marginTop: 12, marginBottom: 8 }}>
             Next Steps
           </Text>
+          <Text style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>
+            Focus here first to improve the claim.
+          </Text>
           {nextStepItems.length ? (
-            nextStepItems.map((item, i) => (
+            nextStepItems.map((item: string, i: number) => (
               <Text key={i} style={{ fontSize: 15, marginBottom: 6 }}>
                 • {item}
               </Text>
             ))
           ) : (
             <Text style={{ fontSize: 15, marginBottom: 12 }}>
-              {parsed.nextSteps || "N/A"}
+              {structured.nextSteps || "N/A"}
             </Text>
           )}
 
@@ -336,14 +451,14 @@ Raw: ${text}`);
             Important
           </Text>
           {importantItems.length ? (
-            importantItems.map((item, i) => (
+            importantItems.map((item: string, i: number) => (
               <Text key={i} style={{ fontSize: 15, marginBottom: 6 }}>
                 • {item}
               </Text>
             ))
           ) : (
             <Text style={{ fontSize: 15, marginBottom: 12 }}>
-              {parsed.important || "N/A"}
+              {structured.important || "N/A"}
             </Text>
           )}
 

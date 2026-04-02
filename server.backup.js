@@ -1,22 +1,67 @@
+const { analyzeCfr38 } = require("./lib/cfr38-engine");
+
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
+
 require("dotenv").config();
-console.log("BUILDTRACE SERVER VERSION: LOGIN-ROUTE-FIXED");
+
 const express = require("express");
 const { createClient } = require("@supabase/supabase-js");
 const OpenAI = require("openai");
 const { TwitterApi } = require("twitter-api-v2");
 const cron = require("node-cron");
 const axios = require("axios");
+
 const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("child_process");
+
+const app = express();   // ✅ ONLY ONE TIME
+
+// ----------------------------
+// MIDDLEWARE
+// ----------------------------
+app.use(express.json({ limit: "10mb" }));
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+
+// ----------------------------
+// ROUTES (SAFE TO USE app NOW)
+// ----------------------------
+app.get("/", (req, res) => {
+  return res.redirect("/signup");
+});
+app.get("/dashboard", (req, res) => {
+  if (!isAuthenticated(req)) {
+    return res.redirect("/login");
+  }
+  return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
+});
 
 const { runFivePassPipeline } = require("./lib/ai-pipeline");
 const { finalizePost, choosePersona } = require("./lib/persona");
 const { upsertXMetric } = require("./lib/metrics");
+const { dollarsFromTokens, summarizeUsage } = require("./lib/costs");
+const { getSpendSummary, assertBudgetAvailable } = require("./lib/budget-guard");
+const { execSync } = require("child_process");
+const {
+  vaCombineRatings,
+  estimateCrsc,
+  buildVaOutcomePrompt,
+  extractSection,
+} = require("./lib/va-helpers");
 
-const app = express();
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 const PORT = process.env.PORT || 3000;
 const ENABLE_LOCAL_CRON =
@@ -45,7 +90,17 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// =======================
+const supabaseAuth =
+  process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+    ? createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_ANON_KEY
+      )
+    : null;
+
+// BASIC HELPERS
+// STARTUP
+// =====================// =======================// =======================
 // SIMPLE PASSWORD LOCK
 // =======================
 
@@ -55,10 +110,11 @@ const AUTH_COOKIE_NAME = "buildtrace_auth";
 function parseCookies(req) {
   const header = req.headers.cookie || "";
   return header.split(";").reduce((acc, part) => {
-    const [rawKey, ...rest] = part.split("=");
+    const pieces = part.split("=");
+    const rawKey = pieces.shift();
     const key = String(rawKey || "").trim();
     if (!key) return acc;
-    acc[key] = decodeURIComponent(rest.join("=") || "");
+    acc[key] = decodeURIComponent(pieces.join("=") || "");
     return acc;
   }, {});
 }
@@ -72,9 +128,11 @@ function setAuthCookie(res) {
   const isProd = process.env.NODE_ENV === "production";
   res.setHeader(
     "Set-Cookie",
-    `${AUTH_COOKIE_NAME}=${encodeURIComponent(
-      APP_PASSWORD
-    )}; HttpOnly; Path=/; SameSite=Lax${isProd ? "; Secure" : ""}`
+    AUTH_COOKIE_NAME +
+      "=" +
+      encodeURIComponent(APP_PASSWORD) +
+      "; HttpOnly; Path=/; SameSite=Lax" +
+      (isProd ? "; Secure" : "")
   );
 }
 
@@ -82,9 +140,9 @@ function clearAuthCookie(res) {
   const isProd = process.env.NODE_ENV === "production";
   res.setHeader(
     "Set-Cookie",
-    `${AUTH_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${
-      isProd ? "; Secure" : ""
-    }`
+    AUTH_COOKIE_NAME +
+      "=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax" +
+      (isProd ? "; Secure" : "")
   );
 }
 
@@ -97,72 +155,122 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
-function renderLoginPage(message = "") {
-  return `
-    <html>
-      <head>
-        <title>BuildTrace Login</title>
-        <style>
-          body {
-            background: #0b0f19;
-            color: #fff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: Arial, sans-serif;
-            margin: 0;
-          }
-          .box {
-            background: #111827;
-            padding: 30px;
-            border-radius: 12px;
-            text-align: center;
-            width: 320px;
-            box-shadow: 0 10px 30px rgba(0,0,0,.35);
-          }
-          input {
-            padding: 10px;
-            margin-top: 10px;
-            width: 100%;
-            box-sizing: border-box;
-            border-radius: 8px;
-            border: 1px solid #374151;
-            background: #0b1220;
-            color: white;
-          }
-          button {
-            margin-top: 12px;
-            padding: 10px;
-            width: 100%;
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-          }
-          .msg {
-            color: #fca5a5;
-            min-height: 18px;
-            margin-top: 10px;
-            font-size: 14px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="box">
-          <h2>BuildTrace</h2>
-          <p>Enter password</p>
-          <form method="POST" action="/login">
-            <input type="password" name="password" placeholder="Password" required />
-            <button type="submit">Enter</button>
-          </form>
-          <div class="msg">${escapeHtml(message)}</div>
-        </div>
-      </body>
-    </html>
-  `;
+
+async function getSupabaseUserFromRequest(req) {
+  try {
+    const authHeader = String(req.headers.authorization || "");
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : "";
+
+    if (!token) {
+      return { user: null, error: "Missing bearer token" };
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return { user: null, error: "Invalid token" };
+    }
+
+    const user = await response.json();
+    return { user, error: null };
+  } catch (err) {
+    return { user: null, error: err.message };
+  }
+}
+
+async function requireApiUser(req, res, next) {
+  const { user, error } = await getSupabaseUserFromRequest(req);
+
+  if (!user) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      details: error || "Login required",
+    });
+  }
+
+  req.apiUser = user;
+  next();
+}
+
+// DISABLED OLD LOGIN
+function renderLoginPage(message) {
+  const safeMessage = escapeHtml(message || "");
+
+  return [
+    "<html>",
+    "<head>",
+    "<title>BuildTrace Login</title>",
+    "<style>",
+    "body {",
+    "  background: #0b0f19;",
+    "  color: #fff;",
+    "  display: flex;",
+    "  justify-content: center;",
+    "  align-items: center;",
+    "  height: 100vh;",
+    "  font-family: Arial, sans-serif;",
+    "  margin: 0;",
+    "}",
+    ".box {",
+    "  background: #111827;",
+    "  padding: 30px;",
+    "  border-radius: 12px;",
+    "  text-align: center;",
+    "  width: 320px;",
+    "  box-shadow: 0 10px 30px rgba(0,0,0,.35);",
+    "}",
+    "input {",
+    "  padding: 10px;",
+    "  margin-top: 10px;",
+    "  width: 100%;",
+    "  box-sizing: border-box;",
+    "  border-radius: 8px;",
+    "  border: 1px solid #374151;",
+    "  background: #0b1220;",
+    "  color: white;",
+    "}",
+    "button {",
+    "  margin-top: 12px;",
+    "  padding: 10px;",
+    "  width: 100%;",
+    "  background: #2563eb;",
+    "  color: white;",
+    "  border: none;",
+    "  border-radius: 8px;",
+    "  cursor: pointer;",
+    "  font-weight: bold;",
+    "}",
+    ".msg {",
+    "  color: #fca5a5;",
+    "  min-height: 18px;",
+    "  margin-top: 10px;",
+    "  font-size: 14px;",
+    "}",
+    "</style>",
+    "</head>",
+    "<body>",
+    '<div class="box">',
+    "<h2>BuildTrace</h2>",
+    "<p>Enter password</p>",
+    '<form method="POST" action="/login">',
+    '<input type="password" name="password" placeholder="Password" required />',
+    '<button type="submit">Enter</button>',
+    "</form>",
+    '<div class="msg">' + safeMessage + "</div>",
+    "</div>",
+    "</body>",
+    "</html>"
+  ].join("\n");
 }
 
 function checkAuth(req, res, next) {
@@ -170,14 +278,21 @@ function checkAuth(req, res, next) {
     return next();
   }
 
+  const apiPassword = String(req.headers["x-app-password"] || "").trim();
+
+  if (apiPassword && apiPassword === APP_PASSWORD) {
+    return next();
+  }
+
   if (req.path.startsWith("/api/")) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  return res.status(401).send(renderLoginPage());
+  return next(); // old password lock disabled
 }
 
 // =======================
+
 // PUBLIC ROUTES
 // =======================
 
@@ -186,76 +301,185 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-  if (isAuthenticated(req)) {
-    return res.redirect("/");
-  }
-
-  return res.send(renderLoginPage());
+  return res.sendFile(path.join(__dirname, "views", "login.html"));
 });
 
-app.post("/login", (req, res) => {
-  const password = String(req.body.password || "").trim();
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
 
-  console.log("LOGIN DEBUG");
-  console.log("APP_PASSWORD RAW:", process.env.APP_PASSWORD);
-  console.log("APP_PASSWORD JSON:", JSON.stringify(process.env.APP_PASSWORD));
-  console.log("APP_PASSWORD LEN:", String(process.env.APP_PASSWORD || "").length);
-  console.log("INPUT PASSWORD JSON:", JSON.stringify(password));
-  console.log("INPUT PASSWORD LEN:", password.length);
-  console.log("MATCHES:", password === APP_PASSWORD);
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required",
+        user: null
+      });
+    }
 
-  if (password !== APP_PASSWORD) {
-    return res.status(401).send(renderLoginPage("Wrong password"));
+    const { data, error } = await supabaseAuth.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+        user: null
+      });
+    }
+
+    return res.json({
+      success: true,
+      error: null,
+      user: {
+        id: data?.user?.id ?? data?.session?.user?.id ?? null,
+        email: data?.user?.email ?? data?.session?.user?.email ?? null
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Server error",
+      user: null
+    });
   }
-
-  setAuthCookie(res);
-  return res.redirect("/");
 });
+
 app.post("/logout", (req, res) => {
   clearAuthCookie(res);
-  return res.redirect("/login");
+  return res.json({ success: true });
 });
 
 // everything except login/health is protected
-async function checkApiBearerAuth(req, res, next) {
-  try {
-    // allow public routes
-    if (req.path === "/health" || req.path === "/login") {
-      return next();
-    }
-
-    // allow the mobile app to call /run without browser login
-    if (req.path === "/run") {
-      return next();
-    }
-
-    const authHeader = String(req.headers.authorization || "");
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7).trim()
-      : "";
-
-    if (!token) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const { data, error } = await supabase.auth.getUser(token);
-
-    if (error || !data?.user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    req.user = data.user;
-    next();
-  } catch (err) {
-    console.error("checkApiBearerAuth error:", err);
-    return res.status(401).json({ error: "Unauthorized" });
+app.use((req, res, next) => {
+  if (req.path.startsWith("/login") || req.path === "/health") {
+    return next();
   }
-}
+
+  return checkAuth(req, res, next);
+});
 
 // =======================
 // BASIC HELPERS
 // =======================
+async function logApiUsage({
+  feature,
+  model,
+  organizationId = null,
+  userId = null,
+  requestId = null,
+  inputTokens = 0,
+  outputTokens = 0,
+  cachedInputTokens = 0,
+  estimatedCostUsd = 0,
+  status = "success",
+  errorMessage = null,
+  meta = {},
+}) {
+  try {
+    const { error } = await supabase.from("api_usage_logs").insert({
+      feature,
+      provider: "openai",
+      model,
+      request_id: requestId,
+      user_id: userId,
+      organization_id: organizationId,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cached_input_tokens: cachedInputTokens,
+      estimated_cost_usd: estimatedCostUsd,
+      status,
+      error_message: errorMessage,
+      meta,
+    });
 
+    if (error) {
+      console.log("logApiUsage insert error:", error.message);
+    }
+  } catch (err) {
+    console.log("logApiUsage failed:", err.message);
+  }
+}
+
+async function runTrackedChatCompletion({
+  feature,
+  model,
+  messages,
+  temperature = 0.3,
+  max_tokens,
+  organizationId = null,
+  userId = null,
+  meta = {},
+}) {
+  await assertBudgetAvailable({
+    supabase,
+    organizationId,
+    feature,
+  });
+
+  try {
+    const response = await openai.chat.completions.create({
+      model,
+      messages,
+      temperature,
+      ...(max_tokens ? { max_tokens } : {}),
+    });
+
+    const usageSummary = summarizeUsage(response.usage || {});
+    const estimatedCostUsd = dollarsFromTokens({
+      model,
+      inputTokens: usageSummary.inputTokens,
+      cachedInputTokens: usageSummary.cachedInputTokens,
+      outputTokens: usageSummary.outputTokens,
+    });
+
+    await logApiUsage({
+      feature,
+      model,
+      organizationId,
+      userId,
+      requestId: response.id || null,
+      inputTokens: usageSummary.inputTokens,
+      outputTokens: usageSummary.outputTokens,
+      cachedInputTokens: usageSummary.cachedInputTokens,
+      estimatedCostUsd,
+      status: "success",
+      meta,
+    });
+
+    return {
+      response,
+      usage: {
+        ...usageSummary,
+        estimatedCostUsd,
+      },
+    };
+  } catch (err) {
+    await logApiUsage({
+      feature,
+      model,
+      organizationId,
+      userId,
+      estimatedCostUsd: 0,
+      status: "error",
+      errorMessage: err.message,
+      meta,
+    });
+
+    throw err;
+  }
+}
+
+function getRequestOrgId(req) {
+  return (
+    safeTrim(req.body?.organization_id) ||
+    safeTrim(req.query?.organization_id) ||
+    safeTrim(req.headers["x-organization-id"]) ||
+    safeTrim(process.env.DEFAULT_ORGANIZATION_ID) ||
+    null
+  );
+}
 function ensureFolder(folder) {
   if (!fs.existsSync(folder)) {
     fs.mkdirSync(folder, { recursive: true });
@@ -290,7 +514,43 @@ function writeJsonFile(filePath, data) {
 function safeTrim(value) {
   return typeof value === "string" ? value.trim() : "";
 }
+function safeJson(value, fallback = null) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "object") return value;
 
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    return fallback;
+  }
+}
+
+function buildVaEntryInsert(payload = {}) {
+  return {
+    title: safeTrim(payload.title) || "Untitled VA Entry",
+    topic: safeTrim(payload.topic) || "general",
+    source_type: safeTrim(payload.source_type) || "manual",
+    source_name: safeTrim(payload.source_name) || "manual entry",
+    source_url: safeTrim(payload.source_url) || null,
+    raw_text: String(payload.raw_text || "").trim(),
+    summary: payload.summary ? String(payload.summary).trim() : null,
+    extracted_text: payload.extracted_text ? String(payload.extracted_text).trim() : null,
+    ai_summary: payload.ai_summary ? String(payload.ai_summary).trim() : null,
+    likely_rating_range: payload.likely_rating_range
+      ? String(payload.likely_rating_range).trim()
+      : null,
+    strengths: Array.isArray(payload.strengths)
+      ? payload.strengths
+      : safeJson(payload.strengths, []),
+    weaknesses: Array.isArray(payload.weaknesses)
+      ? payload.weaknesses
+      : safeJson(payload.weaknesses, []),
+    next_steps: Array.isArray(payload.next_steps)
+      ? payload.next_steps
+      : safeJson(payload.next_steps, []),
+    meta: typeof payload.meta === "object" && payload.meta !== null ? payload.meta : {},
+  };
+}
 function ensureQueueFiles() {
   ensureFolder(queueDir);
 
@@ -637,7 +897,7 @@ function setMappedRunAccount(runId, accountLabel) {
   const account = getXAccountByLabel(accountLabel);
 
   if (!account) {
-    throw new Error(`X account "${accountLabel}" not found or inactive.`);
+    throw new Error(`X account "${accountLabel}" not found || inactive.`);
   }
 
   const store = readRunAccountsFile();
@@ -661,7 +921,9 @@ function resolveRunAccountLabel(run, explicitAccountLabel = "") {
     const account = getXAccountByLabel(requested);
 
     if (!account) {
-      throw new Error(`Requested X account "${requested}" was not found or is inactive.`);
+      throw new Error(
+        `Requested X account "${requested}" was not found || is inactive.`
+      );
     }
 
     return account.label;
@@ -753,8 +1015,9 @@ function buildQueueInsights(queue, drift) {
     if (!p.scheduled_for || !p.posted_at) return false;
     const scheduled = new Date(p.scheduled_for);
     const postedAt = new Date(p.posted_at);
-    if (Number.isNaN(scheduled.getTime()) || Number.isNaN(postedAt.getTime()))
+    if (Number.isNaN(scheduled.getTime()) || Number.isNaN(postedAt.getTime())) {
       return false;
+    }
     return postedAt < scheduled;
   });
 
@@ -765,7 +1028,7 @@ function buildQueueInsights(queue, drift) {
       priority: "high",
       title: "Queue ready now",
       channel: summarizeAffectedChannels(readyNow),
-      impact: `${readyNow.length} post(s) can publish immediately.`,
+      impact: String(readyNow.length) + " post(s) can publish immediately.",
       nextMove: "Run scheduler now.",
       command: "node scheduler.js",
     });
@@ -776,8 +1039,8 @@ function buildQueueInsights(queue, drift) {
       priority: "high",
       title: "Failures need review",
       channel: summarizeAffectedChannels(failed),
-      impact: `${failed.length} failed post(s) need intervention.`,
-      nextMove: "Inspect queue errors and decide retry/remove.",
+      impact: String(failed.length) + " failed post(s) need intervention.",
+      nextMove: "Inspect queue errors && decide retry/remove.",
       command: "type queue\\posts.json",
     });
   }
@@ -787,8 +1050,8 @@ function buildQueueInsights(queue, drift) {
       priority: "medium",
       title: "Items under investigation",
       channel: summarizeAffectedChannels(investigating),
-      impact: `${investigating.length} item(s) were moved into review.`,
-      nextMove: "Read AI reasoning and decide archive or post anyway.",
+      impact: String(investigating.length) + " item(s) were moved into review.",
+      nextMove: "Read AI reasoning && decide archive || post anyway.",
       command: "http://localhost:3000",
     });
   }
@@ -798,7 +1061,7 @@ function buildQueueInsights(queue, drift) {
       priority: "medium",
       title: "Duplicate drift detected",
       channel: "Cross-channel behavior",
-      impact: `${drift.duplicate_attempts_total} duplicate attempts were caught.`,
+      impact: String(drift.duplicate_attempts_total) + " duplicate attempts were caught.",
       nextMove: "Review repeated trigger behavior.",
       command: "type queue\\drift.json",
     });
@@ -809,7 +1072,7 @@ function buildQueueInsights(queue, drift) {
       priority: "high",
       title: "Timing drift detected",
       channel: summarizeAffectedChannels(suspiciousPosts),
-      impact: `${suspiciousPosts.length} post(s) were published before schedule.`,
+      impact: String(suspiciousPosts.length) + " post(s) were published before schedule.",
       nextMove: "Validate scheduler timing logic.",
       command: "type queue\\posts.json",
     });
@@ -820,8 +1083,8 @@ function buildQueueInsights(queue, drift) {
       priority: "low",
       title: "Posts due soon",
       channel: summarizeAffectedChannels(dueSoon),
-      impact: `${dueSoon.length} post(s) are due within 60 minutes.`,
-      nextMove: "Keep scheduler active and watch the next publish window.",
+      impact: String(dueSoon.length) + " post(s) are due within 60 minutes.",
+      nextMove: "Keep scheduler active && watch the next publish window.",
       command: "node scheduler.js",
     });
   }
@@ -832,7 +1095,7 @@ function buildQueueInsights(queue, drift) {
       title: "Stable state",
       channel: "All channels",
       impact: "System is operating normally.",
-      nextMove: "Keep scheduler alive and generate the next batch when ready.",
+      nextMove: "Keep scheduler alive && generate the next batch when ready.",
       command: "node scheduler.js",
     });
   }
@@ -862,6 +1125,107 @@ function getMissionStatus(queueSummary, insights) {
 }
 
 // =======================
+// AI USAGE SCORE MVP
+// =======================
+
+function clampScore(value, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function calculateAiUsageScore(runs, metricsStore = {}) {
+  const allRuns = Array.isArray(runs) ? runs : [];
+  const recentRuns = allRuns.slice(0, 30);
+
+  const totalRuns = recentRuns.length;
+  const approvedRuns = recentRuns.filter(
+    (r) => r.status === "approved" || r.status === "posted"
+  ).length;
+  const postedRuns = recentRuns.filter((r) => r.status === "posted").length;
+  const editedRuns = recentRuns.filter((r) => hasAnyDrift(r)).length;
+  const withPersona = recentRuns.filter(
+    (r) => r.generated_twitter_persona || r.generated_linkedin_persona || r.persona
+  ).length;
+  const withLearningNotes = recentRuns.filter((r) => safeTrim(r.learning_notes)).length;
+  const withRecommendedPersona = recentRuns.filter(
+    (r) => safeTrim(r.recommended_persona)
+  ).length;
+  const withNextAction = recentRuns.filter((r) => safeTrim(r.next_action_text)).length;
+  const withImpact = recentRuns.filter((r) => safeTrim(r.impact_text)).length;
+  const withOutcome = recentRuns.filter((r) => safeTrim(r.outcome_text)).length;
+  const withProgressState = recentRuns.filter(
+    (r) => safeTrim(r.progress_state_text)
+  ).length;
+
+  const metricsList = recentRuns.map((r) => metricsStore[r.id]).filter(Boolean);
+
+  const totalImpressions = metricsList.reduce(
+    (sum, item) => sum + Number(item.impression_count || 0),
+    0
+  );
+
+  const avgImpressions =
+    metricsList.length > 0 ? Math.round(totalImpressions / metricsList.length) : 0;
+
+  const activityScore = totalRuns >= 10 ? 25 : Math.round((totalRuns / 10) * 25);
+  const shippingScore =
+    totalRuns > 0 ? Math.round((postedRuns / totalRuns) * 25) : 0;
+
+  const structureScoreRaw =
+    (withImpact > 0 ? 5 : 0) +
+    (withOutcome > 0 ? 5 : 0) +
+    (withProgressState > 0 ? 5 : 0) +
+    (withNextAction > 0 ? 5 : 0) +
+    (withPersona > 0 ? 5 : 0);
+  const structureScore = clampScore(structureScoreRaw, 0, 25);
+
+  let optimizationScore = 0;
+  if (editedRuns > 0) optimizationScore += 8;
+  if (withLearningNotes > 0) optimizationScore += 6;
+  if (withRecommendedPersona > 0) optimizationScore += 4;
+  if (avgImpressions >= 100) optimizationScore += 7;
+  optimizationScore = clampScore(optimizationScore, 0, 25);
+
+  const score = clampScore(
+    activityScore + shippingScore + structureScore + optimizationScore,
+    0,
+    100
+  );
+
+  let grade = "D";
+  if (score >= 90) grade = "A";
+  else if (score >= 80) grade = "B";
+  else if (score >= 70) grade = "C";
+
+  let label = "Early";
+  if (score >= 80) label = "Strong";
+  else if (score >= 60) label = "Building";
+
+  return {
+    score,
+    grade,
+    label,
+    factors: {
+      total_runs: totalRuns,
+      approved_runs: approvedRuns,
+      posted_runs: postedRuns,
+      edited_runs: editedRuns,
+      runs_with_persona: withPersona,
+      runs_with_learning_notes: withLearningNotes,
+      runs_with_recommended_persona: withRecommendedPersona,
+      runs_with_next_action: withNextAction,
+      avg_impressions: avgImpressions,
+      total_impressions: totalImpressions,
+    },
+    breakdown: {
+      activity_score: activityScore,
+      shipping_score: shippingScore,
+      structure_score: structureScore,
+      optimization_score: optimizationScore,
+    },
+  };
+}
+
+// =======================
 // TIKTOK / NEWS LANE
 // =======================
 
@@ -874,7 +1238,7 @@ Rules:
 - do not mention build notes
 - do not invent facts
 - plain English
-- urgent and sharp
+- urgent && sharp
 - no corporate language
 - no emojis
 - no hashtags in the script
@@ -910,8 +1274,8 @@ function extract(text, section) {
 
 async function getRealNewsItem() {
  // if (!NEWS_API_KEY) {
-//   throw new Error("Missing NEWS_API_KEY in .env");
-// }
+   // throw new Error("Missing NEWS_API_KEY in .env");
+ // }
 
   const fallbackQueries = [
     NEWS_API_QUERY,
@@ -956,49 +1320,91 @@ async function getRealNewsItem() {
         );
       });
 
-     if (usable) {
-      return {
-        sourceName: usable.source?.name || "",
-        title: usable.title || "",
-        url: usable.url || "",
-        description: usable.description || "",
-        publishedAt: usable.publishedAt || "",
-      };
+      if (usable) {
+        return {
+          sourceName: usable.source?.name || "",
+          title: usable.title || "",
+          url: usable.url || "",
+          description: usable.description || "",
+          publishedAt: usable.publishedAt || "",
+        };
+      }
+    } catch (err) {
+      console.log(
+        `News query failed for ${query || "(no query)"}: ${err.message}`
+      );
     }
-  } catch (err) {
-    console.log(
-      `News query failed for ${query || "(no query)"}`
-    );
   }
-}
 
-return null;
+  throw new Error("No usable news article returned from NewsAPI");
 }
-
-async function generateTikTokLane(newsItem) {
+async function generateTikTokLane(newsItem, options = {}) {
   const prompt = buildTikTokPrompt(newsItem);
+const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-  const response = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o",
+  const tracked = await runTrackedChatCompletion({
+    feature: "buildtrace_tiktok_lane",
+    model,
     messages: [{ role: "user", content: prompt }],
     temperature: 0.4,
+    organizationId: options.organizationId || null,
+    userId: options.userId || null,
+    meta: {
+      sourceName: newsItem.sourceName || "",
+      title: newsItem.title || "",
+    },
   });
 
-  const output = response.choices[0]?.message?.content ?? "";
+  const output = tracked.response.choices[0]?.message?.content ?? "";
 
   return {
     tiktokScript: extract(output, "TIKTOK SCRIPT"),
     tiktokCaption: extract(output, "TIKTOK CAPTION"),
     rawTikTokResponse: output,
+    usage: tracked.usage,
   };
 }
-
 // =======================
 // AI Q&A
 // =======================
-
 async function askAIAboutRuns(question, runs, metricsStore) {
-  const prompt = `
+  const compactRuns = (runs || []).slice(0, 15).map((run) => ({
+    id: run.id,
+    created_at: run.created_at,
+    status: run.status,
+    approved_at: run.approved_at,
+    posted_at: run.posted_at,
+    summary: run.summary,
+    twitter_text: run.twitter_text,
+    linkedin_text: run.linkedin_text,
+    slack_text: run.slack_text,
+    persona:
+      run.generated_twitter_persona ||
+      run.generated_linkedin_persona ||
+      run.persona ||
+      null,
+    post_mode: run.post_mode || null,
+    x_account_label: run.x_account_label || null,
+    drift_summary: run.drift_summary,
+    drift_slack: run.drift_slack,
+    drift_linkedin: run.drift_linkedin,
+    drift_twitter: run.drift_twitter,
+  }));
+
+  const compactMetrics = Object.entries(metricsStore || {})
+    .slice(0, 15)
+    .map(([runId, metric]) => ({
+      run_id: runId,
+      impression_count: metric?.impression_count || 0,
+      like_count: metric?.like_count || 0,
+      reply_count: metric?.reply_count || 0,
+      repost_count: metric?.repost_count || 0,
+      quote_count: metric?.quote_count || 0,
+      account_label: metric?.account_label || null,
+      persona: metric?.persona || null,
+    }));
+
+const prompt = `
 You are an analyst for a builder's social posting dashboard.
 
 Answer the user's question using:
@@ -1023,21 +1429,34 @@ X metrics:
 ${JSON.stringify(metricsStore || {}, null, 2)}
 `;
 
-  const response = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o",
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+  const tracked = await runTrackedChatCompletion({
+    feature: "buildtrace_ai_ask",
+    model,
     messages: [{ role: "user", content: prompt }],
     temperature: 0.3,
+    organizationId: options.organizationId || null,
+    userId: options.userId || null,
+    meta: {
+      question,
+      runCount: Array.isArray(runs) ? runs.length : 0,
+    },
   });
 
-  return response.choices[0]?.message?.content?.trim() || "No answer returned.";
+  return tracked.response.choices[0]?.message?.content?.trim() || "No answer returned.";
 }
-
 // =======================
 // RUN CREATION
 // =======================
 
-async function createRunFromInput(input, topicOverride = "", xAccountLabel = "") {
- let newsItem = null;
+async function createRunFromInput(
+  input,
+  topicOverride = "",
+  xAccountLabel = "",
+  options = {}
+) {
+let newsItem;
 
 if (topicOverride && topicOverride.trim()) {
   newsItem = {
@@ -1048,21 +1467,8 @@ if (topicOverride && topicOverride.trim()) {
     publishedAt: new Date().toISOString(),
   };
 } else {
-  try {
-    newsItem = await getRealNewsItem();
-  } catch (err) {
-    console.log("News skipped:", err.message);
-  }
+  newsItem = await getRealNewsItem();
 }
-
-const tiktokLane = newsItem
-  ? await generateTikTokLane(newsItem)
-  : {
-      tiktokScript: "",
-      tiktokCaption: "",
-      rawTikTokResponse: "",
-    };
-
   const pipeline = await runFivePassPipeline(input, {
     linkedinGoal: "thought_leadership",
     twitterGoal: "engagement",
@@ -1070,24 +1476,33 @@ const tiktokLane = newsItem
   });
 
   const summary =
-    String(pipeline.outputs.summary || "").trim() ||
+    String(pipeline.outputs?.summary || "").trim() ||
     "Build content generated. Review edits before posting.";
 
-  const linkedinFinal = pipeline.outputs.linkedin || {
+  const linkedinFinal = pipeline.outputs?.linkedin || {
     finalText: "",
-    persona: choosePersona({ platform: "linkedin", goal: "thought_leadership" }),
+    persona: choosePersona({
+      platform: "linkedin",
+      goal: "thought_leadership",
+    }),
     postMode: "thought_leadership",
   };
 
-  const twitterFinal = pipeline.outputs.twitter || {
+  const twitterFinal = pipeline.outputs?.twitter || {
     finalText: "",
-    persona: choosePersona({ platform: "twitter", goal: "engagement" }),
+    persona: choosePersona({
+      platform: "twitter",
+      goal: "engagement",
+    }),
     postMode: "engagement",
   };
 
-  const slackFinal = pipeline.outputs.slack || {
+  const slackFinal = pipeline.outputs?.slack || {
     finalText: "",
-    persona: choosePersona({ platform: "slack", goal: "build_log" }),
+    persona: choosePersona({
+      platform: "slack",
+      goal: "build_log",
+    }),
     postMode: "build_log",
   };
 
@@ -1099,6 +1514,11 @@ const tiktokLane = newsItem
   const summaryFinal = finalizePost(summary, {
     persona: summaryPersona,
     postMode: "build_log",
+  });
+
+  const tiktokLane = await generateTikTokLane(newsItem, {
+    organizationId: options.organizationId || null,
+    userId: options.userId || null,
   });
 
   const result = {
@@ -1114,19 +1534,20 @@ const tiktokLane = newsItem
     linkedin_text: linkedinFinal.finalText,
     twitter_text: twitterFinal.finalText,
 
-   tiktok_topic: newsItem?.title || "",
-tiktok_script: tiktokLane.tiktokScript || "",
-tiktok_caption: tiktokLane.tiktokCaption || "",
+    tiktok_topic: newsItem.title,
+    tiktok_script: tiktokLane.tiktokScript || "",
+    tiktok_caption: tiktokLane.tiktokCaption || "",
 
-news_source_name: newsItem?.sourceName || "",
-news_source_title: newsItem?.title || "",
-news_source_url: newsItem?.url || "",
-news_published_at: newsItem?.publishedAt || null,
+    news_source_name: newsItem.sourceName,
+    news_source_title: newsItem.title,
+    news_source_url: newsItem.url,
+    news_published_at: newsItem.publishedAt || null,
 
     raw_response: JSON.stringify(
       {
         build_pipeline: pipeline.raw,
         tiktok_raw_response: tiktokLane.rawTikTokResponse || "",
+        tiktok_usage: tiktokLane.usage || null,
       },
       null,
       2
@@ -1427,7 +1848,7 @@ You are reviewing a queued social media post.
 Give a short plain-English answer with:
 1. why this item may be concerning
 2. what the user should check next
-3. whether the best action is archive, investigate, or post anyway
+3. whether the best action is archive, investigate, || post anyway
 
 Platform: ${item.platform || ""}
 Account: ${item.account_label || ""}
@@ -1606,6 +2027,311 @@ app.post("/api/runs/:id/sync-x-metrics", async (req, res) => {
 });
 
 // =======================
+// AI SCORE ROUTES
+// =======================
+
+app.get("/api/ai/score", async (req, res) => {
+  try {
+    const { data: runs, error } = await supabase
+      .from("build_logger_runs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (error) {
+      return res.status(500).json({
+        error: "Failed to fetch runs for AI score",
+        details: error.message,
+      });
+    }
+
+    const runsWithAccounts = attachRunAccountMetadataList(runs || []);
+    const metricsStore = readXMetricsFile().metrics || {};
+    const score = calculateAiUsageScore(runsWithAccounts, metricsStore);
+
+    return res.json({
+      message: "AI usage score ready",
+      score,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "AI usage score failed",
+      details: err.message,
+    });
+  }
+});
+// =======================
+// COST / BUDGET ROUTES
+// =======================
+
+app.get("/api/admin/costs/summary", async (req, res) => {
+  try {
+    const organizationId = getRequestOrgId(req);
+    const summary = await getSpendSummary(supabase, organizationId);
+
+    return res.json({
+      ok: true,
+      organization_id: organizationId,
+      summary,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load cost summary",
+      details: err.message,
+    });
+  }
+});
+
+app.get("/api/admin/costs/health", async (req, res) => {
+  try {
+    const organizationId = getRequestOrgId(req);
+    const summary = await getSpendSummary(supabase, organizationId);
+
+    const state =
+      summary.monthlyRemaining <= 0 || summary.dailyRemaining <= 0
+        ? "blocked"
+        : summary.dailyRemaining <= 0.5 || summary.vaDailyRemaining <= 0.5
+        ? "warning"
+        : "healthy";
+
+    return res.json({
+      ok: true,
+      state,
+      organization_id: organizationId,
+      summary,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load cost health",
+      details: err.message,
+    });
+  }
+});
+// =======================
+// VA ROUTES
+// =======================
+app.post("/api/va/entries", requireApiUser, async (req, res) => {
+try {
+  const title = String(req.body.title || "").trim();
+  const topic = String(req.body.topic || "").trim();
+  const raw_text = String(req.body.raw_text || "").trim();
+
+  if (!title || !topic || !raw_text) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+
+  // ----------------------------
+  // AI ANALYSIS
+  // ----------------------------
+  const ai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  const aiRes = await ai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: "You are a VA disability expert. Estimate likelihood (low, medium, high) && possible rating (0-100%). Be concise."
+      },
+      {
+        role: "user",
+        content: `Condition: ${title}\nCategory: ${topic}\nDetails: ${raw_text}`
+      }
+    ]
+  });
+
+  const aiSummary = aiRes.choices[0].message.content;
+
+  // ----------------------------
+  // SAVE TO DB
+  // ----------------------------
+  const { data, error } = await supabase
+    .from("va_entries")
+    .insert([
+      {
+        user_id: req.apiUser.id,
+      title,
+        topic,
+        raw_text,
+        summary: aiSummary
+      }
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({
+    message: "VA entry saved",
+    ai_prediction: aiSummary,
+    entry: data
+  });
+
+} catch (err) {
+  return res.status(500).json({ error: err.message });
+}
+
+  try {
+    const title = String(req.body.title || "").trim();
+    const topic = String(req.body.topic || "").trim();
+    const raw_text = String(req.body.raw_text || "").trim();
+
+    if (!title || !topic || !raw_text) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
+
+    const ai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const aiRes = await ai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a VA disability expert. Estimate likelihood (low, medium, high) && possible rating (0-100%). Be concise."
+        },
+        {
+          role: "user",
+          content: `Condition: ${title}\nCategory: ${topic}\nDetails: ${raw_text}`
+        }
+      ]
+    });
+
+    const aiSummary = aiRes.choices[0].message.content;
+
+    const { data, error } = await supabase
+      .from("va_entries")
+      .insert([
+        {
+          title,
+          topic,
+          raw_text,
+          summary: aiSummary
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({
+      message: "VA entry saved",
+      ai_prediction: aiSummary,
+      entry: data
+    });
+
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+app.post("/api/va/analyze", requireApiUser, async (req, res) => {
+  try {
+    const { entry_id } = req.body;
+
+    if (!entry_id) {
+      return res.status(400).json({ error: "entry_id required" });
+    }
+
+    const { data: entry, error } = await supabase
+      .from("va_entries")
+      .select("*")
+      .eq("id", entry_id)
+      .eq("user_id", req.apiUser.id)
+      .single();
+
+    if (error || !entry) {
+      return res.status(404).json({ error: "Entry not found" });
+    }
+
+    const prompt = `
+You are a VA disability claims expert.
+
+Analyze this claim:
+
+${entry.raw_text}
+
+Return JSON ONLY:
+
+{
+  "summary": "",
+  "likely_rating_range": "",
+  "strengths": [],
+  "weaknesses": [],
+  "next_steps": []
+}
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = completion.choices[0].message.content;
+
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = {
+        summary: text,
+        likely_rating_range: "Unknown",
+        strengths: [],
+        weaknesses: [],
+        next_steps: []
+      };
+    }
+
+    const { error: updateError } = await supabase
+      .from("va_entries")
+      .update({
+        ai_summary: parsed.summary,
+        likely_rating_range: parsed.likely_rating_range,
+        strengths: parsed.strengths,
+        weaknesses: parsed.weaknesses,
+        next_steps: parsed.next_steps
+      })
+      .eq("id", entry_id)
+      .eq("user_id", req.apiUser.id);
+
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    return res.json({ success: true });
+
+  } catch (err) {
+    return res.status(500).json({
+      error: "Analyze failed",
+      details: err.message
+    });
+  }
+});
+
+app.post("/api/va/calculate-crsc", requireApiUser, async (req, res) => {
+  try {
+    const result = estimateCrsc({
+      yearsOfService: req.body.years_of_service,
+      retiredPayMonthly: req.body.retired_pay_monthly,
+      vaCombinedRating: req.body.va_combined_rating,
+      combatRelatedPercent: req.body.combat_related_percent,
+    });
+
+    return res.json({
+      message: "CRSC estimate complete",
+      result,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "CRSC estimate failed",
+      details: err.message,
+    });
+  }
+});
+// =======================
 // AI ROUTES
 // =======================
 
@@ -1628,12 +2354,14 @@ app.post("/api/ai/weekly-rundown", async (req, res) => {
 
     const runsWithAccounts = attachRunAccountMetadataList(runs || []);
     const metricsStore = readXMetricsFile().metrics || {};
-
-    const answer = await askAIAboutRuns(
-      "Give me a weekly rundown of my last 7 days of posts. Tell me the main themes, what performed best, what underperformed, and 5 direct recommendations for the next posts.",
-      runsWithAccounts,
-      metricsStore
-    );
+const answer = await askAIAboutRuns(
+  "Give me a weekly rundown of my last 7 days of posts. Tell me the main themes, what performed best, what underperformed, && 5 direct recommendations for the next posts.",
+  runsWithAccounts,
+  metricsStore,
+  {
+    organizationId: getRequestOrgId(req),
+  }
+);
 
     return res.json({
       message: "Weekly rundown ready",
@@ -1646,7 +2374,6 @@ app.post("/api/ai/weekly-rundown", async (req, res) => {
     });
   }
 });
-
 app.post("/api/ai/ask", async (req, res) => {
   try {
     const question = String(req.body.question || "").trim();
@@ -1659,10 +2386,25 @@ app.post("/api/ai/ask", async (req, res) => {
 
     const { data: runs, error } = await supabase
       .from("build_logger_runs")
-      .select("*")
+      .select(`
+        id,
+        created_at,
+        status,
+        summary,
+        input_text,
+        twitter_text,
+        linkedin_text,
+        generated_twitter_persona,
+        generated_linkedin_persona,
+        persona,
+        post_mode,
+        approved_at,
+        posted_at,
+        x_tweet_id
+      `)
       .gte("created_at", since)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(5);
 
     if (error) {
       return res.status(500).json({
@@ -1672,9 +2414,53 @@ app.post("/api/ai/ask", async (req, res) => {
     }
 
     const runsWithAccounts = attachRunAccountMetadataList(runs || []);
-    const metricsStore = readXMetricsFile().metrics || {};
-    const answer = await askAIAboutRuns(question, runsWithAccounts, metricsStore);
 
+    const compactRuns = runsWithAccounts.map((run) => ({
+      id: run.id,
+      created_at: run.created_at,
+      status: run.status,
+      summary: run.summary || "",
+      input_text: run.input_text || "",
+      twitter_text: run.twitter_text || "",
+      linkedin_text: run.linkedin_text || "",
+      persona:
+        run.generated_twitter_persona ||
+        run.generated_linkedin_persona ||
+        run.persona ||
+        "",
+      post_mode: run.post_mode || "",
+      x_account_label: run.x_account_label || "",
+      x_tweet_id: run.x_tweet_id || null,
+      approved_at: run.approved_at || null,
+      posted_at: run.posted_at || null,
+    }));
+
+    const fullMetricsStore = readXMetricsFile().metrics || {};
+    const compactMetricsStore = {};
+
+    compactRuns.forEach((run) => {
+      if (fullMetricsStore[run.id]) {
+        compactMetricsStore[run.id] = {
+          like_count: Number(fullMetricsStore[run.id].like_count || 0),
+          reply_count: Number(fullMetricsStore[run.id].reply_count || 0),
+          repost_count: Number(fullMetricsStore[run.id].repost_count || 0),
+          quote_count: Number(fullMetricsStore[run.id].quote_count || 0),
+          impression_count: Number(fullMetricsStore[run.id].impression_count || 0),
+          synced_at: fullMetricsStore[run.id].synced_at || null,
+          account_label: fullMetricsStore[run.id].account_label || "",
+          persona: fullMetricsStore[run.id].persona || "",
+        };
+      }
+    });
+
+const answer = await askAIAboutRuns(
+  question,
+  runsWithAccounts,
+  metricsStore,
+  {
+    organizationId: getRequestOrgId(req),
+  }
+);
     return res.json({
       message: "AI answer ready",
       answer,
@@ -1708,7 +2494,6 @@ function renderXAccountSelect(selectId, selectedLabel, extraAttrs = "") {
       ${options}
     </select>`;
 }
-
 // =======================
 // RUN ROUTES
 // =======================
@@ -1910,7 +2695,8 @@ app.get("/runs/:id", async (req, res) => {
       <button class="draft" onclick="updateStatus('${run.id}', 'draft')">Move to Draft</button>
       <button class="postx" onclick="postX('${run.id}')">Post to X</button>
       <button class="btn-orange" onclick="syncXMetrics('${run.id}')">Sync X Metrics</button>
-      <form method="POST" action="/logout" style="display:inline;">
+<button class="draft" onclick="deleteRun('${run.id}')">Delete</button>
+<form method="POST" action="/logout" style="display:inline;">
         <button class="draft" type="submit">Logout</button>
       </form>
     </div>
@@ -1975,7 +2761,22 @@ app.get("/runs/:id", async (req, res) => {
   </div>
 
   <script>
-    function getSelectedAccount(id) {
+function toggleRunHistory() {
+  const el = document.getElementById('run-history-wrap');
+  if (!el) {
+    alert('run-history-wrap not found');
+    return;
+  }
+
+  if (el.style.display === 'none' || el.style.display === '') {
+    el.style.display = 'block';
+    alert('history opened');
+  } else {
+    el.style.display = 'none';
+    alert('history closed');
+  }
+}
+  function getSelectedAccount(id) {
       return document.getElementById('x-account-' + id)?.value || '';
     }
 
@@ -2045,7 +2846,23 @@ app.get("/runs/:id", async (req, res) => {
       alert('X metrics synced');
       window.location.reload();
     }
+async function deleteRun(id) {
+  const ok = confirm('Delete this run? This cannot be undone.');
+  if (!ok) return;
 
+  const res = await fetch('/api/runs/' + id, {
+    method: 'DELETE'
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.details || data.error || 'Failed to delete run');
+    return;
+  }
+
+  window.location.href = '/';
+}
     async function saveEdits(id) {
       const payload = {
         summary: document.getElementById('summary-' + id)?.value || '',
@@ -2084,1159 +2901,28 @@ app.get("/runs/:id", async (req, res) => {
 
 app.get("/", async (req, res) => {
   try {
-    const filterStatus = String(req.query.status || "").trim();
-
     let query = supabase
       .from("build_logger_runs")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(24);
 
-    if (filterStatus) {
-      query = query.eq("status", filterStatus);
-    }
-
     const { data: rawRuns, error } = await query;
-    if (error) throw new Error(error.message);
 
-    const rows = attachRunAccountMetadataList(rawRuns || []);
-    const latest = rows[0] || null;
-
-    const queueData = readQueueFile();
-    const driftData = readDriftFile();
-    const metricsStore = readXMetricsFile().metrics || {};
-    const queue = queueData.queue || [];
-    const channelDirectory = buildChannelDirectory(queue);
-    const queueInsights = buildQueueInsights(queue, driftData);
-    const accountStatuses = getXAccountStatusList();
-
-    const queueSummary = {
-      total: queue.length,
-      pending: queue.filter((q) => q.status === "pending").length,
-      posted: queue.filter((q) => q.status === "posted").length,
-      failed: queue.filter((q) => q.status === "failed").length,
-      duplicateDrift: driftData.duplicate_attempts_total || 0,
-      activeChannels: channelDirectory.length,
-      heartbeat: new Date().toISOString(),
-    };
-
-    const missionStatus = getMissionStatus(queueSummary, queueInsights);
-    const primaryAction = queueInsights.actions[0] || {
-      impact: "No critical issue detected.",
-      nextMove: "Keep scheduler alive.",
-      channel: "All channels",
-      command: "node scheduler.js",
-    };
-
-    const nextScheduledPending =
-      queue
-        .filter((q) => q.status === "pending" && q.scheduled_for)
-        .sort((a, b) => new Date(a.scheduled_for) - new Date(b.scheduled_for))[0] ||
-      null;
-
-    const recentPosted = queue.filter((q) => q.status === "posted").slice(-4).reverse();
-    const latestMetrics = latest ? metricsStore[latest.id] || null : null;
-
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Build Logger Command Center</title>
-  <style>
-    :root{
-      --bg:#06101b;
-      --panel:rgba(12,22,38,.92);
-      --border:rgba(102,182,255,.16);
-      --text:#eef6ff;
-      --muted:#8ea7c6;
-      --cyan:#66d4ff;
-      --blue:#6eb7ff;
-      --green:#1be39f;
-      --amber:#ffbf58;
-      --red:#ff5d7c;
-      --radius:16px;
-      --shadow:0 14px 34px rgba(0,0,0,.28);
+    if (error) {
+      throw new Error(error.message);
     }
 
-    * { box-sizing:border-box; }
-    body{
-      margin:0;
-      font-family:Inter, Arial, sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(102,212,255,.14), transparent 26%),
-        radial-gradient(circle at top right, rgba(110,183,255,.08), transparent 18%),
-        linear-gradient(180deg, #040b14 0%, #07111c 100%);
-      min-height:100vh;
-      padding:10px;
-    }
+    return res.json({
+      message: "Dashboard loaded",
+      runs: rawRuns || []
+    });
 
-    .shell{ display:grid; gap:10px; }
-    .top-grid{ display:grid; grid-template-columns:1.08fr 1fr; gap:10px; }
-    .bottom-grid{ display:grid; grid-template-columns:0.9fr 0.92fr 1.22fr; gap:10px; }
-    .work-grid{ display:grid; grid-template-columns:1.15fr 1fr; gap:10px; }
-    .ai-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .history-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:10px; }
-
-    .box{
-      min-width:0;
-      background:var(--panel);
-      border:1px solid var(--border);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(14px);
-      padding:12px;
-      overflow:hidden;
-    }
-
-    .box-title{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      margin-bottom:8px;
-    }
-
-    .box-title h2{ margin:0; font-size:14px; letter-spacing:-.02em; }
-    .eyebrow{
-      color:var(--cyan);
-      font-size:10px;
-      text-transform:uppercase;
-      letter-spacing:.16em;
-      white-space:nowrap;
-    }
-
-    .status-bar{
-      height:8px;
-      border-radius:999px;
-      overflow:hidden;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.06);
-      margin-bottom:10px;
-    }
-
-    .status-bar-fill{ height:100%; width:100%; }
-    .status-bar-fill.green{ background:linear-gradient(90deg, rgba(27,227,159,.95), rgba(102,212,255,.55)); }
-    .status-bar-fill.amber{ background:linear-gradient(90deg, rgba(255,191,88,.95), rgba(102,212,255,.35)); }
-    .status-bar-fill.red{ background:linear-gradient(90deg, rgba(255,93,124,.95), rgba(255,191,88,.35)); }
-
-    .headline{
-      font-size:24px;
-      line-height:1.03;
-      font-weight:800;
-      letter-spacing:-.04em;
-      max-width:88%;
-      margin-bottom:6px;
-    }
-
-    .subcopy{
-      color:var(--muted);
-      font-size:11px;
-      line-height:1.4;
-      max-width:90%;
-      margin-bottom:8px;
-    }
-
-    .status-chip{
-      display:inline-flex;
-      align-items:center;
-      width:max-content;
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:10px;
-      text-transform:uppercase;
-      letter-spacing:.14em;
-      font-weight:800;
-      border:1px solid rgba(255,255,255,.08);
-      background:rgba(255,255,255,.03);
-      margin-bottom:10px;
-    }
-    .status-chip.green{ color:var(--green); }
-    .status-chip.amber{ color:var(--amber); }
-    .status-chip.red{ color:var(--red); }
-
-    .signal-card{
-      border:1px solid rgba(102,212,255,.18);
-      background:rgba(102,212,255,.07);
-      border-radius:14px;
-      padding:12px;
-      display:grid;
-      gap:6px;
-      margin-bottom:10px;
-    }
-
-    .micro{
-      color:var(--cyan);
-      font-size:9px;
-      text-transform:uppercase;
-      letter-spacing:.15em;
-    }
-
-    .signal-impact{ font-size:18px; font-weight:700; line-height:1.25; }
-    .signal-next{ color:var(--text); font-size:12px; line-height:1.35; }
-    .signal-channel{ color:var(--muted); font-size:11px; line-height:1.3; }
-
-    .command-line{
-      border-radius:12px;
-      padding:9px 10px;
-      background:rgba(2,8,18,.8);
-      border:1px solid rgba(102,212,255,.14);
-      color:#c4efff;
-      font-family:Consolas, monospace;
-      font-size:11px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .kpi-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
-
-    .metric{
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.05);
-      border-radius:14px;
-      padding:10px;
-      min-width:0;
-    }
-
-    .metric-label{
-      color:var(--muted);
-      font-size:9px;
-      text-transform:uppercase;
-      letter-spacing:.14em;
-      margin-bottom:7px;
-    }
-
-    .metric-value{
-      font-size:18px;
-      font-weight:800;
-      line-height:1.05;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }
-
-    .metric.good .metric-value{ color:var(--green); }
-    .metric.warn .metric-value{ color:var(--amber); }
-    .metric.bad .metric-value{ color:var(--red); }
-    .metric.info .metric-value{ color:var(--cyan); }
-
-    .action-list{ display:grid; grid-template-rows:repeat(3, 1fr); gap:8px; min-height:320px; }
-
-    .action-row{
-      border-radius:14px;
-      padding:10px;
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.05);
-      display:grid;
-      gap:5px;
-      overflow:hidden;
-    }
-
-    .action-row.high{ border-color:rgba(255,93,124,.2); }
-    .action-row.medium{ border-color:rgba(255,191,88,.18); }
-    .action-row.low{ border-color:rgba(27,227,159,.14); }
-
-    .action-top{ display:flex; align-items:center; gap:7px; min-width:0; }
-    .action-title{
-      font-size:13px;
-      font-weight:800;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .action-channel{
-      color:var(--cyan);
-      font-size:10px;
-      line-height:1.2;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .action-impact{ color:var(--text); font-size:11px; line-height:1.3; max-height:30px; overflow:hidden; }
-    .action-next{ color:var(--muted); font-size:10px; line-height:1.25; max-height:26px; overflow:hidden; }
-    .action-command{
-      margin-top:auto;
-      border-radius:10px;
-      padding:6px 8px;
-      background:rgba(2,8,18,.8);
-      border:1px solid rgba(102,212,255,.12);
-      color:#c4efff;
-      font-family:Consolas, monospace;
-      font-size:10px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .pill, .tag, .status{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:999px;
-      padding:4px 7px;
-      font-size:9px;
-      font-weight:800;
-      text-transform:uppercase;
-      letter-spacing:.12em;
-      flex-shrink:0;
-    }
-
-    .pill.high{ background:rgba(255,93,124,.12); color:var(--red); }
-    .pill.medium{ background:rgba(255,191,88,.12); color:var(--amber); }
-    .pill.low{ background:rgba(27,227,159,.12); color:var(--green); }
-
-    .status-draft { background: #334155; color: #e2e8f0; }
-    .status-approved { background: #14532d; color: #bbf7d0; }
-    .status-posted { background: #1d4ed8; color: #dbeafe; }
-    .status-failed { background: #7f1d1d; color: #fecaca; }
-    .status-investigating { background: #312e81; color: #c7d2fe; }
-    .status-archived { background: #1f2937; color: #d1d5db; }
-
-    .health-stack{ display:grid; grid-template-rows:1fr 1fr 1fr; gap:8px; min-height:320px; }
-
-    .mini-card{
-      border-radius:14px;
-      padding:10px;
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.05);
-      overflow:hidden;
-      font-size:11px;
-      line-height:1.35;
-      color:var(--muted);
-    }
-
-    .mini-card strong{
-      display:block;
-      margin-bottom:5px;
-      color:var(--text);
-      font-size:11px;
-    }
-
-    .directory-list{ display:grid; gap:6px; margin-top:4px; }
-
-    .directory-row{
-      border-radius:12px;
-      padding:8px 9px;
-      background:rgba(255,255,255,.025);
-      border:1px solid rgba(255,255,255,.05);
-      overflow:hidden;
-    }
-
-    .directory-name{
-      color:var(--text);
-      font-size:10px;
-      font-weight:700;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      margin-bottom:3px;
-    }
-
-    .directory-stats{
-      color:var(--muted);
-      font-size:10px;
-      line-height:1.25;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .feed-list{ display:grid; grid-template-rows:repeat(4, 1fr); gap:8px; min-height:320px; }
-
-    .feed-row{
-      border-radius:14px;
-      padding:10px;
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.05);
-      display:grid;
-      gap:6px;
-      overflow:hidden;
-    }
-
-    .feed-top{ display:flex; gap:6px; flex-wrap:wrap; }
-    .feed-copy{ color:var(--text); font-size:11px; line-height:1.3; overflow:hidden; max-height:30px; }
-    .feed-time{ color:var(--muted); font-size:10px; }
-    .tag.platform{ background:rgba(102,212,255,.12); color:var(--cyan); }
-    .tag.account{ background:rgba(110,183,255,.12); color:var(--blue); }
-    .tag.posted{ background:rgba(27,227,159,.12); color:var(--green); }
-
-    .queue-list{ display:grid; gap:10px; }
-
-    .queue-item{
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.06);
-      border-radius:14px;
-      padding:12px;
-    }
-
-    .meta{ color:var(--muted); font-size:11px; line-height:1.45; margin-bottom:8px; }
-
-    .label{
-      font-size:10px;
-      color:var(--cyan);
-      text-transform:uppercase;
-      letter-spacing:.14em;
-      margin-bottom:4px;
-    }
-
-    .value{
-      white-space:pre-wrap;
-      margin-bottom:10px;
-      line-height:1.4;
-      font-size:12px;
-      color:var(--text);
-    }
-
-    .btns, .topbar, .form-actions, .filters{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    button, .btn-link{
-      padding:8px 12px;
-      border:0;
-      border-radius:10px;
-      cursor:pointer;
-      font-weight:800;
-      text-decoration:none;
-      display:inline-block;
-    }
-
-    .btn-green { background: #22c55e; color: #052e16; }
-    .btn-blue { background: #60a5fa; color: #082f49; }
-    .btn-gray { background: #94a3b8; color: #0f172a; }
-    .btn-orange { background: #f59e0b; color: #451a03; }
-    .btn-red { background: #ef4444; color: #fff; }
-    .approve { background: #22c55e; color: #052e16; }
-    .draft { background: #94a3b8; color: #0f172a; }
-    .postx { background: #60a5fa; color: #082f49; }
-
-    textarea, input[type="text"] {
-      width: 100%;
-      background: #0b1220;
-      color: #e2e8f0;
-      border: 1px solid #334155;
-      border-radius: 10px;
-      padding: 12px;
-      box-sizing: border-box;
-      margin-bottom: 12px;
-      font-family: Arial, sans-serif;
-    }
-
-    textarea { min-height: 160px; resize: vertical; }
-
-    .run-card{
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.06);
-      border-radius:14px;
-      padding:12px;
-    }
-
-    .muted{ color:var(--muted); font-size:12px; }
-    .footer{ margin-top:6px; color:var(--muted); font-size:10px; }
-
-    .metrics-line{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      margin-bottom:10px;
-    }
-
-    .metric-chip{
-      background:#0b1220;
-      border:1px solid #334155;
-      border-radius:999px;
-      padding:5px 8px;
-      font-size:11px;
-      color:#dbeafe;
-    }
-
-    .ai-answer{
-      background:#0b1220;
-      border:1px solid #334155;
-      border-radius:12px;
-      padding:12px;
-      color:#e2e8f0;
-      min-height:180px;
-      white-space:pre-wrap;
-      line-height:1.45;
-    }
-
-    @media (max-width: 1280px){
-      .top-grid, .bottom-grid, .work-grid, .ai-grid{
-        grid-template-columns:1fr;
-      }
-      .kpi-grid{
-        grid-template-columns:repeat(2, 1fr);
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="shell">
-
-    <div class="topbar">
-      <a class="btn-link btn-green" href="/">Refresh</a>
-      <a class="btn-link btn-gray" href="/?status=">All</a>
-      <a class="btn-link btn-gray" href="/?status=draft">Draft</a>
-      <a class="btn-link btn-gray" href="/?status=approved">Approved</a>
-      <a class="btn-link btn-gray" href="/?status=posted">Posted</a>
-      <a class="btn-link btn-gray" href="/?status=failed">Failed</a>
-      <button class="btn-red" onclick="clearQueue()">Clear Queue</button>
-      <form method="POST" action="/logout" style="display:inline;">
-        <button class="btn-red" type="submit">Logout</button>
-      </form>
-    </div>
-
-    <div class="top-grid">
-      <section class="box">
-        <div class="status-bar">
-          <div class="status-bar-fill ${escapeHtml(missionStatus.tone)}"></div>
-        </div>
-
-        <div class="box-title">
-          <h2>Mission Control</h2>
-          <div class="eyebrow">Current Priority</div>
-        </div>
-
-        <div class="headline">Proof of work should drive the next move.</div>
-        <div class="subcopy">
-          Daily command view for queue pressure, execution health, and published output across accounts.
-        </div>
-
-        <div class="status-chip ${escapeHtml(missionStatus.tone)}">${escapeHtml(missionStatus.label)}</div>
-
-        <div class="signal-card">
-          <div class="micro">Primary Signal</div>
-          <div class="signal-impact">${escapeHtml(primaryAction.impact || "No critical issue detected.")}</div>
-          <div class="micro">Affected Channel</div>
-          <div class="signal-channel">${escapeHtml(primaryAction.channel || "All channels")}</div>
-          <div class="micro">Recommended Move</div>
-          <div class="signal-next">${escapeHtml(primaryAction.nextMove || "Keep scheduler alive.")}</div>
-        </div>
-
-        <div class="command-line">${escapeHtml(primaryAction.command || "node scheduler.js")}</div>
-      </section>
-
-      <section class="box">
-        <div class="box-title">
-          <h2>System Snapshot</h2>
-          <div class="eyebrow">Live State</div>
-        </div>
-
-        <div class="kpi-grid">
-          <div class="metric info">
-            <div class="metric-label">Total Posts</div>
-            <div class="metric-value">${escapeHtml(queueSummary.total)}</div>
-          </div>
-          <div class="metric ${queueSummary.pending > 0 ? "warn" : "good"}">
-            <div class="metric-label">Pending</div>
-            <div class="metric-value">${escapeHtml(queueSummary.pending)}</div>
-          </div>
-          <div class="metric good">
-            <div class="metric-label">Posted</div>
-            <div class="metric-value">${escapeHtml(queueSummary.posted)}</div>
-          </div>
-          <div class="metric ${queueSummary.failed > 0 ? "bad" : "good"}">
-            <div class="metric-label">Failed</div>
-            <div class="metric-value">${escapeHtml(queueSummary.failed)}</div>
-          </div>
-          <div class="metric ${queueSummary.duplicateDrift > 0 ? "warn" : "good"}">
-            <div class="metric-label">Duplicate Drift</div>
-            <div class="metric-value">${escapeHtml(queueSummary.duplicateDrift)}</div>
-          </div>
-          <div class="metric info">
-            <div class="metric-label">Active Channels</div>
-            <div class="metric-value">${escapeHtml(queueSummary.activeChannels)}</div>
-          </div>
-          <div class="metric ${queueInsights.dueSoon.length > 0 ? "warn" : "good"}">
-            <div class="metric-label">Due Soon</div>
-            <div class="metric-value">${escapeHtml(queueInsights.dueSoon.length)}</div>
-          </div>
-          <div class="metric info">
-            <div class="metric-label">Next Window</div>
-            <div class="metric-value">${escapeHtml(nextScheduledPending ? formatLocal(nextScheduledPending.scheduled_for) : "None queued")}</div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div class="bottom-grid">
-      <section class="box">
-        <div class="box-title">
-          <h2>Priority Actions</h2>
-          <div class="eyebrow">Top 3 Moves</div>
-        </div>
-
-        <div class="action-list">
-          ${(queueInsights.actions.slice(0, 3).map((action) => `
-            <div class="action-row ${escapeHtml(action.priority)}">
-              <div class="action-top">
-                <span class="pill ${escapeHtml(action.priority)}">${escapeHtml(action.priority.toUpperCase())}</span>
-                <div class="action-title">${escapeHtml(action.title)}</div>
-              </div>
-              <div class="action-channel">${escapeHtml(action.channel || "Unknown channel")}</div>
-              <div class="action-impact">${escapeHtml(action.impact)}</div>
-              <div class="action-next">${escapeHtml(action.nextMove)}</div>
-              <div class="action-command">${escapeHtml(action.command || "n/a")}</div>
-            </div>
-          `)).join("")}
-        </div>
-      </section>
-
-      <section class="box">
-        <div class="box-title">
-          <h2>System Health</h2>
-          <div class="eyebrow">Risk / Drift / Channels</div>
-        </div>
-
-        <div class="health-stack">
-          <div class="mini-card">
-            <strong>Channel Directory</strong>
-            <div class="directory-list">
-              ${
-                channelDirectory.length === 0
-                  ? `<div class="directory-row"><div class="directory-name">No channels detected</div></div>`
-                  : channelDirectory.map((channel) => `
-                      <div class="directory-row">
-                        <div class="directory-name">${escapeHtml(channel.platform)} • ${escapeHtml(channel.account)}</div>
-                        <div class="directory-stats">
-                          Total ${escapeHtml(channel.total)} · Pending ${escapeHtml(channel.pending)} · Posted ${escapeHtml(channel.posted)} · Failed ${escapeHtml(channel.failed)}
-                        </div>
-                      </div>
-                    `).join("")
-              }
-            </div>
-          </div>
-
-          <div class="mini-card">
-            <strong>X Accounts</strong>
-            ${accountStatuses.map((account) => `
-              <div style="margin-bottom:8px;">
-                ${escapeHtml(account.label)} ${escapeHtml(account.handle || "")} — ${escapeHtml(account.is_ready ? "ready" : "missing")}
-                ${account.is_ready ? "" : `<br><span style="color:#fca5a5;">${escapeHtml(account.missing_env_vars.join(", "))}</span>`}
-              </div>
-            `).join("")}
-          </div>
-
-          <div class="mini-card">
-            <strong>Duplicate Drift</strong>
-            ${
-              Object.keys(driftData.duplicate_attempts_by_platform || {}).length === 0
-                ? "No duplicate drift recorded."
-                : Object.entries(driftData.duplicate_attempts_by_platform || {})
-                    .map(([platform, count]) => `${escapeHtml(platform)}: ${escapeHtml(count)}`)
-                    .join("<br>")
-            }
-          </div>
-        </div>
-      </section>
-
-      <section class="box">
-        <div class="box-title">
-          <h2>Published Feed</h2>
-          <div class="eyebrow">Recent Output</div>
-        </div>
-
-        <div class="feed-list">
-          ${
-            recentPosted.length === 0
-              ? `<div class="mini-card"><strong>Published Feed</strong>No posted items yet.</div>`
-              : recentPosted.map((post) => `
-                  <div class="feed-row">
-                    <div class="feed-top">
-                      <span class="tag platform">${escapeHtml(getQueuePlatformLabel(post))}</span>
-                      <span class="tag account">${escapeHtml(getQueueAccountLabel(post))}</span>
-                      <span class="tag posted">POSTED</span>
-                    </div>
-                    <div class="feed-copy">${escapeHtml(truncate(post.content, 105))}</div>
-                    <div class="feed-time">${escapeHtml(formatLocal(post.posted_at || post.created_at))}</div>
-                  </div>
-                `).join("")
-          }
-        </div>
-
-        <div class="footer">Generated ${escapeHtml(formatLocal(new Date().toISOString()))}</div>
-      </section>
-    </div>
-
-    <div class="work-grid">
-      <section class="box">
-        <div class="box-title">
-          <h2>Create New Run</h2>
-          <div class="eyebrow">Build Input</div>
-        </div>
-
-        <form method="POST" action="/dashboard/run">
-          <div class="label">Build Input</div>
-          <textarea name="input" placeholder="Paste your Build Logger notes here..." required></textarea>
-
-          <div class="label">Optional News Topic Override</div>
-          <input type="text" name="topicOverride" placeholder="Leave blank to pull a real article automatically" />
-
-          <div class="label">Default X Account for this Run</div>
-          ${renderXAccountSelect("create-run-account", latest?.x_account_label || getDefaultXAccountLabel(), 'name="xAccountLabel"')}
-
-          <div class="form-actions">
-            <button class="btn-green" type="submit">Run Build Logger</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="box">
-        <div class="box-title">
-          <h2>Latest Run</h2>
-          <div class="eyebrow">Edit / Approve / Post</div>
-        </div>
-
-        ${
-          latest
-            ? `
-          <div class="meta">
-            <div><strong>ID:</strong> ${escapeHtml(latest.id || "")}</div>
-            <div><strong>Created:</strong> ${escapeHtml(formatLocal(latest.created_at || ""))}</div>
-            <div><strong>Approved:</strong> ${escapeHtml(formatLocal(latest.approved_at || ""))}</div>
-            <div><strong>Posted:</strong> ${escapeHtml(formatLocal(latest.posted_at || ""))}</div>
-            <div><strong>X Tweet ID:</strong> ${escapeHtml(latest.x_tweet_id || "n/a")}</div>
-            <div><strong>X Account:</strong> ${escapeHtml(latest.x_account_label || "n/a")} ${escapeHtml(latest.x_account_handle || "")}</div>
-            <div><strong>Persona:</strong> ${escapeHtml(latest.generated_twitter_persona || latest.persona || "n/a")}</div>
-            <div><strong>Post Mode:</strong> ${escapeHtml(latest.post_mode || "n/a")}</div>
-          </div>
-
-          <div style="margin-bottom:10px;">
-            <span class="status ${statusClass(latest.status)}">${escapeHtml(latest.status || "draft")}</span>
-            <span class="status ${statusClass(latest.x_post_status === "sent" ? "posted" : "draft")}">
-              X: ${escapeHtml(latest.x_post_status || "not_sent")}
-            </span>
-            ${hasAnyDrift(latest) ? `<span class="status status-failed">drift detected</span>` : ""}
-          </div>
-
-          <div class="label">Latest Run X Account</div>
-          ${renderXAccountSelect(`x-account-${latest.id}`, latest.x_account_label)}
-          <div class="btns" style="margin-bottom:10px;">
-            <button class="btn-orange" type="button" onclick="saveXAccount('${latest.id}')">Save X Account</button>
-          </div>
-
-          <div class="metrics-line">
-            <div class="metric-chip">Likes: ${escapeHtml(latestMetrics?.like_count || 0)}</div>
-            <div class="metric-chip">Replies: ${escapeHtml(latestMetrics?.reply_count || 0)}</div>
-            <div class="metric-chip">Reposts: ${escapeHtml(latestMetrics?.repost_count || 0)}</div>
-            <div class="metric-chip">Quotes: ${escapeHtml(latestMetrics?.quote_count || 0)}</div>
-            <div class="metric-chip">Impressions: ${escapeHtml(latestMetrics?.impression_count || 0)}</div>
-            <div class="metric-chip">Account: ${escapeHtml(latestMetrics?.account_label || latest.x_account_label || "n/a")}</div>
-            <div class="metric-chip">Persona: ${escapeHtml(latestMetrics?.persona || latest.generated_twitter_persona || "n/a")}</div>
-          </div>
-
-          <div class="label">Summary</div>
-          <div class="value">${escapeHtml(latest.summary || "")}</div>
-
-          <div class="btns" style="margin-bottom:10px;">
-            <button class="approve" onclick="updateStatus('${latest.id}', 'approved')">Approve</button>
-            <button class="draft" onclick="updateStatus('${latest.id}', 'draft')">Move to Draft</button>
-            <button class="postx" onclick="postX('${latest.id}')">Post to X</button>
-            <button class="btn-orange" onclick="syncXMetrics('${latest.id}')">Sync X Metrics</button>
-            <button class="btn-orange" type="button" onclick="toggleEditor('${latest.id}')">Edit Latest Run</button>
-            <a class="btn-link btn-blue" href="/runs/${latest.id}">Open Details</a>
-          </div>
-
-          <div id="editor-${latest.id}" style="display:none; margin-top:8px;">
-            <div class="label">Edit Summary</div>
-            <textarea id="summary-${latest.id}">${escapeHtml(latest.summary || "")}</textarea>
-
-            <div class="label">Edit Slack</div>
-            <textarea id="slack-${latest.id}">${escapeHtml(latest.slack_text || "")}</textarea>
-
-            <div class="label">Edit LinkedIn</div>
-            <textarea id="linkedin-${latest.id}">${escapeHtml(latest.linkedin_text || "")}</textarea>
-
-            <div class="label">Edit Twitter</div>
-            <textarea id="twitter-${latest.id}">${escapeHtml(latest.twitter_text || "")}</textarea>
-
-            <div class="label">Edit TikTok Script</div>
-            <textarea id="tiktok-script-${latest.id}">${escapeHtml(latest.tiktok_script || "")}</textarea>
-
-            <div class="label">Edit TikTok Caption</div>
-            <textarea id="tiktok-caption-${latest.id}">${escapeHtml(latest.tiktok_caption || "")}</textarea>
-
-            <div class="btns">
-              <button class="btn-green" type="button" onclick="saveEdits('${latest.id}')">Save Edits</button>
-            </div>
-          </div>
-        `
-            : `<div class="muted">No runs found yet.</div>`
-        }
-      </section>
-    </div>
-
-    <div class="ai-grid">
-      <section class="box">
-        <div class="box-title">
-          <h2>Ask AI</h2>
-          <div class="eyebrow">Ask About Your Posts</div>
-        </div>
-
-        <div class="label">Question</div>
-        <textarea id="ask-ai-question" placeholder="Example: What were my last week of posts mostly about? Which posts performed best?"></textarea>
-
-        <div class="btns">
-          <button class="btn-blue" onclick="askAI()">Ask AI</button>
-        </div>
-
-        <div class="label">Answer</div>
-        <div id="ask-ai-answer" class="ai-answer">No answer yet.</div>
-      </section>
-
-      <section class="box">
-        <div class="box-title">
-          <h2>Weekly Rundown</h2>
-          <div class="eyebrow">7-Day Analysis</div>
-        </div>
-
-        <div class="subcopy" style="margin-bottom:12px;">
-          Pulls the last 7 days of runs and any synced X metrics, then gives you a plain-English rundown of themes, winners, weak spots, and what to do next.
-        </div>
-
-        <div class="btns">
-          <button class="btn-green" onclick="runWeeklyRundown()">Run Weekly Rundown</button>
-        </div>
-
-        <div class="label">Weekly Output</div>
-        <div id="weekly-rundown-answer" class="ai-answer">No weekly rundown yet.</div>
-      </section>
-    </div>
-
-    <section class="box">
-      <div class="box-title">
-        <h2>Queue Review</h2>
-        <div class="eyebrow">Investigate / Override / Archive</div>
-      </div>
-
-      ${
-        queue.length === 0
-          ? `<div class="muted">Queue is empty.</div>`
-          : `
-        <div class="history-grid">
-          ${queue.map((item) => {
-            const reviewClass =
-              item.review_status === "investigating"
-                ? "status-investigating"
-                : item.review_status === "archived"
-                ? "status-archived"
-                : "status-draft";
-
-            return `
-              <div class="queue-item">
-                <div class="meta">
-                  <div><strong>ID:</strong> ${escapeHtml(item.id || "")}</div>
-                  <div><strong>Channel:</strong> ${escapeHtml(getQueueChannelLabel(item))}</div>
-                  <div><strong>Created:</strong> ${escapeHtml(formatLocal(item.created_at || ""))}</div>
-                  <div><strong>Scheduled:</strong> ${escapeHtml(formatLocal(item.scheduled_for || ""))}</div>
-                </div>
-
-                <div style="margin-bottom:8px;">
-                  <span class="status ${statusClass(item.status)}">${escapeHtml(item.status || "pending")}</span>
-                  <span class="status ${reviewClass}">${escapeHtml(item.review_status || "none")}</span>
-                </div>
-
-                <div class="label">Content</div>
-                <div class="value">${escapeHtml(item.content || "")}</div>
-
-                <div class="label">AI Review</div>
-                <div class="value">${escapeHtml(item.risk_summary || "No AI review yet.")}</div>
-
-                <div class="label">Recommended Action</div>
-                <div class="value">${escapeHtml(item.recommended_action || "None")}</div>
-
-                <div class="btns">
-                  <button class="btn-orange" onclick="investigateQueueItem('${item.id}')">Investigate</button>
-                  <button class="approve" onclick="postAnywayQueueItem('${item.id}')">Post Anyway</button>
-                  <button class="draft" onclick="archiveQueueItem('${item.id}')">Archive</button>
-                </div>
-              </div>
-            `;
-          }).join("")}
-        </div>
-      `
-      }
-    </section>
-
-    <section class="box">
-      <div class="box-title">
-        <h2>Run History</h2>
-        <div class="eyebrow">Recent Sessions</div>
-      </div>
-
-      <div class="filters" style="margin-bottom:12px;">
-        <a class="btn-link btn-gray" href="/?status=">All</a>
-        <a class="btn-link btn-gray" href="/?status=draft">Draft</a>
-        <a class="btn-link btn-gray" href="/?status=approved">Approved</a>
-        <a class="btn-link btn-gray" href="/?status=posted">Posted</a>
-        <a class="btn-link btn-gray" href="/?status=failed">Failed</a>
-      </div>
-
-      <div class="history-grid">
-        ${rows.map((run) => {
-          const runMetrics = metricsStore[run.id] || null;
-          return `
-          <div class="run-card">
-            <div class="meta">
-              <div><strong>ID:</strong> ${escapeHtml(run.id || "")}</div>
-              <div><strong>Created:</strong> ${escapeHtml(formatLocal(run.created_at || ""))}</div>
-              <div><strong>Posted:</strong> ${escapeHtml(formatLocal(run.posted_at || ""))}</div>
-              <div><strong>X Account:</strong> ${escapeHtml(run.x_account_label || "n/a")} ${escapeHtml(run.x_account_handle || "")}</div>
-              <div><strong>Persona:</strong> ${escapeHtml(run.generated_twitter_persona || run.persona || "n/a")}</div>
-            </div>
-
-            <div style="margin-bottom:8px;">
-              <span class="status ${statusClass(run.status)}">${escapeHtml(run.status || "draft")}</span>
-              <span class="status ${statusClass(run.x_post_status === "sent" ? "posted" : "draft")}">
-                X: ${escapeHtml(run.x_post_status || "not_sent")}
-              </span>
-              ${hasAnyDrift(run) ? `<span class="status status-failed">drift detected</span>` : ""}
-            </div>
-
-            <div class="label">Run X Account</div>
-            ${renderXAccountSelect(`x-account-${run.id}`, run.x_account_label)}
-            <div class="btns" style="margin-bottom:8px;">
-              <button class="btn-orange" onclick="saveXAccount('${run.id}')">Save X Account</button>
-            </div>
-
-            <div class="metrics-line">
-              <div class="metric-chip">Likes: ${escapeHtml(runMetrics?.like_count || 0)}</div>
-              <div class="metric-chip">Replies: ${escapeHtml(runMetrics?.reply_count || 0)}</div>
-              <div class="metric-chip">Reposts: ${escapeHtml(runMetrics?.repost_count || 0)}</div>
-              <div class="metric-chip">Account: ${escapeHtml(runMetrics?.account_label || run.x_account_label || "n/a")}</div>
-              <div class="metric-chip">Persona: ${escapeHtml(runMetrics?.persona || run.generated_twitter_persona || "n/a")}</div>
-            </div>
-
-            <div class="label">Summary</div>
-            <div class="value">${escapeHtml(run.summary || "")}</div>
-
-            <div class="btns">
-              <button class="approve" onclick="updateStatus('${run.id}', 'approved')">Approve</button>
-              <button class="draft" onclick="updateStatus('${run.id}', 'draft')">Move to Draft</button>
-              <button class="postx" onclick="postX('${run.id}')">Post to X</button>
-              <button class="btn-orange" onclick="syncXMetrics('${run.id}')">Sync X Metrics</button>
-              <a class="btn-link btn-blue" href="/runs/${run.id}">Open Details</a>
-            </div>
-          </div>
-        `;
-        }).join("")}
-      </div>
-    </section>
-
-  </div>
-
-  <script>
-    function getSelectedAccount(id) {
-      return document.getElementById('x-account-' + id)?.value || '';
-    }
-
-    async function saveXAccount(id) {
-      const account_label = getSelectedAccount(id);
-
-      const res = await fetch('/api/runs/' + id + '/x-account', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_label })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.details || data.error || 'Failed to save X account');
-        return;
-      }
-
-      window.location.reload();
-    }
-
-    async function updateStatus(id, status) {
-      const res = await fetch('/api/runs/' + id + '/status', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.details || data.error || 'Failed to update status');
-        return;
-      }
-
-      window.location.reload();
-    }
-
-    async function postX(id) {
-      const account_label = getSelectedAccount(id);
-
-      const res = await fetch('/api/runs/' + id + '/post-x', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_label })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.details || data.error || 'Failed to post to X');
-        return;
-      }
-
-      window.location.reload();
-    }
-
-    async function syncXMetrics(id) {
-      const account_label = getSelectedAccount(id);
-
-      const res = await fetch('/api/runs/' + id + '/sync-x-metrics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_label })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.details || data.error || 'Failed to sync X metrics');
-        return;
-      }
-
-      alert('X metrics synced');
-      window.location.reload();
-    }
-
-    function toggleEditor(id) {
-      const editor = document.getElementById('editor-' + id);
-      if (!editor) return;
-      editor.style.display = (editor.style.display === 'none' || editor.style.display === '') ? 'block' : 'none';
-    }
-
-    async function saveEdits(id) {
-      const payload = {
-        summary: document.getElementById('summary-' + id)?.value || '',
-        slack_text: document.getElementById('slack-' + id)?.value || '',
-        linkedin_text: document.getElementById('linkedin-' + id)?.value || '',
-        twitter_text: document.getElementById('twitter-' + id)?.value || '',
-        tiktok_script: document.getElementById('tiktok-script-' + id)?.value || '',
-        tiktok_caption: document.getElementById('tiktok-caption-' + id)?.value || '',
-      };
-
-      const res = await fetch('/api/runs/' + id + '/edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.details || data.error || 'Failed to save edits');
-        return;
-      }
-
-      window.location.reload();
-    }
-
-    async function clearQueue() {
-      const ok = confirm('Clear the entire queue and archive everything?');
-      if (!ok) return;
-
-      const res = await fetch('/api/queue/clear', { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.details || data.error || 'Failed to clear queue');
-        return;
-      }
-
-      window.location.reload();
-    }
-
-    async function archiveQueueItem(id) {
-      const res = await fetch('/api/queue/' + id + '/archive', { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.details || data.error || 'Failed to archive queue item');
-        return;
-      }
-
-      window.location.reload();
-    }
-
-    async function investigateQueueItem(id) {
-      const res = await fetch('/api/queue/' + id + '/investigate', { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.details || data.error || 'Failed to investigate queue item');
-        return;
-      }
-
-      alert(data.ai_summary || 'Investigation complete.');
-      window.location.reload();
-    }
-
-    async function postAnywayQueueItem(id) {
-      const res = await fetch('/api/queue/' + id + '/post-anyway', { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.details || data.error || 'Failed to override queue item');
-        return;
-      }
-
-      window.location.reload();
-    }
-
-    async function askAI() {
-      const question = document.getElementById('ask-ai-question')?.value || '';
-      const answerBox = document.getElementById('ask-ai-answer');
-
-      answerBox.textContent = 'Thinking...';
-
-      const res = await fetch('/api/ai/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        answerBox.textContent = data.details || data.error || 'Ask AI failed';
-        return;
-      }
-
-      answerBox.textContent = data.answer || 'No answer returned.';
-    }
-
-    async function runWeeklyRundown() {
-      const answerBox = document.getElementById('weekly-rundown-answer');
-      answerBox.textContent = 'Running weekly rundown...';
-
-      const res = await fetch('/api/ai/weekly-rundown', {
-        method: 'POST'
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        answerBox.textContent = data.details || data.error || 'Weekly rundown failed';
-        return;
-      }
-
-      answerBox.textContent = data.answer || 'No weekly rundown returned.';
-    }
-  </script>
-</body>
-</html>
-    `;
-
-    return res.send(html);
   } catch (err) {
-    return res.status(500).send(`
-      <h1>Dashboard Error</h1>
-      <pre>${escapeHtml(err.message)}</pre>
-    `);
+    return res.status(500).json({
+      error: "Dashboard failed",
+      details: err.message
+    });
   }
 });
 
@@ -3408,7 +3094,31 @@ app.post("/api/runs/:id/edit", async (req, res) => {
     });
   }
 });
+app.delete("/api/runs/:id", async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from("build_logger_runs")
+      .delete()
+      .eq("id", req.params.id);
 
+    if (error) {
+      return res.status(500).json({
+        error: "Failed to delete run",
+        details: error.message,
+      });
+    }
+
+    return res.json({
+      message: "Run deleted",
+      id: req.params.id,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message,
+    });
+  }
+});
 app.post("/api/run", async (req, res) => {
   try {
     const input = String(req.body.input || "").trim();
@@ -3419,10 +3129,12 @@ app.post("/api/run", async (req, res) => {
       return res.status(400).json({ error: "Missing input" });
     }
 
-    const run = await createRunFromInput(input, topicOverride, xAccountLabel);
+    const run = await createRunFromInput(input, topicOverride, xAccountLabel, {
+      organizationId: getRequestOrgId(req),
+    });
 
     return res.json({
-      message: "Run completed and saved",
+      message: "Run completed && saved",
       run,
     });
   } catch (err) {
@@ -3442,10 +3154,13 @@ app.post("/dashboard/run", async (req, res) => {
     if (!input) {
       return res
         .status(400)
-        .send("<h1>Missing input</h1><p>Go back and enter build notes.</p>");
+        .send("<h1>Missing input</h1><p>Go back && enter build notes.</p>");
     }
 
-    await createRunFromInput(input, topicOverride, xAccountLabel);
+    await createRunFromInput(input, topicOverride, xAccountLabel, {
+      organizationId: getRequestOrgId(req),
+    });
+
     return res.redirect("/");
   } catch (err) {
     return res.status(500).send(`
@@ -3558,7 +3273,150 @@ app.post("/api/runs/:id/post-x", async (req, res) => {
     });
   }
 });
+// =======================
+// VA ROUTES
+// =======================
 
+app.post("/api/va/entries", requireApiUser, async (req, res) => {
+  try {
+    const title = String(req.body.title || "").trim();
+    const topic = String(req.body.topic || "").trim();
+    const source_type = String(req.body.source_type || "manual").trim();
+    const source_name = String(req.body.source_name || "").trim();
+    const source_url = String(req.body.source_url || "").trim();
+    const raw_text = String(req.body.raw_text || "").trim();
+
+    if (!title) {
+      return res.status(400).json({ error: "Missing title" });
+    }
+
+    if (!topic) {
+      return res.status(400).json({ error: "Missing topic" });
+    }
+
+    if (!raw_text) {
+      return res.status(400).json({ error: "Missing raw_text" });
+    }
+
+    const { data, error } = await supabase
+      .from("va_entries")
+      .insert([
+        {
+          title,
+          topic,
+          source_type,
+          source_name: source_name || null,
+          source_url: source_url || null,
+          raw_text,
+          summary: null,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({
+        error: "Failed to save VA entry",
+        details: error.message,
+      });
+    }
+
+    return res.json({
+      message: "VA entry saved",
+      entry: data,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message,
+    });
+  }
+});
+
+// =====================
+// HOME (TEMP DASHBOARD)
+// =====================
+
+app.get("/login", (req, res) => {
+  res.sendFile(require("path").join(__dirname, "views", "login.html"));
+});
+
+app.get("/signup", (req, res) => {
+  return res.sendFile(path.join(__dirname, "views", "signup.html"));
+});
+
+app.get("/", (req, res) => {
+  return res.redirect("/signup");
+});
+app.get("/dashboard", (req, res) => {
+  if (!isAuthenticated(req)) {
+    return res.redirect("/login");
+  }
+  return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
+});
+app.get("/api/runs", checkAuth, async (req, res) => {
+  try {
+    let query = supabase
+      .from("build_logger_runs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (req.query.status) {
+      query = query.eq("status", req.query.status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return res.status(500).json({
+        error: "Failed to fetch runs",
+        details: error.message,
+      });
+    }
+
+    return res.json({
+      runs: data || [],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message,
+    });
+  }
+});
+app.get("/api/va/entries", checkAuth, async (req, res) => {
+  try {
+    let query = supabase
+      .from("va_entries")
+      .select("*")
+      .eq("user_id", req.apiUser.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (req.query.topic) {
+      query = query.eq("topic", String(req.query.topic).trim());
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return res.status(500).json({
+        error: "Failed to load VA entries",
+        details: error.message,
+      });
+    }
+
+    return res.json({
+      entries: data || [],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message,
+    });
+  }
+});
 // =======================
 // STARTUP
 // =======================
@@ -3567,14 +3425,678 @@ ensureQueueFiles();
 ensureAccountsFile();
 
 if (ENABLE_LOCAL_CRON) {
-  cron.schedule("*/5 * * * *", () => {
-    console.log(`[cron] heartbeat ${new Date().toISOString()}`);
+  cron.schedule("*/5 * * * *", function () {
+    console.log("[cron] heartbeat " + new Date().toISOString());
   });
   console.log("Local cron enabled");
 } else {
   console.log("Local cron disabled");
 }
 
-app.listen(PORT, () => {
-  console.log(`Build Logger API running on port ${PORT}`);
+
+// ============================
+// VA ANALYZE ROUTE (FORCED)
+// ============================
+app.post("/analyze", async (req, res) => {
+  try {
+    const { input } = req.body || {};
+
+    if (!input) {
+      return res.status(400).json({ error: "Missing input" });
+    }
+
+    const raw = String(input || "");
+    const t = raw.toLowerCase();
+
+    function hasAny(words) {
+      return words.some(w => t.includes(w));
+    }
+
+    const mentionsHeadache = hasAny([
+      "headache", "headaches", "migraine", "migraines"
+    ]);
+
+    const prostrating = hasAny([
+      "lay down", "lie down", "dark room", "bedrest", "bed rest",
+      "prostrating", "prostrate", "can't function", "cannot function",
+      "have to stop", "stop working", "nausea", "vomit", "vomiting",
+      "light sensitivity", "photophobia", "sound sensitivity", "phonophobia"
+    ]);
+
+    const monthly30 = hasAny([
+      "once a month", "1 time a month", "monthly", "every month"
+    ]);
+
+    const twoMonth10 = hasAny([
+      "every 2 months", "once every 2 months", "one in 2 months"
+    ]);
+
+    const frequent50 = hasAny([
+      "daily", "multiple times a week", "several times a week",
+      "very frequent", "3 times a week", "4 times a week", "weekly"
+    ]);
+
+    const prolonged50 = hasAny([
+      "all day", "last all day", "prolonged", "hours", "for hours",
+      "lasting hours", "lasts hours"
+    ]);
+
+    const economic50 = hasAny([
+      "miss work", "missing work", "call out", "called out",
+      "leave work", "left work", "can't keep a job", "cannot keep a job",
+      "write up", "written up", "economic", "severe economic",
+      "job impact", "lost wages", "work impact"
+    ]);
+
+    let rating = 0;
+    const reasons = [];
+    const nextSteps = [];
+
+    if (!mentionsHeadache) {
+      rating = 0;
+      reasons.push("Input does not clearly describe headaches || migraines.");
+      nextSteps.push("State the exact condition being claimed.");
+      nextSteps.push("Describe frequency, duration, && functional impact.");
+    } else {
+      reasons.push("Input describes headache || migraine symptoms.");
+
+      if (prostrating) {
+        reasons.push("Text suggests prostrating-type features such as needing to lie down || isolate.");
+      } else {
+        reasons.push("Text does not clearly establish prostrating attacks yet.");
+      }
+
+      if (prostrating && frequent50 && prolonged50 && economic50) {
+        rating = 50;
+        reasons.push("Text suggests very frequent, completely prostrating, prolonged attacks with severe work/economic impact.");
+      } else if (prostrating && (monthly30 || frequent50)) {
+        rating = 30;
+        reasons.push("Text suggests characteristic prostrating attacks at least around monthly || more.");
+      } else if (prostrating && twoMonth10) {
+        rating = 10;
+        reasons.push("Text suggests prostrating attacks averaging about one in two months.");
+      } else if (prostrating) {
+        rating = 10;
+        reasons.push("Text suggests some prostrating attacks, but frequency is not documented strongly enough for 30% || 50%.");
+      } else {
+        rating = 0;
+        reasons.push("Headaches are described, but the text does not yet clearly show characteristic prostrating attacks.");
+      }
+
+      nextSteps.push("Document frequency over the last several months.");
+      nextSteps.push("State whether attacks are prostrating && require lying down in a dark room.");
+      nextSteps.push("State duration of attacks, such as hours || all day.");
+      nextSteps.push("State work impact: missed work, reduced productivity, leaving early, || severe economic effects.");
+      nextSteps.push("Upload medical notes, DBQs, migraine logs, prescriptions, && employer impact evidence.");
+    }
+
+    const result = analyzeCfr38(input);
+
+    const { error: insertError } = await supabase
+      .from("va_claims")
+      .insert({
+        user_id: null,
+        input_text: raw,
+        result_text: result
+      });
+
+    if (insertError) {
+      console.log("VA CLAIM SAVE ERROR:", insertError);
+      return res.status(500).json({
+        error: "Failed to save VA claim",
+        details: insertError.message
+      });
+    }
+
+    return res.json({ result });
+  } catch (err) {
+    console.log("VA ANALYZE ERROR:", err);
+    return res.status(500).json({
+      error: "VA analysis failed",
+      details: err.message
+    });
+  }
+});
+
+
+// =============================
+// GET VA CLAIMS
+// =============================
+app.get("/claims", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("va_claims")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      return res.status(500).json({
+        error: "Failed to fetch claims",
+        details: error.message
+      });
+    }
+
+    return res.json({ claims: data });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message
+    });
+  }
+});
+
+
+// ============================
+// ANALYZE IMAGE PAPERWORK
+// ============================
+app.post("/analyze-image", async (req, res) => {
+  try {
+    const { imagePath } = req.body || {};
+
+    if (!imagePath) {
+      return res.status(400).json({ error: "Missing imagePath" });
+    }
+
+    const escapedPath = String(imagePath).replace(/"/g, '\"');
+    const ocrText = execSync(`python ocr.py "${escapedPath}"`, {
+      encoding: "utf8"
+    });
+
+    const cleanedText = String(ocrText || "").trim();
+
+    if (!cleanedText) {
+      return res.status(400).json({
+        error: "OCR returned no text",
+        extracted_text: ""
+      });
+    }
+
+    const filteredText = cleanOcrText(cleanedText);
+
+    if (!filteredText || isGarbageOcrText(filteredText)) {
+      return garbageOcrResponse(res, filteredText || cleanedText);
+    }
+
+    const result = analyzeCfr38(filteredText);
+
+    const detectedCondition = extractFieldFromResult_local(result, "Condition");
+    const estimatedRating = extractEstimatedRating_local(result);
+    const confidenceLabel = extractFieldFromResult_local(result, "Confidence");
+    const exportSummary = buildExportSummary_local({
+      condition: detectedCondition,
+      rating: estimatedRating,
+      confidence: confidenceLabel,
+      resultText: result
+    });
+
+    const { error: insertError } = await supabase
+      .from("va_claims")
+      .insert({
+        user_id: null,
+        source_type: "image_ocr",
+        input_text: `[IMAGE OCR]`,
+        extracted_text: filteredText,
+        result_text: result,
+        detected_condition: detectedCondition,
+        estimated_rating: estimatedRating,
+        confidence_label: confidenceLabel,
+        export_summary: exportSummary
+      });
+
+    if (insertError) {
+      console.log("OCR CLAIM SAVE ERROR:", insertError);
+    }
+
+    return res.json({
+      extracted_text: filteredText,
+      result
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "OCR failed",
+      details: err.message
+    });
+  }
+});
+
+
+// ============================
+// BROWSER PAPERWORK UPLOAD
+// ============================
+
+function countRegexMatches(text, regex) {
+  const matches = String(text || "").match(regex);
+  return matches ? matches.length : 0;
+}
+
+function isGarbageOcrText(text) {
+  const t = String(text || "").toLowerCase().trim();
+
+  if (!t) {
+    return true;
+  }
+
+  const words = t.split(/\s+/).filter(Boolean);
+  const lineCount = t.split(/\n+/).filter(Boolean).length;
+  const alphaCount = countRegexMatches(t, /[a-z]/g);
+  const digitCount = countRegexMatches(t, /[0-9]/g);
+
+  const hasClaimWords = [
+    "migraine",
+    "headache",
+    "ptsd",
+    "anxiety",
+    "depression",
+    "panic",
+    "tinnitus",
+    "ringing",
+    "back pain",
+    "lumbar",
+    "knee",
+    "sleep apnea",
+    "cpap",
+    "rhinitis",
+    "sinusitis",
+    "gerd",
+    "reflux",
+    "radiculopathy",
+    "dbq",
+    "diagnosis",
+    "service",
+    "military",
+    "symptoms",
+    "medical",
+    "treatment"
+  ].some((term) => t.includes(term));
+
+  const hasUiJunk = [
+    "termux",
+    "images",
+    "screenshot_",
+    "chrome.jpg",
+    "chatgpt.jpg",
+    "payloadtoolargeerror",
+    "upgrade: pkg upgrade",
+    "report issues at",
+    "title ©",
+    "camera",
+    "downloads",
+    "pictures"
+  ].some((term) => t.includes(term));
+
+  if (hasUiJunk && !hasClaimWords) {
+    return true;
+  }
+
+  if (words.length < 6) {
+    return true;
+  }
+
+  if (alphaCount < 20) {
+    return true;
+  }
+
+  if (digitCount > alphaCount && !hasClaimWords) {
+    return true;
+  }
+
+  if (lineCount <= 2 && !hasClaimWords) {
+    return true;
+  }
+
+  return false;
+}
+
+
+function cleanOcrText(raw) {
+  if (!raw) return "";
+
+  const medicalKeywords = [
+    "headache", "migraine", "migraines", "photophobia", "light sensitivity", "dark room", "prostrating",
+    "ptsd", "mental health", "anxiety", "depression", "panic", "panic attacks", "nightmares", "hygiene",
+    "memory", "suicidal", "occupational", "social", "relationships", "sleep impairment",
+    "sleep apnea", "cpap", "bipap", "daytime hypersomnolence", "snoring",
+    "lumbar", "back pain", "thoracolumbar", "sciatica", "radiculopathy", "tingling", "numbness",
+    "knee", "instability", "locking", "flare-ups",
+    "tinnitus", "ringing", "hearing loss", "audiology",
+    "gerd", "reflux", "heartburn", "dysphagia", "regurgitation",
+    "sinusitis", "rhinitis", "polyps", "obstruction",
+    "scar", "scars", "disfigurement",
+    "diagnosis", "diagnosed", "doctor", "provider", "treatment", "therapy", "medication", "prescription",
+    "dbq", "medical", "service", "military", "deployment", "work", "misses work", "productivity",
+    "daily activities", "functional impact", "frequency", "weekly", "monthly", "per month", "times per month"
+  ];
+
+  const junkPhrases = [
+    "reddit",
+    "help guess my rating",
+    "u/",
+    "r/",
+    "chatgpt",
+    "termux",
+    "google play",
+    "app store",
+    "create account",
+    "already have account",
+    "my current courses",
+    "screenshot_",
+    "payloadtoolargeerror",
+    "report issues at",
+    "pkg upgrade",
+    "chrome.jpg",
+    "camera",
+    "downloads",
+    "pictures",
+    "comments",
+    "upvote",
+    "section iii: symptoms" // can be useful context, but usually header noise
+  ];
+
+  function looksLikeJunk(line) {
+    const lower = line.toLowerCase().trim();
+    if (!lower) return true;
+
+    if (junkPhrases.some(j => lower.includes(j))) return true;
+
+    if (/^[@#/=x><~\[\]\(\)\{\}\|\-\_\.\,\:\;'"`0-9\s%+&]+$/.test(lower) && !medicalKeywords.some(k => lower.includes(k))) {
+      return true;
+    }
+
+    if ((lower.match(/[0-9]/g) || []).length > (lower.match(/[a-z]/g) || []).length && !medicalKeywords.some(k => lower.includes(k))) {
+      return true;
+    }
+
+    if (lower.length < 3) return true;
+
+    return false;
+  }
+
+  function normalizeLine(line) {
+    return String(line || "")
+      .replace(/[^\x20-\x7E]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  let lines = String(raw || "")
+    .split(/\n+/)
+    .map(normalizeLine)
+    .filter(Boolean)
+    .filter(line => !looksLikeJunk(line));
+
+  // Prefer lines with claim-relevant content
+  let relevant = lines.filter(line => {
+    const lower = line.toLowerCase();
+    return medicalKeywords.some(k => lower.includes(k));
+  });
+
+  // If OCR split good sentences badly, keep nearby useful-looking symptom lines
+  if (relevant.length === 0) {
+    relevant = lines.filter(line => {
+      const lower = line.toLowerCase();
+      return /pain|sleep|panic|anxiety|depression|memory|work|military|service|diagnosis|treatment|headache|migraine|knee|back|ringing|cpap/i.test(lower);
+    });
+  }
+
+  // de-dup near-identical lines
+  const seen = new Set();
+  const deduped = [];
+  for (const line of relevant) {
+    const key = line.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(line);
+    }
+  }
+
+  // keep only the strongest lines
+  const finalLines = deduped
+    .filter(line => line.length >= 4)
+    .slice(0, 25);
+
+  return finalLines.join("\n").trim();
+}
+
+
+function garbageOcrResponse(res, extractedText) {
+  return res.status(400).json({
+    error: "Could not confidently extract claim-relevant medical text from this image. Please upload a clearer document or enter the condition manually.",
+    extracted_text: extractedText || ""
+  });
+
+
+function extractFieldFromResult(resultText, label) {
+  const text = String(resultText || "");
+  const regex = new RegExp(`^${label}:\\s*(.+)$`, "mi");
+  const match = text.match(regex);
+  return match ? String(match[1]).trim() : null;
+}
+
+function extractEstimatedRating(resultText) {
+  const value = extractFieldFromResult(resultText, "Estimated VA Rating");
+  if (!value) return null;
+  const match = value.match(/(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+function buildExportSummary({ condition, rating, confidence, resultText }) {
+  const parts = [];
+  if (condition) parts.push(`Condition: ${condition}`);
+  if (rating !== null && rating !== undefined) parts.push(`Estimated VA Rating: ${rating}%`);
+  if (confidence) parts.push(`Confidence: ${confidence}`);
+  parts.push("");
+  parts.push(String(resultText || "").trim());
+  return parts.join("\n");
+}
+
+}
+
+
+
+function extractFieldFromResult_local(resultText, label) {
+  const text = String(resultText || "");
+  const safeLabel = String(label || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp("^" + safeLabel + ":\\s*(.+)$", "mi");
+  const match = text.match(regex);
+  return match ? String(match[1]).trim() : null;
+}
+
+function extractEstimatedRating_local(resultText) {
+  const value = extractFieldFromResult_local(resultText, "Estimated VA Rating");
+  if (!value) return null;
+  const match = value.match(/(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+function buildExportSummary_local(payload) {
+  const condition = payload && payload.condition ? payload.condition : null;
+  const rating = payload && payload.rating !== undefined && payload.rating !== null ? payload.rating : null;
+  const confidence = payload && payload.confidence ? payload.confidence : null;
+  const resultText = payload && payload.resultText ? payload.resultText : "";
+
+  const parts = [];
+  if (condition) parts.push("Condition: " + condition);
+  if (rating !== null) parts.push("Estimated VA Rating: " + rating + "%");
+  if (confidence) parts.push("Confidence: " + confidence);
+  if (parts.length) parts.push("");
+  parts.push(String(resultText).trim());
+
+  return parts.join("\n");
+}
+
+
+app.post("/upload-paperwork-json", async (req, res) => {
+  let tempPath = null;
+
+  try {
+    const { imageBase64, filename } = req.body || {};
+
+    if (!imageBase64) {
+      return res.status(400).json({ error: "Missing imageBase64" });
+    }
+
+    const match = String(imageBase64).match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+
+    if (!match) {
+      return res.status(400).json({ error: "Invalid image payload" });
+    }
+
+    const mimeType = match[1];
+    const base64Data = match[2];
+
+    let ext = ".jpg";
+    if (mimeType.includes("png")) ext = ".png";
+    if (mimeType.includes("jpeg")) ext = ".jpg";
+    if (mimeType.includes("jpg")) ext = ".jpg";
+    if (typeof filename === "string" && filename.toLowerCase().endsWith(".png")) ext = ".png";
+
+    const uploadsDir = path.join(__dirname, "uploads");
+    fs.mkdirSync(uploadsDir, { recursive: true });
+
+    tempPath = path.join(uploadsDir, `paperwork_${Date.now()}${ext}`);
+    fs.writeFileSync(tempPath, Buffer.from(base64Data, "base64"));
+
+    const ocrText = execFileSync("python", ["ocr.py", tempPath], {
+      encoding: "utf8"
+    });
+
+    const cleanedText = String(ocrText || "").trim();
+
+    if (!cleanedText) {
+      return res.status(400).json({
+        error: "OCR returned no text",
+        extracted_text: ""
+      });
+    }
+
+    const filteredText = cleanOcrText(cleanedText);
+
+    if (!filteredText || isGarbageOcrText(filteredText)) {
+      return garbageOcrResponse(res, filteredText || cleanedText);
+    }
+
+    const result = analyzeCfr38(filteredText);
+
+    const detectedCondition = extractFieldFromResult_local(result, "Condition");
+    const estimatedRating = extractEstimatedRating_local(result);
+    const confidenceLabel = extractFieldFromResult_local(result, "Confidence");
+    const exportSummary = buildExportSummary_local({
+      condition: detectedCondition,
+      rating: estimatedRating,
+      confidence: confidenceLabel,
+      resultText: result
+    });
+
+    const { error: insertError } = await supabase
+      .from("va_claims")
+      .insert({
+        user_id: null,
+        source_type: "image_ocr",
+        input_text: `[IMAGE OCR]`,
+        extracted_text: filteredText,
+        result_text: result,
+        detected_condition: detectedCondition,
+        estimated_rating: estimatedRating,
+        confidence_label: confidenceLabel,
+        export_summary: exportSummary
+      });
+
+    if (insertError) {
+      console.log("UPLOAD OCR CLAIM SAVE ERROR:", insertError);
+    }
+
+    return res.json({
+      success: true,
+      extracted_text: filteredText,
+      result
+    });
+  } catch (err) {
+    console.log("UPLOAD PAPERWORK ERROR:", err);
+    return res.status(500).json({
+      error: "Upload analysis failed",
+      details: err.message
+    });
+  } finally {
+    try {
+      if (tempPath && fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
+      }
+    } catch (cleanupErr) {
+      console.log("UPLOAD TEMP FILE CLEANUP ERROR:", cleanupErr.message);
+    }
+  }
+});
+
+
+app.post("/signup", async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required",
+        user: null
+      });
+    }
+
+    const { data, error } = await supabaseAuth.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+        user: null
+      });
+    }
+
+    return res.json({
+      success: true,
+      error: null,
+      user: {
+        id: data?.user?.id ?? data?.session?.user?.id ?? null,
+        email: data?.user?.email ?? data?.session?.user?.email ?? null
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Server error",
+      user: null
+    });
+  }
+});
+
+
+app.post("/va/analyze", upload.single("image"), async (req, res) => {
+  try {
+    const issue = req.body?.issue || "";
+    const serviceContext = req.body?.serviceContext || "";
+    const hasImage = !!req.file;
+
+    return res.json({
+      success: true,
+      likelihood: issue || serviceContext || hasImage ? "Possible" : "Unknown",
+      summary: hasImage
+        ? "Evidence received. Initial placeholder analysis suggests the claim may need human review plus supporting service connection details."
+        : "Text received. Initial placeholder analysis suggests the claim needs supporting records, symptoms timeline, and service connection details.",
+      nextSteps: [
+        "Gather diagnosis and treatment records",
+        "Document service connection clearly",
+        "Add onset timeline and symptom severity",
+        "Prepare for human review",
+      ],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message || "VA analysis failed",
+    });
+  }
+});
+app.listen(PORT, function () {
+  console.log("Build Logger API running on port " + PORT);
 });

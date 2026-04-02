@@ -1,65 +1,26 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import { useEffect } from "react";
+import { View, Text } from "react-native";
 import { router } from "expo-router";
-import { bootstrapAuthenticatedUser } from "../lib/session-bootstrap";
+import { getSession } from "../lib/auth";
 
 export default function IndexScreen() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
-    let mounted = true;
+    async function checkAuth() {
+      const { session } = await getSession();
 
-    async function init() {
-      try {
-        const result = await bootstrapAuthenticatedUser();
-
-        if (!mounted) return;
-
-        if (!result.isAuthenticated) {
-          router.replace("/login");
-          return;
-        }
-
+      if (session) {
         router.replace("/dashboard");
-      } catch (err: any) {
-        if (!mounted) return;
-        setError(err.message ?? "Unknown error");
-      } finally {
-        if (mounted) setLoading(false);
+      } else {
+        router.replace("/login");
       }
     }
 
-    init();
-
-    return () => {
-      mounted = false;
-    };
+    checkAuth();
   }, []);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-        <Text>Loading BuildTrace...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 24,
-        }}
-      >
-        <Text style={{ color: "red" }}>Startup error: {error}</Text>
-      </View>
-    );
-  }
-
-  return null;
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <Text>Loading BuildTrace...</Text>
+    </View>
+  );
 }

@@ -1,0 +1,29 @@
+import { Alert, Button, Text, View } from "react-native";
+import { router } from "expo-router";
+import { signOutUser } from "../lib/auth";
+
+export default function DashboardScreen() {
+  async function handleLogout() {
+    try {
+      const result = await signOutUser();
+
+      if (result?.error) {
+        Alert.alert("Logout failed", result.error.message);
+        return;
+      }
+
+      router.replace("/login");
+    } catch (err: any) {
+      Alert.alert("Logout failed", err?.message || "Unknown error");
+    }
+  }
+
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <Text style={{ fontSize: 28, fontWeight: "700", marginBottom: 20 }}>
+        Dashboard
+      </Text>
+      <Button title="Log out" onPress={handleLogout} />
+    </View>
+  );
+}
