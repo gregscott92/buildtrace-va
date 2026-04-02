@@ -12,7 +12,33 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-const app = express();   // ✅ ONLY ONE TIME
+const app = express();
+
+
+/* =======================
+   CORE BROWSER ROUTES
+======================= */
+
+app.get("/", (req, res) => {
+  return res.redirect("/signup");
+});
+
+app.get("/login", (req, res) => {
+  return res.sendFile(path.join(__dirname, "views", "login.html"));
+});
+
+app.get("/signup", (req, res) => {
+  return res.sendFile(path.join(__dirname, "views", "signup.html"));
+});
+
+app.get("/dashboard", (req, res) => {
+  if (!isAuthenticated(req)) {
+    return res.redirect("/login");
+  }
+  return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
+});
+
+   // ✅ ONLY ONE TIME
 
 // ----------------------------
 // MIDDLEWARE
@@ -23,15 +49,7 @@ app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 // ----------------------------
 // ROUTES (SAFE TO USE app NOW)
 // ----------------------------
-app.get("/", (req, res) => {
-  return res.redirect("/signup");
-});
-app.get("/dashboard", (req, res) => {
-  if (!isAuthenticated(req)) {
-    return res.redirect("/login");
-  }
-  return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
-});
+
 
 const { runFivePassPipeline } = require("./lib/ai-pipeline");
 const { finalizePost, choosePersona } = require("./lib/persona");
@@ -46,12 +64,10 @@ const {
   extractSection,
 } = require("./lib/va-helpers");
 
-app.use(express.json({ limit: "20mb" }));
 app.use((req, res, next) => {
   console.log("REQ:", req.method, req.url);
   next();
 });
-app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 const PORT = process.env.PORT || 3000;
 if (!process.env.OPENAI_API_KEY) {
@@ -291,12 +307,9 @@ app.get("/ping", (req, res) => {
   return res.send("pong");
 });
 
+
 app.get("/health", (req, res) => {
   res.json({ ok: true, service: "build-logger-api" });
-});
-
-app.get("/login", (req, res) => {
-  return res.sendFile(path.join(__dirname, "views", "login.html"));
 });
 
 
@@ -322,7 +335,6 @@ app.post("/login", async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
-
 
 
 app.post("/logout", (req, res) => {
@@ -1346,7 +1358,7 @@ const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 // =======================
 // AI Q&A
 // =======================
-async function askAIAboutRuns(question, runs, metricsStore) {
+async function askAIAboutRuns(question, runs, metricsStore, options = {}) {
   const compactRuns = (runs || []).slice(0, 15).map((run) => ({
     id: run.id,
     created_at: run.created_at,
@@ -2091,122 +2103,6 @@ app.get("/api/admin/costs/health", async (req, res) => {
 // =======================
 // VA ROUTES
 // =======================
-app.post("/api/va/entries", requireApiUser, async (req, res) => {
-try {
-  const title = String(req.body.title || "").trim();
-  const topic = String(req.body.topic || "").trim();
-  const raw_text = String(req.body.raw_text || "").trim();
-
-  if (!title || !topic || !raw_text) {
-    return res.status(400).json({ error: "Missing fields" });
-  }
-
-  // ----------------------------
-  // AI ANALYSIS
-  // ----------------------------
-  const ai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const aiRes = await ai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content: "You are a VA disability expert. Estimate likelihood (low, medium, high) && possible rating (0-100%). Be concise."
-      },
-      {
-        role: "user",
-        content: `Condition: ${title}\nCategory: ${topic}\nDetails: ${raw_text}`
-      }
-    ]
-  });
-
-  const aiSummary = aiRes.choices[0].message.content;
-
-  // ----------------------------
-  // SAVE TO DB
-  // ----------------------------
-  const { data, error } = await supabase
-    .from("va_entries")
-    .insert([
-      {
-        user_id: req.apiUser.id,
-      title,
-        topic,
-        raw_text,
-        summary: aiSummary
-      }
-    ])
-    .select()
-    .single();
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  return res.json({
-    message: "VA entry saved",
-    ai_prediction: aiSummary,
-    entry: data
-  });
-
-} catch (err) {
-  return res.status(500).json({ error: err.message });
-}
-
-  try {
-    const title = String(req.body.title || "").trim();
-    const topic = String(req.body.topic || "").trim();
-    const raw_text = String(req.body.raw_text || "").trim();
-
-    if (!title || !topic || !raw_text) {
-      return res.status(400).json({ error: "Missing fields" });
-    }
-
-    const ai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    const aiRes = await ai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a VA disability expert. Estimate likelihood (low, medium, high) && possible rating (0-100%). Be concise."
-        },
-        {
-          role: "user",
-          content: `Condition: ${title}\nCategory: ${topic}\nDetails: ${raw_text}`
-        }
-      ]
-    });
-
-    const aiSummary = aiRes.choices[0].message.content;
-
-    const { data, error } = await supabase
-      .from("va_entries")
-      .insert([
-        {
-          title,
-          topic,
-          raw_text,
-          summary: aiSummary
-        }
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
-
-    return res.json({
-      message: "VA entry saved",
-      ai_prediction: aiSummary,
-      entry: data
-    });
-
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-});
 app.post("/api/va/analyze", requireApiUser, async (req, res) => {
   try {
     const { entry_id } = req.body;
@@ -2435,7 +2331,7 @@ app.post("/api/ai/ask", async (req, res) => {
 const answer = await askAIAboutRuns(
   question,
   runsWithAccounts,
-  metricsStore,
+  compactMetricsStore,
   {
     organizationId: getRequestOrgId(req),
   }
@@ -2878,32 +2774,6 @@ async function deleteRun(id) {
   }
 });
 
-app.get("/", async (req, res) => {
-  try {
-    let query = supabase
-      .from("build_logger_runs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(24);
-
-    const { data: rawRuns, error } = await query;
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return res.json({
-      message: "Dashboard loaded",
-      runs: rawRuns || []
-    });
-
-  } catch (err) {
-    return res.status(500).json({
-      error: "Dashboard failed",
-      details: err.message
-    });
-  }
-});
 
 app.get("/api/runs", async (req, res) => {
   try {
@@ -3256,115 +3126,8 @@ app.post("/api/runs/:id/post-x", async (req, res) => {
 // VA ROUTES
 // =======================
 
-app.post("/api/va/entries", requireApiUser, async (req, res) => {
-  try {
-    const title = String(req.body.title || "").trim();
-    const topic = String(req.body.topic || "").trim();
-    const source_type = String(req.body.source_type || "manual").trim();
-    const source_name = String(req.body.source_name || "").trim();
-    const source_url = String(req.body.source_url || "").trim();
-    const raw_text = String(req.body.raw_text || "").trim();
 
-    if (!title) {
-      return res.status(400).json({ error: "Missing title" });
-    }
-
-    if (!topic) {
-      return res.status(400).json({ error: "Missing topic" });
-    }
-
-    if (!raw_text) {
-      return res.status(400).json({ error: "Missing raw_text" });
-    }
-
-    const { data, error } = await supabase
-      .from("va_entries")
-      .insert([
-        {
-          title,
-          topic,
-          source_type,
-          source_name: source_name || null,
-          source_url: source_url || null,
-          raw_text,
-          summary: null,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(500).json({
-        error: "Failed to save VA entry",
-        details: error.message,
-      });
-    }
-
-    return res.json({
-      message: "VA entry saved",
-      entry: data,
-    });
-  } catch (err) {
-    return res.status(500).json({
-      error: "Server error",
-      details: err.message,
-    });
-  }
-});
-
-// =====================
-// HOME (TEMP DASHBOARD)
-// =====================
-
-app.get("/login", (req, res) => {
-  res.sendFile(require("path").join(__dirname, "views", "login.html"));
-});
-
-app.get("/signup", (req, res) => {
-  return res.sendFile(path.join(__dirname, "views", "signup.html"));
-});
-
-app.get("/", (req, res) => {
-  return res.redirect("/signup");
-});
-app.get("/dashboard", (req, res) => {
-  if (!isAuthenticated(req)) {
-    return res.redirect("/login");
-  }
-  return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
-});
-app.get("/api/runs", checkAuth, async (req, res) => {
-  try {
-    let query = supabase
-      .from("build_logger_runs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (req.query.status) {
-      query = query.eq("status", req.query.status);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      return res.status(500).json({
-        error: "Failed to fetch runs",
-        details: error.message,
-      });
-    }
-
-    return res.json({
-      runs: data || [],
-    });
-  } catch (err) {
-    return res.status(500).json({
-      error: "Server error",
-      details: err.message,
-    });
-  }
-});
-app.get("/api/va/entries", checkAuth, async (req, res) => {
+app.get("/api/va/entries", requireApiUser, async (req, res) => {
   try {
     let query = supabase
       .from("va_entries")
@@ -3396,6 +3159,64 @@ app.get("/api/va/entries", checkAuth, async (req, res) => {
     });
   }
 });
+
+app.post("/api/va/entries", requireApiUser, async (req, res) => {
+  try {
+    const title = String(req.body.title || "").trim();
+    const topic = String(req.body.topic || "").trim();
+    const source_type = String(req.body.source_type || "manual").trim();
+    const source_name = String(req.body.source_name || "").trim();
+    const source_url = String(req.body.source_url || "").trim();
+    const raw_text = String(req.body.raw_text || "").trim();
+
+    if (!title) {
+      return res.status(400).json({ error: "Missing title" });
+    }
+
+    if (!topic) {
+      return res.status(400).json({ error: "Missing topic" });
+    }
+
+    if (!raw_text) {
+      return res.status(400).json({ error: "Missing raw_text" });
+    }
+
+    const { data, error } = await supabase
+      .from("va_entries")
+      .insert([
+        {
+          user_id: req.apiUser.id,
+          title,
+          topic,
+          source_type,
+          source_name: source_name || null,
+          source_url: source_url || null,
+          raw_text,
+          summary: null,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({
+        error: "Failed to save VA entry",
+        details: error.message,
+      });
+    }
+
+    return res.json({
+      message: "VA entry saved",
+      entry: data,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message,
+    });
+  }
+});
+
 // =======================
 // STARTUP
 // =======================
@@ -3843,34 +3664,7 @@ function garbageOcrResponse(res, extractedText) {
     error: "Could not confidently extract claim-relevant medical text from this image. Please upload a clearer document or enter the condition manually.",
     extracted_text: extractedText || ""
   });
-
-
-function extractFieldFromResult(resultText, label) {
-  const text = String(resultText || "");
-  const regex = new RegExp(`^${label}:\\s*(.+)$`, "mi");
-  const match = text.match(regex);
-  return match ? String(match[1]).trim() : null;
 }
-
-function extractEstimatedRating(resultText) {
-  const value = extractFieldFromResult(resultText, "Estimated VA Rating");
-  if (!value) return null;
-  const match = value.match(/(\d+)/);
-  return match ? Number(match[1]) : null;
-}
-
-function buildExportSummary({ condition, rating, confidence, resultText }) {
-  const parts = [];
-  if (condition) parts.push(`Condition: ${condition}`);
-  if (rating !== null && rating !== undefined) parts.push(`Estimated VA Rating: ${rating}%`);
-  if (confidence) parts.push(`Confidence: ${confidence}`);
-  parts.push("");
-  parts.push(String(resultText || "").trim());
-  return parts.join("\n");
-}
-
-}
-
 
 function extractFieldFromResult_local(resultText, label) {
   const text = String(resultText || "");
