@@ -4093,8 +4093,9 @@ app.post("/va/analyze", upload.single("image"), async (req, res) => {
       hasImage ? "User uploaded VA evidence image." : ""
     ]
       .filter(Boolean)
-      .join("\n\n");
-
+      .join("
+")
+")");
 
     if (!input.trim()) {
       return res.status(400).json({

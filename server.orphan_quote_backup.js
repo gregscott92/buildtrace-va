@@ -4095,6 +4095,7 @@ app.post("/va/analyze", upload.single("image"), async (req, res) => {
       .filter(Boolean)
       .join("\n\n");
 
+");
 
     if (!input.trim()) {
       return res.status(400).json({
