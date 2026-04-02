@@ -4057,32 +4057,6 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-
-app.post("/va/analyze", upload.single("image"), async (req, res) => {
-  try {
-    const issue = req.body?.issue || "";
-    const serviceContext = req.body?.serviceContext || "";
-    const hasImage = !!req.file;
-
-    return res.json({
-      success: true,
-      likelihood: issue || serviceContext || hasImage ? "Possible" : "Unknown",
-      summary: hasImage
-        ? "Evidence received. Initial placeholder analysis suggests the claim may need human review plus supporting service connection details."
-        : "Text received. Initial placeholder analysis suggests the claim needs supporting records, symptoms timeline, and service connection details.",
-      nextSteps: [
-        "Gather diagnosis and treatment records",
-        "Document service connection clearly",
-        "Add onset timeline and symptom severity",
-        "Prepare for human review",
-      ],
-    });
-  } catch (err) {
-    return res.status(500).json({
-      error: err.message || "VA analysis failed",
-    });
-  }
-});
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
 });
