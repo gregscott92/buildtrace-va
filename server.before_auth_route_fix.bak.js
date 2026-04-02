@@ -292,14 +292,21 @@ app.get("/login", (req, res) => {
 
 app.post("/login", async (req, res) => {
   try {
+    console.log("LOGIN HIT");
+    console.log("LOGIN BODY:", req.body);
+
     const { email, password } = req.body || {};
 
     if (!email || !password) {
       return res.status(400).json({
-        success: false,
-        error: "Email and password are required",
-        user: null,
-        session: null,
+        error: "Missing email or password",
+        received: req.body || null
+      });
+    }
+
+    if (!supabaseAuth) {
+      return res.status(500).json({
+        error: "SUPABASE_ANON_KEY is missing on the server"
       });
     }
 
@@ -308,28 +315,28 @@ app.post("/login", async (req, res) => {
       password,
     });
 
+    console.log("SUPABASE LOGIN:", {
+      hasData: !!data,
+      error: error ? error.message : null
+    });
+
     if (error) {
       return res.status(400).json({
-        success: false,
-        error: error.message,
-        user: null,
-        session: null,
+        error: error.message
       });
     }
 
+    setAuthCookie(res);
+
     return res.json({
       success: true,
-      error: null,
-      user: data?.user ?? data?.session?.user ?? null,
-      session: data?.session ?? null,
+      session: data.session,
+      user: data.user,
     });
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("LOGIN CRASH:", err);
     return res.status(500).json({
-      success: false,
-      error: err.message || "Server error",
-      user: null,
-      session: null,
+      error: err.message
     });
   }
 });
@@ -4019,14 +4026,21 @@ app.post("/upload-paperwork-json", async (req, res) => {
 
 app.post("/signup", async (req, res) => {
   try {
+    console.log("SIGNUP HIT");
+    console.log("SIGNUP BODY:", req.body);
+
     const { email, password } = req.body || {};
 
     if (!email || !password) {
       return res.status(400).json({
-        success: false,
-        error: "Email and password are required",
-        user: null,
-        session: null,
+        error: "Missing email or password",
+        received: req.body || null
+      });
+    }
+
+    if (!supabaseAuth) {
+      return res.status(500).json({
+        error: "SUPABASE_ANON_KEY is missing on the server"
       });
     }
 
@@ -4035,28 +4049,25 @@ app.post("/signup", async (req, res) => {
       password,
     });
 
+    console.log("SUPABASE SIGNUP:", {
+      hasData: !!data,
+      error: error ? error.message : null
+    });
+
     if (error) {
       return res.status(400).json({
-        success: false,
-        error: error.message,
-        user: null,
-        session: null,
+        error: error.message
       });
     }
 
     return res.json({
       success: true,
-      error: null,
-      user: data?.user ?? data?.session?.user ?? null,
-      session: data?.session ?? null,
+      data
     });
   } catch (err) {
-    console.error("Signup error:", err);
+    console.error("SIGNUP CRASH:", err);
     return res.status(500).json({
-      success: false,
-      error: err.message || "Server error",
-      user: null,
-      session: null,
+      error: err.message
     });
   }
 });
