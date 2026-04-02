@@ -284,33 +284,51 @@ app.get("/login", (req, res) => {
 
 app.post("/login", async (req, res) => {
   try {
+    console.log("LOGIN HIT");
+    console.log("LOGIN BODY:", req.body);
+
     const { email, password } = req.body || {};
 
-    console.log("LOGIN HIT:", { email, hasPassword: !!password });
-
     if (!email || !password) {
-      return res.status(400).json({ error: "Missing email || password" });
+      return res.status(400).json({
+        error: "Missing email or password",
+        received: req.body || null
+      });
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    if (!supabaseAuth) {
+      return res.status(500).json({
+        error: "SUPABASE_ANON_KEY is missing on the server"
+      });
+    }
+
+    const { data, error } = await supabaseAuth.auth.signInWithPassword({
       email,
       password,
     });
 
-    console.log("LOGIN RESULT:", { data, error });
+    console.log("SUPABASE LOGIN:", {
+      hasData: !!data,
+      error: error ? error.message : null
+    });
 
     if (error) {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({
+        error: error.message
+      });
     }
 
     setAuthCookie(res);
 
-    return res.json({ success: true });
+    return res.json({
+      success: true,
+      session: data.session,
+      user: data.user,
+    });
   } catch (err) {
-    console.log("LOGIN CRASH:", err);
+    console.error("LOGIN CRASH:", err);
     return res.status(500).json({
-      error: "Login server error",
-      details: err.message
+      error: err.message
     });
   }
 });
@@ -3994,6 +4012,55 @@ app.post("/upload-paperwork-json", async (req, res) => {
     } catch (cleanupErr) {
       console.log("UPLOAD TEMP FILE CLEANUP ERROR:", cleanupErr.message);
     }
+  }
+});
+
+
+app.post("/signup", async (req, res) => {
+  try {
+    console.log("SIGNUP HIT");
+    console.log("SIGNUP BODY:", req.body);
+
+    const { email, password } = req.body || {};
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: "Missing email or password",
+        received: req.body || null
+      });
+    }
+
+    if (!supabaseAuth) {
+      return res.status(500).json({
+        error: "SUPABASE_ANON_KEY is missing on the server"
+      });
+    }
+
+    const { data, error } = await supabaseAuth.auth.signUp({
+      email,
+      password,
+    });
+
+    console.log("SUPABASE SIGNUP:", {
+      hasData: !!data,
+      error: error ? error.message : null
+    });
+
+    if (error) {
+      return res.status(400).json({
+        error: error.message
+      });
+    }
+
+    return res.json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    console.error("SIGNUP CRASH:", err);
+    return res.status(500).json({
+      error: err.message
+    });
   }
 });
 
