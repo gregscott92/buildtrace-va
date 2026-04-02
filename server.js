@@ -1,4 +1,8 @@
 const { analyzeCfr38 } = require("./lib/cfr38-engine");
+
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
+
 require("dotenv").config();
 
 const express = require("express");
