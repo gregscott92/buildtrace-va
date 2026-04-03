@@ -3813,6 +3813,9 @@ app.post("/analyze", async (req, res) => {
 // GET VA CLAIMS
 // =============================
 app.get("/claims", async (req, res) => {
+  console.log("OPENAI KEY EXISTS:", !!process.env.OPENAI_API_KEY);
+  console.log("OPENAI KEY LENGTH:", process.env.OPENAI_API_KEY?.length);
+
   try {
     const { data, error } = await supabase
       .from("va_claims")
