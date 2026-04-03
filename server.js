@@ -49,6 +49,10 @@ app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 app.get("/", (req, res) => {
   return res.redirect("/signup");
 });
+app.get("/va", (req, res) => {
+  return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
+});
+
 app.get("/dashboard", (req, res) => {
   if (!isAuthenticated(req)) {
     return res.redirect("/login");
