@@ -212,7 +212,7 @@
 
     <img id="preview" class="preview" alt="Preview" />
 
-    <button id="analyzeBtn" onclick="handleAnalyze()" class="btn btn-green" type="button">Analyze Claim</button>
+    <button id="analyzeBtn" class="btn btn-green" type="button">Analyze Claim</button>
 
     <div id="loading" class="loading" style="display:none;">Analyzing...</div>
 
@@ -384,9 +384,7 @@ async function getAccessToken() {
   el.innerText = "Loading...";
 
   try {
-    console.log("DEBUG before token");
     const token = await getAccessToken();
-    console.log("DEBUG token exists:", !!token, "len:", token ? token.length : 0);
 
     if (!token) {
       el.innerText = "Login required to load your saved claims.";
@@ -395,7 +393,7 @@ async function getAccessToken() {
 
     const res = await fetch("/claims", {
       headers: {
-        // Authorization removed for debug
+        Authorization: "Bearer " + token
       }
     });
 
@@ -432,8 +430,6 @@ async function getAccessToken() {
       `;
     }).join("");
   } catch (err) {
-    alert("A_ERR " + (err?.message || err));
-    console.log("DEBUG handleAnalyze catch:", err?.message || err);
     el.innerText = err.message || "Error loading claims";
   }
 }
@@ -475,28 +471,18 @@ async function getAccessToken() {
     }
 
     async function handleAnalyze() {
-  alert("A1 handleAnalyze started");
-  const issue = String(document.getElementById("issue")?.value || "").trim();
-  console.log("DEBUG issue ok");
-  const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
-  console.log("DEBUG serviceContext ok");
+  const issue = String(document.getElementById("issue").value || "").trim();
+  const serviceContext = String(document.getElementById("serviceContext").value || "").trim();
   const resultMount = document.getElementById("resultMount");
-  console.log("DEBUG resultMount:", !!resultMount);
   const loading = document.getElementById("loading");
-  console.log("DEBUG loading:", !!loading);
   const analyzeBtn = document.getElementById("analyzeBtn");
-  console.log("DEBUG analyzeBtn:", !!analyzeBtn);
 
-  alert("A2 resultMount check");
   if (!resultMount) {
     alert("Result mount not found");
     return;
   }
 
-  alert("A3 input check");
   if (!issue && !serviceContext && !uploadedImageDataUrl) {
-    console.log("DEBUG rendering result");
-    alert("A8 rendering result");
     resultMount.innerHTML = `
       <div class="card">
         <div class="section-title">Result</div>
@@ -515,29 +501,27 @@ async function getAccessToken() {
 
     resultMount.innerHTML = "";
 
-    // TEMP: bypass auth
-    const token = null;
+    const token = await getAccessToken();
 
-    alert("A4 building payload");
+    if (!token) {
+      throw new Error("Login required");
+    }
+
     const payload = {
       issue,
       serviceContext,
       normalizedImageBase64: uploadedImageDataUrl || ""
     };
 
-    console.log("DEBUG before fetch /va/analyze-base64");
-    alert("A5 before fetch");
     const response = await fetch("/va/analyze-base64", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // Authorization removed for debug
+        Authorization: "Bearer " + token
       },
       body: JSON.stringify(payload)
     });
 
-    console.log("DEBUG after fetch");
-    alert("A6 after fetch");
     let data = null;
     try {
       data = await response.json();
@@ -545,7 +529,6 @@ async function getAccessToken() {
       throw new Error("Server returned non-JSON response");
     }
 
-    alert("A7 parsed response");
     if (!response.ok) {
       throw new Error(data?.details || data?.error || "Analysis failed");
     }
