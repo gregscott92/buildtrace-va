@@ -9,15 +9,34 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   async function handleLogin() {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const { data, error } = await signInWithEmail(email.trim(), password);
+    const { data, error } = await signInWithEmail(email.trim(), password);
 
-      if (error) {
-        Alert.alert("Login failed", error.message);
-        return;
+    if (error) {
+      Alert.alert("Login failed", error.message);
+      return;
     }
+
+    if (data?.user) {
+      try {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      } catch {}
+    }
+
+    if (data?.session || data?.user) {
+      router.replace("/va");
+      return;
+    }
+
+    Alert.alert("Login failed", "No session returned.");
+  } catch (err: any) {
+    Alert.alert("Login failed", err?.message || "Unknown error");
+  } finally {
+    setLoading(false);
+  }
+}
 
     localStorage.setItem("user", JSON.stringify(data.user));
       }
