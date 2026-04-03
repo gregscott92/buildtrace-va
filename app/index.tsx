@@ -15,7 +15,7 @@ export default function IndexScreen() {
       if (!mounted) return;
 
       if (session) {
-        router.replace("/dashboard");
+        router.replace("/va");
       } else {
         router.replace("/login");
       }
@@ -27,7 +27,7 @@ export default function IndexScreen() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        router.replace("/dashboard");
+        router.replace("/va");
       } else {
         router.replace("/login");
       }
