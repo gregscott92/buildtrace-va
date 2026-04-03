@@ -330,7 +330,7 @@
     async function loadClaims() {
   try {
     const el = document.getElementById("claimsList");
-    el.innerText = "Loading...";
+    el.innerText = "CLAIMS SCRIPT RAN";
 
     const res = await fetch("/claims");
     const data = await res.json();
