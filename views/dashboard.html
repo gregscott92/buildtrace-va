@@ -204,7 +204,7 @@ async function loadClaims() {
 loadClaims();
 
     async function runVAAnalysis() {
-  const inputEl = document.getElementById("vaInput");
+  const inputEl = document.querySelector("#vaInput");
   const resultEl = document.getElementById("vaResult");
 
   if (!inputEl || !resultEl) {
@@ -336,7 +336,7 @@ function extractLineValue(resultText, label) {
   }
 
   async function safeRunVAAnalysis() {
-    const inputEl = document.getElementById("vaInput");
+    const inputEl = document.querySelector("#vaInput");
     const resultEl = document.getElementById("vaResult");
     const btn = document.getElementById("analyzeBtn");
 
