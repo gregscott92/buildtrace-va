@@ -4664,6 +4664,16 @@ const structured = {
 });
 
 
+
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, "public")));
+
+
+// Frontend catch-all route
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
 });
