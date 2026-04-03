@@ -3815,6 +3815,9 @@ app.post("/analyze", async (req, res) => {
 app.get("/claims", async (req, res) => {
   console.log("OPENAI KEY EXISTS:", !!process.env.OPENAI_API_KEY);
   console.log("OPENAI KEY LENGTH:", process.env.OPENAI_API_KEY?.length);
+  console.log("SUPABASE URL EXISTS:", !!process.env.SUPABASE_URL);
+  console.log("SUPABASE SERVICE ROLE KEY EXISTS:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+  console.log("SUPABASE SERVICE ROLE KEY LENGTH:", process.env.SUPABASE_SERVICE_ROLE_KEY?.length);
 
   try {
     const { data, error } = await supabase
