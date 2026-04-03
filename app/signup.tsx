@@ -17,6 +17,9 @@ export default function SignupScreen() {
       if (error) {
         Alert.alert("Signup failed", error.message);
         return;
+    }
+
+    localStorage.setItem("user", JSON.stringify(data.user));
       }
 
       if (data?.session) {
@@ -26,7 +29,7 @@ export default function SignupScreen() {
 
       if (data?.user) {
         Alert.alert("Success", "Account created. You can now log in.");
-        router.replace("/login");
+        router.replace("/va");
         return;
       }
 

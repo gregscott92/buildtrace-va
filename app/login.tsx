@@ -17,6 +17,9 @@ export default function LoginScreen() {
       if (error) {
         Alert.alert("Login failed", error.message);
         return;
+    }
+
+    localStorage.setItem("user", JSON.stringify(data.user));
       }
 
       if (data?.session) {
