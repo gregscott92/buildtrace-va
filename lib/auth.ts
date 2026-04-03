@@ -1,12 +1,27 @@
 import { supabase } from "./supabase";
 
 export async function signUpWithEmail(email: string, password: string) {
-  const { data, error } = await supabase.auth.signUp({
+  const signup = await supabase.auth.signUp({
     email,
     password,
   });
 
-  return { data, error };
+  if (signup.error) {
+    return signup;
+  }
+
+  // Force a real session immediately after signup
+  const signin = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (signin.error) {
+    // fall back to signup response if signin does not return a session
+    return signup;
+  }
+
+  return signin;
 }
 
 export async function signInWithEmail(email: string, password: string) {

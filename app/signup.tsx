@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Alert, Button, Text, TextInput, View } from "react-native";
-import { router } from "expo-router";
 import { signUpWithEmail } from "../lib/auth";
 
 export default function SignupScreen() {
@@ -26,7 +25,7 @@ export default function SignupScreen() {
       }
 
       if (data?.session || data?.user) {
-        router.replace("/va");
+        window.location.href = "/va";
         return;
       }
 
