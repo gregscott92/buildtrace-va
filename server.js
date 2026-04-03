@@ -4584,9 +4584,6 @@ app.use(express.static(path.join(__dirname, "public")));
 
 
 // Frontend catch-all route
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
 
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
