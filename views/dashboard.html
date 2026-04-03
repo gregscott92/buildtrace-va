@@ -329,39 +329,46 @@
 
     async function loadClaims() {
   try {
+    const el = document.getElementById("claimsList");
+    el.innerText = "Loading...";
+
     const res = await fetch("/claims");
     const data = await res.json();
 
-    const el = document.getElementById("claimsList");
+    console.log("CLAIMS RESPONSE:", data);
 
     if (!res.ok) {
       el.innerText = data.details || data.error || "Failed to load claims";
       return;
     }
 
-    const claims = data.claims || [];
+    const claims = Array.isArray(data.claims) ? data.claims : [];
 
     if (!claims.length) {
       el.innerText = "No saved claims yet.";
       return;
     }
 
-    el.innerHTML = claims
-      .map(c => {
-        return `
-          <div style="margin-bottom:15px;padding:10px;border:1px solid #333;border-radius:8px;">
-            <div><strong>Condition:</strong> ${c.detected_condition || "N/A"}</div>
-            <div><strong>Rating:</strong> ${c.estimated_rating || "N/A"}%</div>
-            <div><strong>Confidence:</strong> ${c.confidence_label || "N/A"}</div>
-            <div style="font-size:12px;color:#aaa;margin-top:5px;">
-              ${new Date(c.created_at).toLocaleString()}
-            </div>
+    el.innerHTML = claims.map(c => {
+      const condition = c.detected_condition || c.condition || "N/A";
+      const rating = c.estimated_rating ?? "N/A";
+      const confidence = c.confidence_label || c.confidence || "N/A";
+      const date = c.created_at ? new Date(c.created_at).toLocaleString() : "";
+
+      return `
+        <div style="margin-bottom:15px;padding:10px;border:1px solid #333;border-radius:8px;">
+          <div><strong>Condition:</strong> ${condition}</div>
+          <div><strong>Rating:</strong> ${rating}%</div>
+          <div><strong>Confidence:</strong> ${confidence}</div>
+          <div style="font-size:12px;color:#aaa;margin-top:5px;">
+            ${date}
           </div>
-        `;
-      })
-      .join("");
+        </div>
+      `;
+    }).join("");
 
   } catch (err) {
+    console.error("LOAD CLAIMS ERROR:", err);
     document.getElementById("claimsList").innerText =
       err.message || "Error loading claims";
   }
