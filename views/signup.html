@@ -1,108 +1,127 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Create Account</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BuildTrace VA Signup</title>
   <style>
     body {
-      background: #0b0f19;
-      color: #fff;
-      font-family: Arial, sans-serif;
       margin: 0;
-      min-height: 100vh;
+      background: #020817;
+      color: white;
+      font-family: Arial, sans-serif;
     }
     .wrap {
-      max-width: 640px;
+      max-width: 420px;
       margin: 0 auto;
       padding: 48px 24px;
     }
     h1 {
-      font-size: 64px;
-      line-height: 1.05;
-      margin: 24px 0 32px;
+      font-size: 72px;
+      line-height: 0.95;
+      margin: 24px 0 48px;
       font-weight: 800;
     }
-    .msg {
-      color: #ff4d4f;
-      min-height: 28px;
-      font-size: 18px;
-      margin-bottom: 12px;
-    }
-    input {
+    input, button {
       width: 100%;
       box-sizing: border-box;
-      padding: 18px;
-      margin-bottom: 14px;
       border-radius: 0;
-      border: none;
-      font-size: 20px;
+      border: 0;
+      margin-bottom: 24px;
+      font-size: 24px;
+      padding: 22px 28px;
+    }
+    input {
+      background: #e5e5e5;
+      color: #111827;
     }
     button {
-      width: 100%;
-      padding: 18px;
-      margin-top: 8px;
-      font-size: 20px;
-      border: none;
+      background: #e5e5e5;
+      color: #111827;
       cursor: pointer;
     }
-    .linkrow {
-      margin-top: 24px;
-      font-size: 18px;
+    .row {
+      font-size: 20px;
     }
     a {
-      color: #7c4dff;
+      color: #8b5cf6;
+    }
+    #msg {
+      min-height: 28px;
+      color: #fca5a5;
+      margin-top: 8px;
+      font-size: 18px;
+      white-space: pre-wrap;
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Create Account</h1>
+    <h1>BuildTrace<br>VA Signup</h1>
 
-    <div id="msg" class="msg"></div>
+    <input id="email" type="email" placeholder="Email" />
+    <input id="password" type="password" placeholder="Password" />
+    <button id="signupBtn">Create Account</button>
 
-    <form id="signupForm">
-      <input id="email" type="email" placeholder="Email" required />
-      <input id="password" type="password" placeholder="Password" required />
-      <button type="submit">Signup</button>
-    </form>
-
-    <div class="linkrow">
-      Already have account? <a href="/login">Login</a>
-    </div>
+    <div class="row">Already have account? <a href="/login">Login</a></div>
+    <div id="msg"></div>
   </div>
 
   <script>
-    const form = document.getElementById("signupForm");
-    const msg = document.getElementById("msg");
+    const emailEl = document.getElementById("email");
+    const passwordEl = document.getElementById("password");
+    const signupBtn = document.getElementById("signupBtn");
+    const msgEl = document.getElementById("msg");
 
-    form.addEventListener("submit", async function (e) {
-      e.preventDefault();
+    async function handleSignup() {
+      const email = String(emailEl.value || "").trim();
+      const password = String(passwordEl.value || "");
 
-      msg.innerText = "";
+      if (!email || !password) {
+        msgEl.innerText = "Enter email and password";
+        return;
+      }
 
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
+      signupBtn.disabled = true;
+      signupBtn.innerText = "Creating...";
+      msgEl.innerText = "";
 
       try {
         const res = await fetch("/signup", {
-        credentials: "same-origin",
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password })
         });
 
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json();
 
         if (!res.ok || !data.success) {
-          msg.innerText = data.error || data.details || data.message || "Signup failed";
+          msgEl.innerText = data.error || "Signup failed";
           return;
         }
 
-        window.location.href = "/login";
+        try {
+          localStorage.setItem("user", JSON.stringify(data.user || {}));
+          if (data.user && data.user.email) {
+            localStorage.setItem("userEmail", data.user.email);
+          }
+        } catch {}
+
+        window.location.href = "/dashboard";
       } catch (err) {
-        msg.innerText = err.message || "Signup failed";
+        msgEl.innerText = err.message || "Network error";
+      } finally {
+        signupBtn.disabled = false;
+        signupBtn.innerText = "Create Account";
       }
+    }
+
+    signupBtn.addEventListener("click", handleSignup);
+    passwordEl.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") handleSignup();
+    });
+    emailEl.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") handleSignup();
     });
   </script>
 </body>
