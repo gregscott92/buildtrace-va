@@ -204,164 +204,84 @@ async function loadClaims() {
 loadClaims();
 
     async function runVAAnalysis() {
-      const inputEl = document.getElementById("va-input");
-      const resultEl = document.getElementById("va-result");
+  const inputEl = document.getElementById("vaInput");
+  const resultEl = document.getElementById("vaResult");
 
-      if (!inputEl || !resultEl) {
-        alert("VA analyzer UI not found");
-        return;
-      }
-
-      const input = String(inputEl.value || "").trim();
-
-      if (!input) {
-        alert("Enter something first");
-        return;
-      }
-
-      resultEl.innerText = "Analyzing...";
-
-      try {
-        const res = await fetch("/analyze", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ input })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          resultEl.innerText = data.details || data.error || "Failed to analyze";
-          return;
-        }
-
-        resultEl.innerText = data.summary || JSON.stringify(data, null, 2);
-      } catch (err) {
-        resultEl.innerText = err.message || "Network error";
-      }
-    }
-
-
-</script>
-
-
-
-
-
-<script>
-(function () {
-  function getFileInput() {
-    return document.querySelector('input[type="file"]');
+  if (!inputEl || !resultEl) {
+    alert("Top VA analyzer UI not found");
+    return;
   }
 
-  function getUploadButton() {
-    return Array.from(document.querySelectorAll("button")).find(
-      (btn) => (btn.textContent || "").trim().toLowerCase().includes("upload paperwork")
-    );
+  const input = String(inputEl.value || "").trim();
+
+  if (!input) {
+    resultEl.innerText = "Enter your condition details first.";
+    return;
   }
 
-  function getResultEl() {
-    return (
-      document.getElementById("vaResult") ||
-      document.querySelector("[data-va-result]") ||
-      Array.from(document.querySelectorAll("div, pre, p")).find(
-        (el) => (el.textContent || "").trim() === "No analysis yet"
-      )
-    );
-  }
+  resultEl.innerText = "Analyzing...";
 
-  function setResult(message) {
-    const el = getResultEl();
-    if (el) el.innerText = message;
-  }
-
-  function fileToDataUrl(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+  try {
+    const res = await fetch("/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ input })
     });
-  }
 
-  async function uploadPaperworkNow() {
-    const fileInput = getFileInput();
-    const uploadBtn = getUploadButton();
-
-    if (!fileInput || !fileInput.files || !fileInput.files[0]) {
-      setResult("Choose a file first");
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (jsonErr) {
+      resultEl.innerText = "Server returned non-JSON response.";
       return;
     }
 
-    const file = fileInput.files[0];
-
-    try {
-      if (uploadBtn) {
-        uploadBtn.disabled = true;
-        uploadBtn.innerText = "Uploading...";
-      }
-
-      setResult("Uploading and analyzing paperwork...");
-
-      const imageBase64 = await fileToDataUrl(file);
-
-      const res = await fetch("/upload-paperwork-json", {
-        credentials: "same-origin",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          filename: file.name,
-          imageBase64: imageBase64
-        })
-      });
-
-      const raw = await res.text();
-      let data = {};
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch (_) {
-        setResult("Server returned non-JSON:\n\n" + raw);
-        return;
-      }
-
-      if (!res.ok) {
-        setResult(data.error || data.details || "Upload failed");
-        return;
-      }
-
-      setResult(data.result || "Upload complete");
-
-      if (typeof loadClaims === "function") {
-        try { loadClaims(); } catch (_) {}
-      }
-    } catch (err) {
-      setResult(err.message || "Upload failed");
-    } finally {
-      if (uploadBtn) {
-        uploadBtn.disabled = false;
-        uploadBtn.innerText = "Upload Paperwork";
-      }
+    if (!res.ok) {
+      resultEl.innerText =
+        (data && (data.details || data.error)) ||
+        ("Analyze failed with status " + res.status);
+      return;
     }
+
+    if (data.parsed) {
+      resultEl.innerText =
+        "Condition: " + (data.parsed.condition || "N/A") + "
+
+" +
+        "Diagnostic Code: " + (data.parsed.diagnosticCode || "N/A") + "
+
+" +
+        "Estimated Rating: " + (data.parsed.estimatedRating || "N/A") + "
+
+" +
+        "Confidence: " + (data.parsed.confidence || "N/A") + "
+
+" +
+        "Reasoning:
+" + (data.parsed.reasoning || "N/A") + "
+
+" +
+        "Evidence Still Needed:
+" + (data.parsed.evidenceNeeded || "N/A") + "
+
+" +
+        "Next Steps:
+" + (data.parsed.nextSteps || "N/A") + "
+
+" +
+        "Important:
+" + (data.parsed.important || "N/A");
+      return;
+    }
+
+    resultEl.innerText =
+      (data && (data.summary || data.result || data.message)) ||
+      "No analysis returned.";
+  } catch (err) {
+    resultEl.innerText = err.message || "Network error";
   }
-
-  window.addEventListener("load", function () {
-    const uploadBtn = getUploadButton();
-    if (!uploadBtn) return;
-
-    const replacement = uploadBtn.cloneNode(true);
-    uploadBtn.parentNode.replaceChild(replacement, uploadBtn);
-
-    replacement.type = "button";
-    replacement.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      uploadPaperworkNow();
-    });
-  });
 })();
 </script>
 
