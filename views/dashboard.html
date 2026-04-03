@@ -300,5 +300,120 @@ function extractLineValue(resultText, label) {
 
 
   
+
+<script>
+(function () {
+  async function safeLoadClaims() {
+    const claimsEl = document.getElementById("claimsList");
+    if (!claimsEl) return;
+
+    try {
+      const res = await fetch("/claims", { cache: "no-store" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        claimsEl.innerText = (data && (data.details || data.error)) || "Failed to load claims";
+        return;
+      }
+
+      const claims = Array.isArray(data.claims) ? data.claims : [];
+      if (!claims.length) {
+        claimsEl.innerText = "No claims yet.";
+        return;
+      }
+
+      claimsEl.innerHTML = claims.map((c) => {
+        const condition = c.detected_condition || c.title || "Unknown condition";
+        const rating = c.estimated_rating != null ? c.estimated_rating + "%" : "N/A";
+        return '<div style="margin-bottom:12px;padding:12px;border:1px solid #334155;border-radius:10px;background:#0b1220;">'
+          + '<div style="font-weight:700;margin-bottom:4px;">' + condition + '</div>'
+          + '<div style="opacity:.9;">Estimated Rating: ' + rating + '</div>'
+          + '</div>';
+      }).join("");
+    } catch (err) {
+      claimsEl.innerText = err.message || "Failed to load claims";
+    }
+  }
+
+  async function safeRunVAAnalysis() {
+    const inputEl = document.getElementById("vaInput");
+    const resultEl = document.getElementById("vaResult");
+    const btn = document.getElementById("analyzeBtn");
+
+    if (!inputEl || !resultEl) {
+      alert("VA analyzer UI not found");
+      return;
+    }
+
+    const input = String(inputEl.value || "").trim();
+    if (!input) {
+      resultEl.innerText = "Enter your condition details first.";
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "Analyzing...";
+    }
+    resultEl.innerText = "Analyzing...";
+
+    try {
+      const res = await fetch("/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ input })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        resultEl.innerText =
+          (data && (data.details || data.error)) ||
+          ("Analyze failed with status " + res.status);
+        return;
+      }
+
+      if (data && data.parsed) {
+        resultEl.innerText =
+          "Condition: " + (data.parsed.condition || "N/A") + "\n\n" +
+          "Diagnostic Code: " + (data.parsed.diagnosticCode || "N/A") + "\n\n" +
+          "Estimated Rating: " + (data.parsed.estimatedRating || "N/A") + "\n\n" +
+          "Confidence: " + (data.parsed.confidence || "N/A") + "\n\n" +
+          "Reasoning:\n" + (data.parsed.reasoning || "N/A") + "\n\n" +
+          "Evidence Still Needed:\n" + (data.parsed.evidenceNeeded || "N/A") + "\n\n" +
+          "Next Steps:\n" + (data.parsed.nextSteps || "N/A") + "\n\n" +
+          "Important:\n" + (data.parsed.important || "N/A");
+      } else {
+        resultEl.innerText =
+          (data && (data.summary || data.result || data.message)) ||
+          "No analysis returned.";
+      }
+    } catch (err) {
+      resultEl.innerText = err.message || "Network error";
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = "Analyze";
+      }
+    }
+  }
+
+  window.runVAAnalysis = safeRunVAAnalysis;
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const btn = document.getElementById("analyzeBtn");
+    if (btn) {
+      btn.onclick = function (e) {
+        if (e) e.preventDefault();
+        safeRunVAAnalysis();
+      };
+    }
+    safeLoadClaims();
+  });
+})();
+</script>
+
 </body>
 </html>
