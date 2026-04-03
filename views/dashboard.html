@@ -225,6 +225,56 @@
   </div>
 
   <script>
+
+function extractTokenFromStorageValue(raw) {
+  if (!raw) return "";
+  try {
+    const parsed = JSON.parse(raw);
+
+    if (typeof parsed === "string") return parsed;
+    if (parsed?.access_token) return parsed.access_token;
+    if (parsed?.currentSession?.access_token) return parsed.currentSession.access_token;
+    if (parsed?.session?.access_token) return parsed.session.access_token;
+    if (parsed?.accessToken) return parsed.accessToken;
+  } catch (e) {}
+
+  if (typeof raw === "string" && raw.startsWith("eyJ")) return raw;
+  return "";
+}
+
+async function getAccessToken() {
+  const stores = [localStorage, sessionStorage];
+
+  for (const store of stores) {
+    try {
+      const directKeys = [
+        "supabase_access_token",
+        "access_token",
+        "sb-access-token"
+      ];
+
+      for (const key of directKeys) {
+        const token = extractTokenFromStorageValue(store.getItem(key));
+        if (token) return token;
+      }
+
+      for (let i = 0; i < store.length; i++) {
+        const key = store.key(i);
+        if (!key) continue;
+
+        const value = store.getItem(key);
+        const token = extractTokenFromStorageValue(value);
+        if (token && (key.includes("supabase") || key.includes("sb-") || key.includes("auth"))) {
+          return token;
+        }
+      }
+    } catch (e) {}
+  }
+
+  return "";
+}
+
+
     let uploadedImageDataUrl = "";
 
     function bulletize(value) {
@@ -328,14 +378,26 @@
     }
 
     async function loadClaims() {
+  const el = document.getElementById("claimsList");
+  if (!el) return;
+
+  el.innerText = "Loading...";
+
   try {
-    const el = document.getElementById("claimsList");
-    el.innerText = "Loading...";
+    const token = await getAccessToken();
 
-    const res = await fetch("/claims");
+    if (!token) {
+      el.innerText = "Login required to load your saved claims.";
+      return;
+    }
+
+    const res = await fetch("/claims", {
+      headers: {
+        Authorization: "Bearer " + token
+      }
+    });
+
     const data = await res.json();
-
-    console.log("CLAIMS RESPONSE:", data);
 
     if (!res.ok) {
       el.innerText = data.details || data.error || "Failed to load claims";
@@ -349,28 +411,26 @@
       return;
     }
 
-    el.innerHTML = claims.map(c => {
+    el.innerHTML = claims.map(function (c) {
       const condition = c.detected_condition || c.condition || "N/A";
-      const rating = c.estimated_rating ?? "N/A";
+      const rating =
+        c.estimated_rating === null || c.estimated_rating === undefined
+          ? "N/A"
+          : c.estimated_rating;
       const confidence = c.confidence_label || c.confidence || "N/A";
       const date = c.created_at ? new Date(c.created_at).toLocaleString() : "";
 
       return `
-        <div style="margin-bottom:15px;padding:10px;border:1px solid #333;border-radius:8px;">
-          <div><strong>Condition:</strong> ${condition}</div>
-          <div><strong>Rating:</strong> ${rating}%</div>
-          <div><strong>Confidence:</strong> ${confidence}</div>
-          <div style="font-size:12px;color:#aaa;margin-top:5px;">
-            ${date}
-          </div>
+        <div style="margin-bottom:15px;padding:12px;border:1px solid #334155;border-radius:10px;background:#0b1220;color:#e2e8f0;">
+          <div style="margin-bottom:6px;"><strong>Condition:</strong> ${condition}</div>
+          <div style="margin-bottom:6px;"><strong>Rating:</strong> ${rating}%</div>
+          <div style="margin-bottom:6px;"><strong>Confidence:</strong> ${confidence}</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
         </div>
       `;
     }).join("");
-
   } catch (err) {
-    console.error("LOAD CLAIMS ERROR:", err);
-    document.getElementById("claimsList").innerText =
-      err.message || "Error loading claims";
+    el.innerText = err.message || "Error loading claims";
   }
 }
 ;
@@ -411,25 +471,120 @@
     }
 
     async function handleAnalyze() {
-      const issue = String(document.getElementById("issue").value || "").trim();
-      const serviceContext = String(document.getElementById("serviceContext").value || "").trim();
-      const resultMount = document.getElementById("resultMount");
-      const loading = document.getElementById("loading");
-      const analyzeBtn = document.getElementById("analyzeBtn");
+  const issue = String(document.getElementById("issue").value || "").trim();
+  const serviceContext = String(document.getElementById("serviceContext").value || "").trim();
+  const resultMount = document.getElementById("resultMount");
+  const loading = document.getElementById("loading");
+  const analyzeBtn = document.getElementById("analyzeBtn");
 
-      if (!issue && !serviceContext && !uploadedImageDataUrl) {
-        resultMount.innerHTML = `
-          <div class="card">
-            <div class="section-title">Result</div>
-            <div class="item">Enter your condition details first.</div>
-          </div>
-        `;
-        return;
-      
+  if (!resultMount) {
+    alert("Result mount not found");
+    return;
+  }
+
+  if (!issue && !serviceContext && !uploadedImageDataUrl) {
+    resultMount.innerHTML = `
+      <div class="card">
+        <div class="section-title">Result</div>
+        <div class="item">Enter your condition details first.</div>
+      </div>
+    `;
+    return;
+  }
+
   try {
-    await loadClaims();
-  } catch (e) {
-    console.log("claims refresh failed:", e?.message || e);
+    if (loading) loading.style.display = "block";
+    if (analyzeBtn) {
+      analyzeBtn.disabled = true;
+      analyzeBtn.style.opacity = "0.7";
+    }
+
+    resultMount.innerHTML = "";
+
+    const token = await getAccessToken();
+
+    if (!token) {
+      throw new Error("Login required");
+    }
+
+    const payload = {
+      issue,
+      serviceContext,
+      normalizedImageBase64: uploadedImageDataUrl || ""
+    };
+
+    const response = await fetch("/va/analyze-base64", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token
+      },
+      body: JSON.stringify(payload)
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      throw new Error("Server returned non-JSON response");
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.details || data?.error || "Analysis failed");
+    }
+
+    const parsed = data.structured || data.parsed || {};
+    const condition = parsed.condition || "N/A";
+    const diagnosticCode = parsed.diagnosticCode || "N/A";
+    const estimatedRating = parsed.estimatedRating || data.likelihood || "N/A";
+    const confidence = parsed.confidence || "N/A";
+    const reasoning = parsed.reasoning || "N/A";
+    const evidenceNeeded = parsed.evidenceNeeded || "N/A";
+    const nextSteps = parsed.nextSteps || "N/A";
+    const important = parsed.important || "N/A";
+    const disclaimer =
+      data.disclaimer ||
+      "This tool provides an estimate only. Final determinations are made by the VA.";
+
+    resultMount.innerHTML = `
+      <div class="card">
+        <div class="section-title">Result</div>
+        <div class="item"><strong>Condition:</strong> ${condition}</div>
+        <div class="item"><strong>Diagnostic Code:</strong> ${diagnosticCode}</div>
+        <div class="item"><strong>Estimated Rating:</strong> ${estimatedRating}</div>
+        <div class="item"><strong>Confidence:</strong> ${confidence}</div>
+        <div class="item"><strong>Reasoning:</strong><br>${String(reasoning).replace(/
+/g, "<br>")}</div>
+        <div class="item"><strong>Evidence Still Needed:</strong><br>${String(evidenceNeeded).replace(/
+/g, "<br>")}</div>
+        <div class="item"><strong>Next Steps:</strong><br>${String(nextSteps).replace(/
+/g, "<br>")}</div>
+        <div class="item"><strong>Important:</strong><br>${String(important).replace(/
+/g, "<br>")}</div>
+        <div class="item" style="margin-top:14px;font-size:13px;color:#94a3b8;">
+          <strong>Disclaimer:</strong> ${disclaimer}
+        </div>
+      </div>
+    `;
+
+    try {
+      await loadClaims();
+    } catch (e) {
+      console.log("claims refresh failed:", e?.message || e);
+    }
+  } catch (err) {
+    resultMount.innerHTML = `
+      <div class="card">
+        <div class="section-title">Result</div>
+        <div class="item">${err.message || "Analysis failed"}</div>
+      </div>
+    `;
+  } finally {
+    if (loading) loading.style.display = "none";
+    if (analyzeBtn) {
+      analyzeBtn.disabled = false;
+      analyzeBtn.style.opacity = "1";
+    }
   }
 }
 
