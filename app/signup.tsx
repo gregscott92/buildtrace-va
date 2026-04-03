@@ -9,50 +9,28 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
 
   async function handleSignup() {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const { data, error } = await signUpWithEmail(email.trim(), password);
+      const { data, error } = await signUpWithEmail(email.trim(), password);
 
-    if (error) {
-      Alert.alert("Signup failed", error.message);
-      return;
-    }
-
-    if (data?.user) {
-      try {
-        localStorage.setItem("user", JSON.stringify(data.user));
-      } catch {}
-    }
-
-    if (data?.session || data?.user) {
-      router.replace("/va");
-      return;
-    }
-
-    Alert.alert("Signup failed", "No user returned.");
-  } catch (err: any) {
-    Alert.alert("Signup failed", err?.message || "Unknown error");
-  } finally {
-    setLoading(false);
-  }
-}
-
-    localStorage.setItem("user", JSON.stringify(data.user));
-      }
-
-      if (data?.session) {
-        router.replace("/dashboard");
+      if (error) {
+        Alert.alert("Signup failed", error.message);
         return;
       }
 
       if (data?.user) {
-        Alert.alert("Success", "Account created. You can now log in.");
+        try {
+          localStorage.setItem("user", JSON.stringify(data.user));
+        } catch {}
+      }
+
+      if (data?.session || data?.user) {
         router.replace("/va");
         return;
       }
 
-      Alert.alert("Signup", "Account created.");
+      Alert.alert("Signup failed", "No user returned.");
     } catch (err: any) {
       Alert.alert("Signup failed", err?.message || "Unknown error");
     } finally {
