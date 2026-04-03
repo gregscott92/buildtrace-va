@@ -3763,138 +3763,48 @@ app.post("/analyze", async (req, res) => {
       return res.status(400).json({ error: "Missing input" });
     }
 
-    const raw = String(input || "");
-    const t = raw.toLowerCase();
+    const raw = String(input || "").trim();
 
-    function hasAny(words) {
-      return words.some(w => t.includes(w));
+    if (!raw) {
+      return res.status(400).json({ error: "Missing input" });
     }
 
-    const mentionsHeadache = hasAny([
-      "headache", "headaches", "migraine", "migraines"
-    ]);
+    const resultText = analyzeCfr38(raw);
 
-    const prostrating = hasAny([
-      "lay down", "lie down", "dark room", "bedrest", "bed rest",
-      "prostrating", "prostrate", "can't function", "cannot function",
-      "have to stop", "stop working", "nausea", "vomit", "vomiting",
-      "light sensitivity", "photophobia", "sound sensitivity", "phonophobia"
-    ]);
-
-    const monthly30 = hasAny([
-      "once a month", "1 time a month", "monthly", "every month"
-    ]);
-
-    const twoMonth10 = hasAny([
-      "every 2 months", "once every 2 months", "one in 2 months"
-    ]);
-
-    const frequent50 = hasAny([
-      "daily", "multiple times a week", "several times a week",
-      "very frequent", "3 times a week", "4 times a week", "weekly"
-    ]);
-
-    const prolonged50 = hasAny([
-      "all day", "last all day", "prolonged", "hours", "for hours",
-      "lasting hours", "lasts hours"
-    ]);
-
-    const economic50 = hasAny([
-      "miss work", "missing work", "call out", "called out",
-      "leave work", "left work", "can't keep a job", "cannot keep a job",
-      "write up", "written up", "economic", "severe economic",
-      "job impact", "lost wages", "work impact"
-    ]);
-
-    let rating = 0;
-    const reasons = [];
-    const nextSteps = [];
-
-    if (!mentionsHeadache) {
-      rating = 0;
-      reasons.push("Input does not clearly describe headaches || migraines.");
-      nextSteps.push("State the exact condition being claimed.");
-      nextSteps.push("Describe frequency, duration, && functional impact.");
-    } else {
-      reasons.push("Input describes headache || migraine symptoms.");
-
-      if (prostrating) {
-        reasons.push("Text suggests prostrating-type features such as needing to lie down || isolate.");
-      } else {
-        reasons.push("Text does not clearly establish prostrating attacks yet.");
-      }
-
-      if (prostrating && frequent50 && prolonged50 && economic50) {
-        rating = 50;
-        reasons.push("Text suggests very frequent, completely prostrating, prolonged attacks with severe work/economic impact.");
-      } else if (prostrating && (monthly30 || frequent50)) {
-        rating = 30;
-        reasons.push("Text suggests characteristic prostrating attacks at least around monthly || more.");
-      } else if (prostrating && twoMonth10) {
-        rating = 10;
-        reasons.push("Text suggests prostrating attacks averaging about one in two months.");
-      } else if (prostrating) {
-        rating = 10;
-        reasons.push("Text suggests some prostrating attacks, but frequency is not documented strongly enough for 30% || 50%.");
-      } else {
-        rating = 0;
-        reasons.push("Headaches are described, but the text does not yet clearly show characteristic prostrating attacks.");
-      }
-
-      nextSteps.push("Document frequency over the last several months.");
-      nextSteps.push("State whether attacks are prostrating && require lying down in a dark room.");
-      nextSteps.push("State duration of attacks, such as hours || all day.");
-      nextSteps.push("State work impact: missed work, reduced productivity, leaving early, || severe economic effects.");
-      nextSteps.push("Upload medical notes, DBQs, migraine logs, prescriptions, && employer impact evidence.");
+    function readSection(label) {
+      const source = String(resultText || "");
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(
+        "^" + escaped + ":\\s*([\\s\\S]*?)(?=\\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
+        "mi"
+      );
+      const match = source.match(regex);
+      if (!match || !match[1]) return "N/A";
+      return String(match[1]).trim() || "N/A";
     }
 
-    
-    const resultText = analyzeCfr38(input);
-
-    
-// --- DBQ AUTO SCORING ---
-let mhStructured = null;
-
-if (visionExtract && visionExtract.length > 50) {
-  try {
-    mhStructured = scoreMentalHealthDbq(visionExtract);
-  } catch (e) {
-    console.log("MH scoring error:", e.message);
-  }
-}
-
-if (mhStructured && mhStructured.estimatedRating !== "0%") {
-  Object.assign(structured, mhStructured);
-}
-
-const structured = {
-      condition: extractSection(result, "Condition") || (result.includes("Condition:")
-        ? ((result.split("Condition:")[1] || "").split("\\n")[0] || "").trim()
-        : "N/A"),
-      diagnosticCode: extractSection(result, "Diagnostic Code") || (result.includes("Diagnostic Code:")
-        ? ((result.split("Diagnostic Code:")[1] || "").split("\\n")[0] || "").trim()
-        : "N/A"),
-      estimatedRating: extractSection(result, "Estimated VA Rating") || (result.includes("Estimated VA Rating:")
-        ? ((result.split("Estimated VA Rating:")[1] || "").split("\\n")[0] || "").trim()
-        : "N/A"),
-      confidence: extractSection(result, "Confidence") || (result.includes("Confidence:")
-        ? ((result.split("Confidence:")[1] || "").split("\\n")[0] || "").trim()
-        : "N/A"),
-      reasoning: extractSection(result, "Reasoning") || "N/A",
-      evidenceNeeded: extractSection(result, "Evidence Still Needed") || "N/A",
-      nextSteps: extractSection(result, "Next Steps") || "N/A",
-      important: extractSection(result, "Important") || "N/A"
+    const structured = {
+      condition: readSection("Condition"),
+      diagnosticCode: readSection("Diagnostic Code"),
+      estimatedRating: readSection("Estimated VA Rating"),
+      confidence: readSection("Confidence"),
+      reasoning: readSection("Reasoning"),
+      evidenceNeeded: readSection("Evidence Still Needed"),
+      nextSteps: readSection("Next Steps"),
+      important: readSection("Important")
     };
 
     return res.json({
       success: true,
-      likelihood: structured.estimatedRating,
+      likelihood:
+        structured.estimatedRating && structured.estimatedRating !== "N/A"
+          ? structured.estimatedRating
+          : "See analysis",
       summary: resultText,
       parsed: structured,
       disclaimer:
-        "This tool provides an estimate based on submitted information && does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
+        "This tool provides an estimate based on submitted information and does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
     });
-
   } catch (err) {
     console.log("VA ANALYZE ERROR:", err);
     return res.status(500).json({
