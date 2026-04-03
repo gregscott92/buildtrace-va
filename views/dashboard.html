@@ -202,6 +202,48 @@ async function loadClaims() {
 }
 
 loadClaims();
+
+    async function runVAAnalysis() {
+      const inputEl = document.getElementById("va-input");
+      const resultEl = document.getElementById("va-result");
+
+      if (!inputEl || !resultEl) {
+        alert("VA analyzer UI not found");
+        return;
+      }
+
+      const input = String(inputEl.value || "").trim();
+
+      if (!input) {
+        alert("Enter something first");
+        return;
+      }
+
+      resultEl.innerText = "Analyzing...";
+
+      try {
+        const res = await fetch("/analyze", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ input })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          resultEl.innerText = data.details || data.error || "Failed to analyze";
+          return;
+        }
+
+        resultEl.innerText = data.summary || JSON.stringify(data, null, 2);
+      } catch (err) {
+        resultEl.innerText = err.message || "Network error";
+      }
+    }
+
+
 </script>
 
 
@@ -333,6 +375,28 @@ function extractLineValue(resultText, label) {
   return match ? match[1].trim() : null;
 }
 </script>
+
+
+  <div class="panel">
+    <h2>Analyze VA Claim</h2>
+
+    <textarea
+      id="va-input"
+      placeholder="Describe your condition, symptoms, frequency, severity, and work impact..."
+      style="width:100%; min-height:160px; background:#0b1220; color:#e2e8f0; border:1px solid #334155; border-radius:10px; padding:12px; box-sizing:border-box; margin-bottom:12px; font-family:Arial, sans-serif;"
+    ></textarea>
+
+    <div class="btns">
+      <button class="btn-orange" type="button" onclick="runVAAnalysis()">Analyze</button>
+    </div>
+
+    <div class="label">Result</div>
+    <div
+      id="va-result"
+      style="margin-top:12px; white-space:pre-wrap; background:#0b1220; border:1px solid #334155; border-radius:10px; padding:12px; min-height:80px;"
+    ></div>
+  </div>
+
 
 </body>
 
