@@ -384,7 +384,9 @@ async function getAccessToken() {
   el.innerText = "Loading...";
 
   try {
+    console.log("DEBUG before token");
     const token = await getAccessToken();
+    console.log("DEBUG token exists:", !!token, "len:", token ? token.length : 0);
 
     if (!token) {
       el.innerText = "Login required to load your saved claims.";
@@ -393,7 +395,7 @@ async function getAccessToken() {
 
     const res = await fetch("/claims", {
       headers: {
-        Authorization: "Bearer " + token
+        // Authorization removed for debug
       }
     });
 
@@ -430,6 +432,7 @@ async function getAccessToken() {
       `;
     }).join("");
   } catch (err) {
+    console.log("DEBUG handleAnalyze catch:", err?.message || err);
     el.innerText = err.message || "Error loading claims";
   }
 }
@@ -471,11 +474,16 @@ async function getAccessToken() {
     }
 
     async function handleAnalyze() {
-  const issue = String(document.getElementById("issue").value || "").trim();
-  const serviceContext = String(document.getElementById("serviceContext").value || "").trim();
+  const issue = String(document.getElementById("issue")?.value || "").trim();
+  console.log("DEBUG issue ok");
+  const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
+  console.log("DEBUG serviceContext ok");
   const resultMount = document.getElementById("resultMount");
+  console.log("DEBUG resultMount:", !!resultMount);
   const loading = document.getElementById("loading");
+  console.log("DEBUG loading:", !!loading);
   const analyzeBtn = document.getElementById("analyzeBtn");
+  console.log("DEBUG analyzeBtn:", !!analyzeBtn);
 
   if (!resultMount) {
     alert("Result mount not found");
@@ -483,6 +491,7 @@ async function getAccessToken() {
   }
 
   if (!issue && !serviceContext && !uploadedImageDataUrl) {
+    console.log("DEBUG rendering result");
     resultMount.innerHTML = `
       <div class="card">
         <div class="section-title">Result</div>
@@ -501,11 +510,8 @@ async function getAccessToken() {
 
     resultMount.innerHTML = "";
 
-    const token = await getAccessToken();
-
-    if (!token) {
-      throw new Error("Login required");
-    }
+    // TEMP: bypass auth
+    const token = null;
 
     const payload = {
       issue,
@@ -513,15 +519,17 @@ async function getAccessToken() {
       normalizedImageBase64: uploadedImageDataUrl || ""
     };
 
+    console.log("DEBUG before fetch /va/analyze-base64");
     const response = await fetch("/va/analyze-base64", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Bearer " + token
+        // Authorization removed for debug
       },
       body: JSON.stringify(payload)
     });
 
+    console.log("DEBUG after fetch");
     let data = null;
     try {
       data = await response.json();
