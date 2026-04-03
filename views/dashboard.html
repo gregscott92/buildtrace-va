@@ -330,7 +330,7 @@
     async function loadClaims() {
   try {
     const el = document.getElementById("claimsList");
-    el.innerText = "CLAIMS SCRIPT RAN";
+    el.innerText = "Loading...";
 
     const res = await fetch("/claims");
     const data = await res.json();
@@ -375,6 +375,11 @@
 }
 ;
         try {
+      if (analyzeBtn) {
+        analyzeBtn.disabled = true;
+        analyzeBtn.innerText = "Analyzing...";
+        analyzeBtn.style.opacity = "0.7";
+      }
           data = JSON.parse(text);
         } catch {
           el.innerText = text || "Failed to load claims";
@@ -420,7 +425,14 @@
           </div>
         `;
         return;
-      }
+      
+  try {
+    await loadClaims();
+  } catch (e) {
+    console.log("claims refresh failed:", e?.message || e);
+  }
+}
+
 
       try {
         loading.style.display = "block";
@@ -538,13 +550,18 @@
             ? "N/A"
             : c.estimated_rating;
         const confidence = c.confidence_label || c.confidence || "N/A";
+        const confidenceColor =
+          confidence === "High" ? "#16a34a" :
+          confidence === "Medium" ? "#d97706" :
+          confidence === "Low" ? "#dc2626" :
+          "#e2e8f0";
         const date = c.created_at ? new Date(c.created_at).toLocaleString() : "";
 
         return `
           <div style="margin-bottom:15px;padding:12px;border:1px solid #334155;border-radius:10px;background:#0b1220;color:#e2e8f0;">
             <div style="margin-bottom:6px;"><strong>Condition:</strong> ${condition}</div>
             <div style="margin-bottom:6px;"><strong>Rating:</strong> ${rating}%</div>
-            <div style="margin-bottom:6px;"><strong>Confidence:</strong> ${confidence}</div>
+            <div style="margin-bottom:6px;"><strong>Confidence:</strong> <span style="color:${confidenceColor};font-weight:700;">${confidence}</span></div>
             <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
           </div>
         `;
