@@ -54,9 +54,6 @@ app.get("/va", (req, res) => {
 });
 
 app.get("/dashboard", (req, res) => {
-  if (!isAuthenticated(req)) {
-    return res.redirect("/login");
-  }
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
 
@@ -3667,9 +3664,6 @@ app.get("/", (req, res) => {
   return res.redirect("/signup");
 });
 app.get("/dashboard", (req, res) => {
-  if (!isAuthenticated(req)) {
-    return res.redirect("/login");
-  }
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
 app.get("/api/runs", checkAuth, async (req, res) => {
