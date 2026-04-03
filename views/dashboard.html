@@ -328,12 +328,45 @@
     }
 
     async function loadClaims() {
-      const el = document.getElementById("claimsList");
-      try {
-        const res = await fetch("/claims");
-        const text = await res.text();
+  try {
+    const res = await fetch("/claims");
+    const data = await res.json();
 
-        let data = {};
+    const el = document.getElementById("claimsList");
+
+    if (!res.ok) {
+      el.innerText = data.details || data.error || "Failed to load claims";
+      return;
+    }
+
+    const claims = data.claims || [];
+
+    if (!claims.length) {
+      el.innerText = "No saved claims yet.";
+      return;
+    }
+
+    el.innerHTML = claims
+      .map(c => {
+        return `
+          <div style="margin-bottom:15px;padding:10px;border:1px solid #333;border-radius:8px;">
+            <div><strong>Condition:</strong> ${c.detected_condition || "N/A"}</div>
+            <div><strong>Rating:</strong> ${c.estimated_rating || "N/A"}%</div>
+            <div><strong>Confidence:</strong> ${c.confidence_label || "N/A"}</div>
+            <div style="font-size:12px;color:#aaa;margin-top:5px;">
+              ${new Date(c.created_at).toLocaleString()}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+  } catch (err) {
+    document.getElementById("claimsList").innerText =
+      err.message || "Error loading claims";
+  }
+}
+;
         try {
           data = JSON.parse(text);
         } catch {
