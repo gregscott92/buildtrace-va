@@ -198,82 +198,73 @@
   <script>
     let uploadedImageDataUrl = "";
 
-    function getAccessToken() {
-      return match ? decodeURIComponent(match[1]) : "";
+ function getAccessToken() {
+  const cookie = document.cookie || "";
+  const found = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+  return found ? decodeURIComponent(found[1]) : "";
+}
+   async function loadClaims() {
+  const el = document.getElementById("claimsList");
+  if (!el) return;
+
+  el.innerText = "Loading...";
+
+  try {
+    const token = getAccessToken();
+
+    if (!token) {
+      el.innerText = "Login required";
+      return;
     }
 
-    function fileToDataUrl(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    async function loadClaims() {
-      const el = document.getElementById("claimsList");
-      if (!el) return;
-
-      el.innerText = "Loading...";
-
-      try {
-        const token = getAccessToken();
-
-        if (!token) {
-          el.innerText = "Login required";
-          return;
-        }
-
-        const res = await fetch("/claims", { credentials: "include", 
-          credentials: "include",
-          headers: {
-            Authorization: "Bearer " + token
-          }
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          el.innerText = data.details || data.error || "Failed to load claims";
-          return;
-        }
-
-        const claims = Array.isArray(data.claims) ? data.claims : [];
-
-        if (!claims.length) {
-          el.innerText = "No saved claims yet.";
-          return;
-        }
-
-        el.innerHTML = claims.map((c) => {
-          const condition = c.detected_condition || c.condition || "N/A";
-          const rating =
-            c.estimated_rating === null || c.estimated_rating === undefined
-              ? "N/A"
-              : c.estimated_rating;
-          const confidence = c.confidence_label || c.confidence || "N/A";
-          const confidenceColor =
-            confidence === "High" ? "#16a34a" :
-            confidence === "Medium" ? "#d97706" :
-            confidence === "Low" ? "#dc2626" :
-            "#e2e8f0";
-          const date = c.created_at ? new Date(c.created_at).toLocaleString() : "";
-
-          return `
-            <div style="margin-bottom:15px;padding:12px;border:1px solid #334155;border-radius:10px;background:#0b1220;color:#e2e8f0;">
-              <div style="margin-bottom:6px;"><strong>Condition:</strong> ${condition}</div>
-              <div style="margin-bottom:6px;"><strong>Rating:</strong> ${rating}%</div>
-              <div style="margin-bottom:6px;"><strong>Confidence:</strong> <span style="color:${confidenceColor};font-weight:700;">${confidence}</span></div>
-              <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
-            </div>
-          `;
-        }).join("");
-      } catch (err) {
-        el.innerText = err?.message || "Error loading claims";
+    const res = await fetch("/claims", {
+      credentials: "include",
+      headers: {
+        Authorization: "Bearer " + token
       }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      el.innerText = data.details || data.error || "Failed to load claims";
+      return;
     }
 
+    const claims = Array.isArray(data.claims) ? data.claims : [];
+
+    if (!claims.length) {
+      el.innerText = "No saved claims yet.";
+      return;
+    }
+
+    el.innerHTML = claims.map((c) => {
+      const condition = c.detected_condition || c.condition || "Unknown";
+      const rating =
+        c.estimated_rating === null || c.estimated_rating === undefined
+          ? "N/A"
+          : c.estimated_rating;
+      const confidence = c.confidence_label || c.confidence || "";
+      const confidenceColor =
+        confidence === "High" ? "#16a34a" :
+        confidence === "Medium" ? "#d97706" :
+        confidence === "Low" ? "#dc2626" :
+        "#e2e8f0";
+      const date = c.created_at ? new Date(c.created_at).toLocaleString() : "";
+
+      return `
+        <div style="margin-bottom:15px;padding:12px;border:1px solid #334155;border-radius:10px;">
+          <div style="margin-bottom:6px;"><strong>Condition:</strong> ${condition}</div>
+          <div style="margin-bottom:6px;"><strong>Rating:</strong> ${rating}</div>
+          <div style="margin-bottom:6px;"><strong>Confidence:</strong> <span style="color:${confidenceColor}">${confidence || "N/A"}</span></div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    el.innerText = err?.message || "Error loading claims";
+  }
+}
     async function handleAnalyze() {
       const issue = String(document.getElementById("issue")?.value || "").trim();
       const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
