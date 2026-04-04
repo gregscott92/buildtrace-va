@@ -512,192 +512,65 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
-
 async function getSupabaseUserFromRequest(req) {
   try {
-    const authHeader = String(req.headers.authorization || "");
-    const cookies = parseCookies(req);
+
+    const authHeader = req.headers.authorization || "";
 
     let token = authHeader.startsWith("Bearer ")
       ? authHeader.slice(7).trim()
       : "";
 
     if (!token) {
-      token = String(cookies[ACCESS_TOKEN_COOKIE_NAME] || "").trim();
+      token = decodeURIComponent(cookies["access_token"] || "");
     }
 
     if (!token) {
       return { user: null, error: "Missing bearer token" };
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      return { user: null, error: "Invalid token" };
-    }
-
-    const user = await response.json();
-    return { user, error: null };
-  } catch (err) {
-    return { user: null, error: err.message };
-  }
-}
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await fetch(
+      `${process.env.SUPABASE_URL}/auth/v1/user`,
+      {
+        headers: {
+          apikey: process.env.SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       return { user: null, error: "Invalid token" };
     }
 
     const user = await response.json();
+
     return { user, error: null };
   } catch (err) {
     return { user: null, error: err.message };
   }
 }
-
 async function requireApiUser(req, res, next) {
-  try {
-    const cookie = req.headers.cookie || "";
-    const match = cookie.match(/access_token=([^;]+)/);
+  try {const { user, error } = await getSupabaseUserFromRequest(req);
 
-    if (!match) {
-      return res.status(401).json({ error: "Login required" });
-    }
+if (!user) {
+  return res.status(401).json({
+    error: error || "Login required",
+  });
+}
 
-    const accessToken = decodeURIComponent(match[1]);
+req.apiUser = user;
+next();
 
-    const { data, error } = await supabaseAuth.auth.getUser(accessToken);
-
-    if (error || !data?.user) {
-      return res.status(401).json({ error: "Invalid session" });
-    }
-
-    req.apiUser = data.user;
-    next();
-  } catch (err) {
+} catch (err) {
     return res.status(500).json({
       error: "Auth failed",
-      details: err.message
+      details: err.message,
     });
   }
-const { user, error } = await getSupabaseUserFromRequest(req);
-
-  if (!user) {
-    return res.status(401).json({
-      error: "Unauthorized",
-      details: error || "Login required",
-    });
-  }
-
-  req.apiUser = user;
-  next();
 }
-
 // DISABLED OLD LOGIN
-function renderLoginPage(message) {
-  const safeMessage = escapeHtml(message || "");
 
-  return [
-    "<html>",
-    "<head>",
-    "<title>BuildTrace Login</title>",
-    "<style>",
-    "body {",
-    "  background: #0b0f19;",
-    "  color: #fff;",
-    "  display: flex;",
-    "  justify-content: center;",
-    "  align-items: center;",
-    "  height: 100vh;",
-    "  font-family: Arial, sans-serif;",
-    "  margin: 0;",
-    "}",
-    ".box {",
-    "  background: #111827;",
-    "  padding: 30px;",
-    "  border-radius: 12px;",
-    "  text-align: center;",
-    "  width: 320px;",
-    "  box-shadow: 0 10px 30px rgba(0,0,0,.35);",
-    "}",
-    "input {",
-    "  padding: 10px;",
-    "  margin-top: 10px;",
-    "  width: 100%;",
-    "  box-sizing: border-box;",
-    "  border-radius: 8px;",
-    "  border: 1px solid #374151;",
-    "  background: #0b1220;",
-    "  color: white;",
-    "}",
-    "button {",
-    "  margin-top: 12px;",
-    "  padding: 10px;",
-    "  width: 100%;",
-    "  background: #2563eb;",
-    "  color: white;",
-    "  border: none;",
-    "  border-radius: 8px;",
-    "  cursor: pointer;",
-    "  font-weight: bold;",
-    "}",
-    ".msg {",
-    "  color: #fca5a5;",
-    "  min-height: 18px;",
-    "  margin-top: 10px;",
-    "  font-size: 14px;",
-    "}",
-    "</style>",
-    "</head>",
-    "<body>",
-    '<div class="box">',
-    "<h2>BuildTrace</h2>",
-    "<p>Enter password</p>",
-    '<form method="POST" action="/login">',
-    '<input type="password" name="password" placeholder="Password" required />',
-    '<button type="submit">Enter</button>',
-    "</form>",
-    '<div class="msg">' + safeMessage + "</div>",
-    "</div>",
-    "</body>",
-    "</html>"
-  ].join("\n");
-}
-
-function checkAuth(req, res, next) {
-  if (isAuthenticated(req)) {
-    return next();
-  }
-
-  const apiPassword = String(req.headers["x-app-password"] || "").trim();
-
-  if (apiPassword && apiPassword === APP_PASSWORD) {
-    return next();
-  }
-
-  if (req.path.startsWith("/api/")) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  return next(); // old password lock disabled
-}
 
 // =======================
 
