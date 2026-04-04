@@ -381,6 +381,49 @@ async function handleAnalyze() {
 
 document.getElementById("analyzeBtn")?.addEventListener("click", handleAnalyze);
 
+
+let uploadedImageDataUrl = "";
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+const hiddenImageInput = document.createElement("input");
+hiddenImageInput.type = "file";
+hiddenImageInput.accept = "image/*";
+hiddenImageInput.style.display = "none";
+document.body.appendChild(hiddenImageInput);
+
+hiddenImageInput.addEventListener("change", async function () {
+  const file = hiddenImageInput.files && hiddenImageInput.files[0];
+
+  if (!file) {
+    uploadedImageDataUrl = "";
+    return;
+  }
+
+  try {
+    uploadedImageDataUrl = await fileToDataUrl(file);
+
+    const uploadBtn = document.getElementById("uploadBtn");
+    if (uploadBtn) {
+      uploadBtn.innerText = "Change Image";
+    }
+  } catch (err) {
+    uploadedImageDataUrl = "";
+    alert(err?.message || "Could not read image");
+  }
+});
+
+document.getElementById("uploadBtn")?.addEventListener("click", function () {
+  hiddenImageInput.click();
+});
+
 </script>
 
 </body>
