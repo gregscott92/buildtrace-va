@@ -287,3 +287,163 @@
           `;
         }).join("");
       } catch (err) {
+        el.innerText = err?.message || "Error loading claims";
+      }
+    }
+
+    async function handleAnalyze() {
+      const issue = String(document.getElementById("issue")?.value || "").trim();
+      const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
+      const resultMount = document.getElementById("resultMount");
+      const loading = document.getElementById("loading");
+      const analyzeBtn = document.getElementById("analyzeBtn");
+      const token = getAccessToken();
+
+      if (!resultMount) return;
+
+      if (!issue && !serviceContext && !uploadedImageDataUrl) {
+        resultMount.innerHTML = `
+          <div class="card">
+            <div class="section-title">Result</div>
+            <div class="item">Enter your condition details first.</div>
+          </div>
+        `;
+        return;
+      }
+
+      if (!token) {
+        resultMount.innerHTML = `
+          <div class="card">
+            <div class="section-title">Result</div>
+            <div class="item">Login required</div>
+          </div>
+        `;
+        return;
+      }
+
+      try {
+        if (loading) loading.style.display = "block";
+        if (analyzeBtn) {
+          analyzeBtn.disabled = true;
+          analyzeBtn.style.opacity = "0.7";
+        }
+
+        const payload = {
+          issue,
+          serviceContext,
+          normalizedImageBase64: uploadedImageDataUrl || ""
+        };
+
+        const response = await fetch("/va/analyze-base64", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.details || data?.error || "Analysis failed");
+        }
+
+        const parsed = data.structured || data.parsed || {};
+        const condition = parsed.condition || "N/A";
+        const diagnosticCode = parsed.diagnosticCode || "N/A";
+        const estimatedRating = parsed.estimatedRating || data.likelihood || "N/A";
+        const confidence = parsed.confidence || "N/A";
+        const reasoning = parsed.reasoning || "N/A";
+        const evidenceNeeded = parsed.evidenceNeeded || "N/A";
+        const nextSteps = parsed.nextSteps || "N/A";
+        const important = parsed.important || "N/A";
+        const disclaimer =
+          data.disclaimer ||
+          "This tool provides an estimate only. Final determinations are made by the VA.";
+
+        resultMount.innerHTML = `
+          <div class="card">
+            <div class="section-title">Result</div>
+            <div class="item"><strong>Condition:</strong> ${condition}</div>
+            <div class="item"><strong>Diagnostic Code:</strong> ${diagnosticCode}</div>
+            <div class="item"><strong>Estimated Rating:</strong> ${estimatedRating}</div>
+            <div class="item"><strong>Confidence:</strong> ${confidence}</div>
+            <div class="item"><strong>Reasoning:</strong><br>${String(reasoning).replace(/\n/g, "<br>")}</div>
+            <div class="item"><strong>Evidence Still Needed:</strong><br>${String(evidenceNeeded).replace(/\n/g, "<br>")}</div>
+            <div class="item"><strong>Next Steps:</strong><br>${String(nextSteps).replace(/\n/g, "<br>")}</div>
+            <div class="item"><strong>Important:</strong><br>${String(important).replace(/\n/g, "<br>")}</div>
+            <div class="item" style="margin-top:14px;font-size:13px;color:#94a3b8;">
+              <strong>Disclaimer:</strong> ${disclaimer}
+            </div>
+          </div>
+        `;
+
+        await loadClaims();
+      } catch (err) {
+        resultMount.innerHTML = `
+          <div class="card">
+            <div class="section-title">Result</div>
+            <div class="item">${err?.message || "Analysis failed"}</div>
+          </div>
+        `;
+      } finally {
+        if (loading) loading.style.display = "none";
+        if (analyzeBtn) {
+          analyzeBtn.disabled = false;
+          analyzeBtn.style.opacity = "1";
+        }
+      }
+    }
+
+    function bindUpload() {
+      const fileInput = document.getElementById("fileInput");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const preview = document.getElementById("preview");
+
+      if (!fileInput || !uploadBtn || !preview) return;
+
+      uploadBtn.addEventListener("click", () => {
+        fileInput.click();
+      });
+
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files && fileInput.files[0];
+
+        if (!file) {
+          uploadedImageDataUrl = "";
+          preview.style.display = "none";
+          preview.removeAttribute("src");
+          uploadBtn.innerText = "Upload Image";
+          return;
+        }
+
+        try {
+          uploadedImageDataUrl = await fileToDataUrl(file);
+          preview.src = uploadedImageDataUrl;
+          preview.style.display = "block";
+          uploadBtn.innerText = "Change Image";
+        } catch (err) {
+          uploadedImageDataUrl = "";
+          preview.style.display = "none";
+          preview.removeAttribute("src");
+          uploadBtn.innerText = "Upload Image";
+          alert(err?.message || "Could not read image");
+        }
+      });
+    }
+
+    function init() {
+      document.getElementById("analyzeBtn")?.addEventListener("click", handleAnalyze);
+      bindUpload();
+      loadClaims();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
