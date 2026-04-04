@@ -298,6 +298,7 @@
 })();
 
 async function handleAnalyze() {
+  alert("analyze started");
   const issue = String(document.getElementById("issue")?.value || "").trim();
   const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
   const resultMount = document.getElementById("resultMount");
