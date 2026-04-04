@@ -518,12 +518,37 @@ async function getSupabaseUserFromRequest(req) {
     const authHeader = String(req.headers.authorization || "");
     const cookies = parseCookies(req);
 
-let token = authHeader.startsWith("Bearer ")
-  ? authHeader.slice(7).trim()
-  : "";
+    let token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : "";
 
-if (!token) {
-  token = String(cookies[ACCESS_TOKEN_COOKIE_NAME] || "").trim();
+    if (!token) {
+      token = String(cookies[ACCESS_TOKEN_COOKIE_NAME] || "").trim();
+    }
+
+    if (!token) {
+      return { user: null, error: "Missing bearer token" };
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return { user: null, error: "Invalid token" };
+    }
+
+    const user = await response.json();
+    return { user, error: null };
+  } catch (err) {
+    return { user: null, error: err.message };
+  }
 }
 
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -694,7 +719,7 @@ app.post("/login", async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: "Email && password are required",
+        error: "Email and password are required",
         user: null
       });
     }
@@ -712,35 +737,16 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    try {
-      await supabase.from("va_claims").insert({
-        user_id: req.apiUser.id,
-        input_text: JSON.stringify({
-          issue,
-          serviceContext
-        }),
-        result_text: result || "",
-        extracted_text: visionExtract || "",
-        detected_condition: structured.condition !== "N/A" ? structured.condition : null,
-        estimated_rating: structured.estimatedRating && structured.estimatedRating !== "N/A"
-          ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10) || null
-          : null,
-        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
-        source_type: normalizedImageBase64 ? "image_upload" : "text_only",
-        export_summary: result || ""
-      });
-    } catch (saveErr) {
-      console.log("SAVE CLAIM ERROR:", saveErr?.message || saveErr);
-    }
-const accessToken =
-  data?.session?.access_token ||
-  data?.access_token ||
-  null;
+    const accessToken =
+      data?.session?.access_token ||
+      data?.access_token ||
+      null;
 
-if (accessToken) {
-  setAccessTokenCookie(res, accessToken);
-}
-return res.json({
+    if (accessToken) {
+      setAccessTokenCookie(res, accessToken);
+    }
+
+    return res.json({
       success: true,
       error: null,
       user: {
