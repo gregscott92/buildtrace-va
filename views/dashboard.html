@@ -198,7 +198,12 @@
   <script>
     let uploadedImageDataUrl = "";
 function getAccessToken() {
-  return localStorage.getItem("access_token") || "";
+  const fromStorage = localStorage.getItem("access_token") || "";
+  if (fromStorage) return fromStorage;
+
+  const cookie = document.cookie || "";
+  const found = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+  return found ? decodeURIComponent(found[1]) : "";
 }
    async function loadClaims() {
   const el = document.getElementById("claimsList");
