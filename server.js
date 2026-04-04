@@ -421,7 +421,29 @@ const supabaseAuth =
 
 const APP_PASSWORD = process.env.APP_PASSWORD || "changeme";
 const AUTH_COOKIE_NAME = "buildtrace_auth";
+const ACCESS_TOKEN_COOKIE_NAME = "access_token";
 
+function setAccessTokenCookie(res, accessToken) {
+  const isProd = process.env.NODE_ENV === "production";
+  res.append(
+    "Set-Cookie",
+    ACCESS_TOKEN_COOKIE_NAME +
+      "=" +
+      encodeURIComponent(String(accessToken || "")) +
+      "; Path=/; Max-Age=604800; SameSite=Lax" +
+      (isProd ? "; Secure" : "")
+  );
+}
+
+function clearAccessTokenCookie(res) {
+  const isProd = process.env.NODE_ENV === "production";
+  res.append(
+    "Set-Cookie",
+    ACCESS_TOKEN_COOKIE_NAME +
+      "=; Path=/; Max-Age=0; SameSite=Lax" +
+      (isProd ? "; Secure" : "")
+  );
+}
 function parseCookies(req) {
   const header = req.headers.cookie || "";
   return header.split(";").reduce((acc, part) => {
@@ -494,13 +516,15 @@ function escapeHtml(str) {
 async function getSupabaseUserFromRequest(req) {
   try {
     const authHeader = String(req.headers.authorization || "");
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7).trim()
-      : "";
+    const cookies = parseCookies(req);
 
-    if (!token) {
-      return { user: null, error: "Missing bearer token" };
-    }
+let token = authHeader.startsWith("Bearer ")
+  ? authHeader.slice(7).trim()
+  : "";
+
+if (!token) {
+  token = String(cookies[ACCESS_TOKEN_COOKIE_NAME] || "").trim();
+}
 
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
@@ -524,7 +548,31 @@ async function getSupabaseUserFromRequest(req) {
 }
 
 async function requireApiUser(req, res, next) {
-  const { user, error } = await getSupabaseUserFromRequest(req);
+  try {
+    const cookie = req.headers.cookie || "";
+    const match = cookie.match(/access_token=([^;]+)/);
+
+    if (!match) {
+      return res.status(401).json({ error: "Login required" });
+    }
+
+    const accessToken = decodeURIComponent(match[1]);
+
+    const { data, error } = await supabaseAuth.auth.getUser(accessToken);
+
+    if (error || !data?.user) {
+      return res.status(401).json({ error: "Invalid session" });
+    }
+
+    req.apiUser = data.user;
+    next();
+  } catch (err) {
+    return res.status(500).json({
+      error: "Auth failed",
+      details: err.message
+    });
+  }
+const { user, error } = await getSupabaseUserFromRequest(req);
 
   if (!user) {
     return res.status(401).json({
@@ -664,7 +712,6 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    
     try {
       await supabase.from("va_claims").insert({
         user_id: req.apiUser.id,
@@ -685,7 +732,14 @@ app.post("/login", async (req, res) => {
     } catch (saveErr) {
       console.log("SAVE CLAIM ERROR:", saveErr?.message || saveErr);
     }
+const accessToken =
+  data?.session?.access_token ||
+  data?.access_token ||
+  null;
 
+if (accessToken) {
+  setAccessTokenCookie(res, accessToken);
+}
 return res.json({
       success: true,
       error: null,
@@ -704,8 +758,9 @@ return res.json({
 });
 
 app.post("/logout", (req, res) => {
+  clearAuthCookie(res);
   clearAccessTokenCookie(res);
-  return res.redirect("/login");
+  return res.json({ success: true });
 });
 
 // everything except login/health is protected
