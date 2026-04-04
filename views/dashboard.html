@@ -197,11 +197,8 @@
 
   <script>
     let uploadedImageDataUrl = "";
-
- function getAccessToken() {
-  const cookie = document.cookie || "";
-  const found = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-  return found ? decodeURIComponent(found[1]) : "";
+function getAccessToken() {
+  return localStorage.getItem("access_token") || "";
 }
    async function loadClaims() {
   const el = document.getElementById("claimsList");
