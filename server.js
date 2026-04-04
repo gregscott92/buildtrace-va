@@ -6,6 +6,7 @@ const upload = multer({ dest: "uploads/" });
 require("dotenv").config();
 
 const express = require("express");
+const cookieParser = require("cookie-parser");
 const { createClient } = require("@supabase/supabase-js");
 const OpenAI = require("openai");
 const { TwitterApi } = require("twitter-api-v2");
@@ -21,6 +22,7 @@ const app = express();   // ✅ ONLY ONE TIME
 // ----------------------------
 // MIDDLEWARE
 // ----------------------------
+app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 
 app.use((req, res, next) => {
@@ -551,18 +553,27 @@ async function getSupabaseUserFromRequest(req) {
   }
 }
 async function requireApiUser(req, res, next) {
-  try {const { user, error } = await getSupabaseUserFromRequest(req);
+  try {
+    const token =
+      req.cookies?.access_token ||
+      req.headers.authorization?.replace("Bearer ", "");
 
-if (!user) {
-  return res.status(401).json({
-    error: error || "Login required",
-  });
-}
+    if (!token) {
+      return res.status(401).json({ error: "Login required" });
+    }
 
-req.apiUser = user;
-next();
+    const {
+      data: { user },
+      error,
+    } = await supabaseAuth.auth.getUser(token);
 
-} catch (err) {
+    if (error || !user) {
+      return res.status(401).json({ error: "Invalid session" });
+    }
+
+    req.apiUser = user;
+    return next();
+  } catch (err) {
     return res.status(500).json({
       error: "Auth failed",
       details: err.message,

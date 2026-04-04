@@ -5,24 +5,24 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>BuildTrace VA Signup</title>
   <style>
-    body { credentials: "include", 
+    body {
       margin: 0;
       background: #020817;
       color: white;
       font-family: Arial, sans-serif;
     }
-    .wrap { credentials: "include", 
+    .wrap {
       max-width: 420px;
       margin: 0 auto;
       padding: 48px 24px;
     }
-    h1 { credentials: "include", 
+    h1 {
       font-size: 72px;
       line-height: 0.95;
       margin: 24px 0 48px;
       font-weight: 800;
     }
-    input, button { credentials: "include", 
+    input, button {
       width: 100%;
       box-sizing: border-box;
       border-radius: 0;
@@ -31,22 +31,22 @@
       font-size: 24px;
       padding: 22px 28px;
     }
-    input { credentials: "include", 
+    input {
       background: #e5e5e5;
       color: #111827;
     }
-    button { credentials: "include", 
+    button {
       background: #e5e5e5;
       color: #111827;
       cursor: pointer;
     }
-    .row { credentials: "include", 
+    .row {
       font-size: 20px;
     }
-    a { credentials: "include", 
+    a {
       color: #8b5cf6;
     }
-    #msg { credentials: "include", 
+    #msg {
       min-height: 28px;
       color: #fca5a5;
       margin-top: 8px;
@@ -73,11 +73,11 @@
     const signupBtn = document.getElementById("signupBtn");
     const msgEl = document.getElementById("msg");
 
-    async function handleSignup() { credentials: "include", 
+    async function handleSignup() {
       const email = String(emailEl.value || "").trim();
       const password = String(passwordEl.value || "");
 
-      if (!email || !password) { credentials: "include", 
+      if (!email || !password) {
         msgEl.innerText = "Enter email and password";
         return;
       }
@@ -86,45 +86,42 @@
       signupBtn.innerText = "Creating...";
       msgEl.innerText = "";
 
-      try { credentials: "include", 
-        const res = await fetch("/signup", { credentials: "include",  credentials: "include",  credentials: "include", 
+      try {
+        const res = await fetch("/signup", {
           method: "POST",
-          headers: { credentials: "include",  "Content-Type": "application/json" },
-          body: JSON.stringify({ credentials: "include",  email, password })
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
         });
 
         const data = await res.json();
 
-        if (!res.ok || !data.success) { credentials: "include", 
+        if (!res.ok || !data.success) {
           msgEl.innerText = data.error || "Signup failed";
           return;
         }
 
-        try { credentials: "include", 
-          localStorage.setItem("user", JSON.stringify(data.user || { credentials: "include", }));
-          if (data.user && data.user.email) { credentials: "include", 
+        try {
+          localStorage.setItem("user", JSON.stringify(data.user || {}));
+          if (data.user && data.user.email) {
             localStorage.setItem("userEmail", data.user.email);
           }
-          if (data.access_token) { credentials: "include", 
-              "access_token=" + encodeURIComponent(data.access_token) +
-              "; Path=/; SameSite=Lax";
-          }
-        } catch { credentials: "include", }
+        } catch {}
 
         window.location.href = "/dashboard";
-      } catch (err) { credentials: "include", 
+      } catch (err) {
         msgEl.innerText = err.message || "Network error";
-      } finally { credentials: "include", 
+      } finally {
         signupBtn.disabled = false;
         signupBtn.innerText = "Create Account";
       }
     }
 
     signupBtn.addEventListener("click", handleSignup);
-    passwordEl.addEventListener("keydown", function(e) { credentials: "include", 
+    passwordEl.addEventListener("keydown", function(e) {
       if (e.key === "Enter") handleSignup();
     });
-    emailEl.addEventListener("keydown", function(e) { credentials: "include", 
+    emailEl.addEventListener("keydown", function(e) {
       if (e.key === "Enter") handleSignup();
     });
   </script>
