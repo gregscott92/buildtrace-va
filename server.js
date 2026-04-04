@@ -648,7 +648,7 @@ app.use((req, res, next) => {
     return next();
   }
 
-  return checkAuth(req, res, next);
+  return requireApiUser(req, res, next);
 });
 
 // =======================
@@ -3642,7 +3642,7 @@ app.get("/", (req, res) => {
 app.get("/dashboard", (req, res) => {
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
-app.get("/api/runs", checkAuth, async (req, res) => {
+app.get("/api/runs", requireApiUser, async (req, res) => {
   try {
     let query = supabase
       .from("build_logger_runs")
@@ -3673,7 +3673,7 @@ app.get("/api/runs", checkAuth, async (req, res) => {
     });
   }
 });
-app.get("/api/va/entries", checkAuth, async (req, res) => {
+app.get("/api/va/entries", requireApiUser, async (req, res) => {
   try {
     let query = supabase
       .from("va_entries")
