@@ -644,7 +644,29 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    return res.json({
+    
+    try {
+      await supabase.from("va_claims").insert({
+        user_id: req.apiUser.id,
+        input_text: JSON.stringify({
+          issue,
+          serviceContext
+        }),
+        result_text: result || "",
+        extracted_text: visionExtract || "",
+        detected_condition: structured.condition !== "N/A" ? structured.condition : null,
+        estimated_rating: structured.estimatedRating && structured.estimatedRating !== "N/A"
+          ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10) || null
+          : null,
+        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
+        source_type: normalizedImageBase64 ? "image_upload" : "text_only",
+        export_summary: result || ""
+      });
+    } catch (saveErr) {
+      console.log("SAVE CLAIM ERROR:", saveErr?.message || saveErr);
+    }
+
+return res.json({
       success: true,
       error: null,
       user: {
@@ -3812,17 +3834,12 @@ app.post("/analyze", async (req, res) => {
 // =============================
 // GET VA CLAIMS
 // =============================
-app.get("/claims", async (req, res) => {
-  console.log("OPENAI KEY EXISTS:", !!process.env.OPENAI_API_KEY);
-  console.log("OPENAI KEY LENGTH:", process.env.OPENAI_API_KEY?.length);
-  console.log("SUPABASE URL EXISTS:", !!process.env.SUPABASE_URL);
-  console.log("SUPABASE SERVICE ROLE KEY EXISTS:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-  console.log("SUPABASE SERVICE ROLE KEY LENGTH:", process.env.SUPABASE_SERVICE_ROLE_KEY?.length);
-
+app.get("/claims", requireApiUser, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("va_claims")
       .select("*")
+      .eq("user_id", req.apiUser.id)
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -3833,7 +3850,7 @@ app.get("/claims", async (req, res) => {
       });
     }
 
-    return res.json({ claims: data });
+    return res.json({ claims: data || [] });
   } catch (err) {
     return res.status(500).json({
       error: "Server error",
@@ -3889,7 +3906,7 @@ app.post("/analyze-image", async (req, res) => {
     const { error: insertError } = await supabase
       .from("va_claims")
       .insert({
-        user_id: null,
+        user_id: req.apiUser.id,
         source_type: "image_ocr",
         input_text: `[IMAGE OCR]`,
         extracted_text: filteredText,
@@ -4247,7 +4264,7 @@ app.post("/upload-paperwork-json", async (req, res) => {
     const { error: insertError } = await supabase
       .from("va_claims")
       .insert({
-        user_id: null,
+        user_id: req.apiUser.id,
         source_type: "image_ocr",
         input_text: `[IMAGE OCR]`,
         extracted_text: filteredText,
@@ -4329,7 +4346,7 @@ app.post("/signup", async (req, res) => {
 
 
 
-app.post("/va/analyze", upload.single("image"), async (req, res) => {
+app.post("/va/analyze", requireApiUser, upload.single("image"), async (req, res) => {
   console.log("=== /va/analyze hit ===");
   try {
     const issue = String(req.body?.issue || "").trim();
@@ -4442,7 +4459,7 @@ const structured = {
 
 
 
-app.post("/va/analyze-base64", async (req, res) => {
+app.post("/va/analyze-base64", requireApiUser, async (req, res) => {
 
     // 🔥 FORCE BASE64 NORMALIZATION FIX
     let normalizedImageBase64 = "";
