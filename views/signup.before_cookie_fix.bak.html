@@ -105,10 +105,6 @@
           if (data.user && data.user.email) { credentials: "include", 
             localStorage.setItem("userEmail", data.user.email);
           }
-          if (data.access_token) { credentials: "include", 
-              "access_token=" + encodeURIComponent(data.access_token) +
-              "; Path=/; SameSite=Lax";
-          }
         } catch { credentials: "include", }
 
         window.location.href = "/dashboard";

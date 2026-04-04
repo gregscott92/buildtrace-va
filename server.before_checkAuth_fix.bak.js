@@ -430,7 +430,7 @@ function setAccessTokenCookie(res, accessToken) {
     ACCESS_TOKEN_COOKIE_NAME +
       "=" +
       encodeURIComponent(String(accessToken || "")) +
-      "; Path=/; Max-Age=604800; SameSite=None; Secure" +
+      "; Path=/; Max-Age=604800; SameSite=Lax" +
       (isProd ? "; Secure" : "")
   );
 }
@@ -440,7 +440,7 @@ function clearAccessTokenCookie(res) {
   res.append(
     "Set-Cookie",
     ACCESS_TOKEN_COOKIE_NAME +
-      "=; Path=/; Max-Age=0; SameSite=None; Secure" +
+      "=; Path=/; Max-Age=0; SameSite=Lax" +
       (isProd ? "; Secure" : "")
   );
 }
@@ -468,7 +468,7 @@ function setAuthCookie(res) {
     AUTH_COOKIE_NAME +
       "=" +
       encodeURIComponent(APP_PASSWORD) +
-      "; HttpOnly; Path=/; SameSite=None; Secure" +
+      "; HttpOnly; Path=/; SameSite=Lax" +
       (isProd ? "; Secure" : "")
   );
 }
@@ -478,7 +478,7 @@ function clearAuthCookie(res) {
   res.setHeader(
     "Set-Cookie",
     AUTH_COOKIE_NAME +
-      "=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure" +
+      "=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax" +
       (isProd ? "; Secure" : "")
   );
 }
@@ -490,7 +490,7 @@ function setAccessTokenCookie(res, accessToken) {
   res.append("Set-Cookie",
     "access_token=" +
       encodeURIComponent(accessToken) +
-      "; Path=/; HttpOnly; SameSite=None; Secure" +
+      "; Path=/; HttpOnly; SameSite=Lax" +
       (isProd ? "; Secure" : "")
   );
 }
@@ -498,7 +498,7 @@ function setAccessTokenCookie(res, accessToken) {
 function clearAccessTokenCookie(res) {
   const isProd = process.env.NODE_ENV === "production";
   res.append("Set-Cookie",
-    "access_token=; Path=/; HttpOnly; Max-Age=0; SameSite=None; Secure" +
+    "access_token=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax" +
       (isProd ? "; Secure" : "")
   );
 }
@@ -648,7 +648,7 @@ app.use((req, res, next) => {
     return next();
   }
 
-  return requireApiUser(req, res, next);
+  return checkAuth(req, res, next);
 });
 
 // =======================
@@ -3642,7 +3642,7 @@ app.get("/", (req, res) => {
 app.get("/dashboard", (req, res) => {
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
-app.get("/api/runs", requireApiUser, async (req, res) => {
+app.get("/api/runs", checkAuth, async (req, res) => {
   try {
     let query = supabase
       .from("build_logger_runs")
@@ -3673,7 +3673,7 @@ app.get("/api/runs", requireApiUser, async (req, res) => {
     });
   }
 });
-app.get("/api/va/entries", requireApiUser, async (req, res) => {
+app.get("/api/va/entries", checkAuth, async (req, res) => {
   try {
     let query = supabase
       .from("va_entries")

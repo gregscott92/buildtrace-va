@@ -421,29 +421,7 @@ const supabaseAuth =
 
 const APP_PASSWORD = process.env.APP_PASSWORD || "changeme";
 const AUTH_COOKIE_NAME = "buildtrace_auth";
-const ACCESS_TOKEN_COOKIE_NAME = "access_token";
 
-function setAccessTokenCookie(res, accessToken) {
-  const isProd = process.env.NODE_ENV === "production";
-  res.append(
-    "Set-Cookie",
-    ACCESS_TOKEN_COOKIE_NAME +
-      "=" +
-      encodeURIComponent(String(accessToken || "")) +
-      "; Path=/; Max-Age=604800; SameSite=None; Secure" +
-      (isProd ? "; Secure" : "")
-  );
-}
-
-function clearAccessTokenCookie(res) {
-  const isProd = process.env.NODE_ENV === "production";
-  res.append(
-    "Set-Cookie",
-    ACCESS_TOKEN_COOKIE_NAME +
-      "=; Path=/; Max-Age=0; SameSite=None; Secure" +
-      (isProd ? "; Secure" : "")
-  );
-}
 function parseCookies(req) {
   const header = req.headers.cookie || "";
   return header.split(";").reduce((acc, part) => {
@@ -468,7 +446,7 @@ function setAuthCookie(res) {
     AUTH_COOKIE_NAME +
       "=" +
       encodeURIComponent(APP_PASSWORD) +
-      "; HttpOnly; Path=/; SameSite=None; Secure" +
+      "; HttpOnly; Path=/; SameSite=Lax" +
       (isProd ? "; Secure" : "")
   );
 }
@@ -478,27 +456,7 @@ function clearAuthCookie(res) {
   res.setHeader(
     "Set-Cookie",
     AUTH_COOKIE_NAME +
-      "=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure" +
-      (isProd ? "; Secure" : "")
-  );
-}
-
-
-function setAccessTokenCookie(res, accessToken) {
-  if (!accessToken) return;
-  const isProd = process.env.NODE_ENV === "production";
-  res.append("Set-Cookie",
-    "access_token=" +
-      encodeURIComponent(accessToken) +
-      "; Path=/; HttpOnly; SameSite=None; Secure" +
-      (isProd ? "; Secure" : "")
-  );
-}
-
-function clearAccessTokenCookie(res) {
-  const isProd = process.env.NODE_ENV === "production";
-  res.append("Set-Cookie",
-    "access_token=; Path=/; HttpOnly; Max-Age=0; SameSite=None; Secure" +
+      "=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax" +
       (isProd ? "; Secure" : "")
   );
 }
@@ -512,65 +470,141 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
+
 async function getSupabaseUserFromRequest(req) {
   try {
-
-    const authHeader = req.headers.authorization || "";
-
-    let token = authHeader.startsWith("Bearer ")
+    const authHeader = String(req.headers.authorization || "");
+    const token = authHeader.startsWith("Bearer ")
       ? authHeader.slice(7).trim()
       : "";
-
-    if (!token) {
-      token = decodeURIComponent(cookies["access_token"] || "");
-    }
 
     if (!token) {
       return { user: null, error: "Missing bearer token" };
     }
 
-    const response = await fetch(
-      `${process.env.SUPABASE_URL}/auth/v1/user`,
-      {
-        headers: {
-          apikey: process.env.SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     if (!response.ok) {
       return { user: null, error: "Invalid token" };
     }
 
     const user = await response.json();
-
     return { user, error: null };
   } catch (err) {
     return { user: null, error: err.message };
   }
 }
+
 async function requireApiUser(req, res, next) {
-  try {const { user, error } = await getSupabaseUserFromRequest(req);
+  const { user, error } = await getSupabaseUserFromRequest(req);
 
-if (!user) {
-  return res.status(401).json({
-    error: error || "Login required",
-  });
-}
-
-req.apiUser = user;
-next();
-
-} catch (err) {
-    return res.status(500).json({
-      error: "Auth failed",
-      details: err.message,
+  if (!user) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      details: error || "Login required",
     });
   }
-}
-// DISABLED OLD LOGIN
 
+  req.apiUser = user;
+  next();
+}
+
+// DISABLED OLD LOGIN
+function renderLoginPage(message) {
+  const safeMessage = escapeHtml(message || "");
+
+  return [
+    "<html>",
+    "<head>",
+    "<title>BuildTrace Login</title>",
+    "<style>",
+    "body {",
+    "  background: #0b0f19;",
+    "  color: #fff;",
+    "  display: flex;",
+    "  justify-content: center;",
+    "  align-items: center;",
+    "  height: 100vh;",
+    "  font-family: Arial, sans-serif;",
+    "  margin: 0;",
+    "}",
+    ".box {",
+    "  background: #111827;",
+    "  padding: 30px;",
+    "  border-radius: 12px;",
+    "  text-align: center;",
+    "  width: 320px;",
+    "  box-shadow: 0 10px 30px rgba(0,0,0,.35);",
+    "}",
+    "input {",
+    "  padding: 10px;",
+    "  margin-top: 10px;",
+    "  width: 100%;",
+    "  box-sizing: border-box;",
+    "  border-radius: 8px;",
+    "  border: 1px solid #374151;",
+    "  background: #0b1220;",
+    "  color: white;",
+    "}",
+    "button {",
+    "  margin-top: 12px;",
+    "  padding: 10px;",
+    "  width: 100%;",
+    "  background: #2563eb;",
+    "  color: white;",
+    "  border: none;",
+    "  border-radius: 8px;",
+    "  cursor: pointer;",
+    "  font-weight: bold;",
+    "}",
+    ".msg {",
+    "  color: #fca5a5;",
+    "  min-height: 18px;",
+    "  margin-top: 10px;",
+    "  font-size: 14px;",
+    "}",
+    "</style>",
+    "</head>",
+    "<body>",
+    '<div class="box">',
+    "<h2>BuildTrace</h2>",
+    "<p>Enter password</p>",
+    '<form method="POST" action="/login">',
+    '<input type="password" name="password" placeholder="Password" required />',
+    '<button type="submit">Enter</button>',
+    "</form>",
+    '<div class="msg">' + safeMessage + "</div>",
+    "</div>",
+    "</body>",
+    "</html>"
+  ].join("\n");
+}
+
+function checkAuth(req, res, next) {
+  if (isAuthenticated(req)) {
+    return next();
+  }
+
+  const apiPassword = String(req.headers["x-app-password"] || "").trim();
+
+  if (apiPassword && apiPassword === APP_PASSWORD) {
+    return next();
+  }
+
+  if (req.path.startsWith("/api/")) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  return next(); // old password lock disabled
+}
 
 // =======================
 
@@ -592,7 +626,7 @@ app.post("/login", async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: "Email and password are required",
+        error: "Email && password are required",
         user: null
       });
     }
@@ -610,16 +644,29 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const accessToken =
-      data?.session?.access_token ||
-      data?.access_token ||
-      null;
-
-    if (accessToken) {
-      setAccessTokenCookie(res, accessToken);
+    
+    try {
+      await supabase.from("va_claims").insert({
+        user_id: req.apiUser.id,
+        input_text: JSON.stringify({
+          issue,
+          serviceContext
+        }),
+        result_text: result || "",
+        extracted_text: visionExtract || "",
+        detected_condition: structured.condition !== "N/A" ? structured.condition : null,
+        estimated_rating: structured.estimatedRating && structured.estimatedRating !== "N/A"
+          ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10) || null
+          : null,
+        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
+        source_type: normalizedImageBase64 ? "image_upload" : "text_only",
+        export_summary: result || ""
+      });
+    } catch (saveErr) {
+      console.log("SAVE CLAIM ERROR:", saveErr?.message || saveErr);
     }
 
-    return res.json({
+return res.json({
       success: true,
       error: null,
       user: {
@@ -637,9 +684,8 @@ app.post("/login", async (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  clearAuthCookie(res);
   clearAccessTokenCookie(res);
-  return res.json({ success: true });
+  return res.redirect("/login");
 });
 
 // everything except login/health is protected
@@ -648,7 +694,7 @@ app.use((req, res, next) => {
     return next();
   }
 
-  return requireApiUser(req, res, next);
+  return checkAuth(req, res, next);
 });
 
 // =======================
@@ -3642,7 +3688,7 @@ app.get("/", (req, res) => {
 app.get("/dashboard", (req, res) => {
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
-app.get("/api/runs", requireApiUser, async (req, res) => {
+app.get("/api/runs", checkAuth, async (req, res) => {
   try {
     let query = supabase
       .from("build_logger_runs")
@@ -3673,7 +3719,7 @@ app.get("/api/runs", requireApiUser, async (req, res) => {
     });
   }
 });
-app.get("/api/va/entries", requireApiUser, async (req, res) => {
+app.get("/api/va/entries", checkAuth, async (req, res) => {
   try {
     let query = supabase
       .from("va_entries")
@@ -3763,28 +3809,6 @@ app.post("/analyze", async (req, res) => {
       nextSteps: readSection("Next Steps"),
       important: readSection("Important")
     };
-
-    try {
-      await supabase.from("va_claims").insert({
-        user_id: req.apiUser.id,
-        input_text: JSON.stringify({
-          issue,
-          serviceContext
-        }),
-        result_text: result || "",
-        extracted_text: visionExtract || "",
-        detected_condition: structured.condition !== "N/A" ? structured.condition : null,
-        estimated_rating:
-          structured.estimatedRating && structured.estimatedRating !== "N/A"
-            ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10) || null
-            : null,
-        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
-        source_type: normalizedImageBase64 ? "image_upload" : "text_only",
-        export_summary: result || ""
-      });
-    } catch (saveErr) {
-      console.log("SAVE CLAIM ERROR BASE64:", saveErr?.message || saveErr);
-    }
 
     return res.json({
       success: true,
@@ -4303,15 +4327,10 @@ app.post("/signup", async (req, res) => {
       });
     }
 
-    const accessToken = data?.session?.access_token ?? null;
-    if (accessToken) {
-      setAccessTokenCookie(res, accessToken);
-    }
-
     return res.json({
       success: true,
       error: null,
-      access_token: accessToken,
+      access_token: data?.session?.access_token ?? null,
       refresh_token: data?.session?.refresh_token ?? null,
       user: {
         id: data?.user?.id ?? data?.session?.user?.id ?? null,

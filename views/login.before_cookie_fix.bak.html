@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BuildTrace VA Signup</title>
+  <title>BuildTrace VA Login</title>
   <style>
     body { credentials: "include", 
       margin: 0;
@@ -57,23 +57,23 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>BuildTrace<br>VA Signup</h1>
+    <h1>BuildTrace<br>VA Login</h1>
 
     <input id="email" type="email" placeholder="Email" />
     <input id="password" type="password" placeholder="Password" />
-    <button id="signupBtn">Create Account</button>
+    <button id="loginBtn">Login</button>
 
-    <div class="row">Already have account? <a href="/login">Login</a></div>
+    <div class="row">Need account? <a href="/signup">Signup</a></div>
     <div id="msg"></div>
   </div>
 
   <script>
     const emailEl = document.getElementById("email");
     const passwordEl = document.getElementById("password");
-    const signupBtn = document.getElementById("signupBtn");
+    const loginBtn = document.getElementById("loginBtn");
     const msgEl = document.getElementById("msg");
 
-    async function handleSignup() { credentials: "include", 
+    async function handleLogin() { credentials: "include", 
       const email = String(emailEl.value || "").trim();
       const password = String(passwordEl.value || "");
 
@@ -82,12 +82,12 @@
         return;
       }
 
-      signupBtn.disabled = true;
-      signupBtn.innerText = "Creating...";
+      loginBtn.disabled = true;
+      loginBtn.innerText = "Logging in...";
       msgEl.innerText = "";
 
       try { credentials: "include", 
-        const res = await fetch("/signup", { credentials: "include",  credentials: "include",  credentials: "include", 
+        const res = await fetch("/login", { credentials: "include",  credentials: "include",  credentials: "include", 
           method: "POST",
           headers: { credentials: "include",  "Content-Type": "application/json" },
           body: JSON.stringify({ credentials: "include",  email, password })
@@ -96,7 +96,7 @@
         const data = await res.json();
 
         if (!res.ok || !data.success) { credentials: "include", 
-          msgEl.innerText = data.error || "Signup failed";
+          msgEl.innerText = data.error || "Login failed";
           return;
         }
 
@@ -105,27 +105,23 @@
           if (data.user && data.user.email) { credentials: "include", 
             localStorage.setItem("userEmail", data.user.email);
           }
-          if (data.access_token) { credentials: "include", 
-              "access_token=" + encodeURIComponent(data.access_token) +
-              "; Path=/; SameSite=Lax";
-          }
         } catch { credentials: "include", }
 
         window.location.href = "/dashboard";
       } catch (err) { credentials: "include", 
         msgEl.innerText = err.message || "Network error";
       } finally { credentials: "include", 
-        signupBtn.disabled = false;
-        signupBtn.innerText = "Create Account";
+        loginBtn.disabled = false;
+        loginBtn.innerText = "Login";
       }
     }
 
-    signupBtn.addEventListener("click", handleSignup);
+    loginBtn.addEventListener("click", handleLogin);
     passwordEl.addEventListener("keydown", function(e) { credentials: "include", 
-      if (e.key === "Enter") handleSignup();
+      if (e.key === "Enter") handleLogin();
     });
     emailEl.addEventListener("keydown", function(e) { credentials: "include", 
-      if (e.key === "Enter") handleSignup();
+      if (e.key === "Enter") handleLogin();
     });
   </script>
 </body>
