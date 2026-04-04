@@ -235,7 +235,13 @@
     el.innerText = "Loading...";
 
     try {
-      const res = await const token = await getAccessToken();
+      const token = await getAccessToken();
+
+    const res = await fetch("/claims", {
+      headers: {
+        Authorization: "Bearer " + token
+      }
+    });
 
     const res = await fetch("/claims", {
       headers: {
