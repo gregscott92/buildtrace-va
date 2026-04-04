@@ -1,12 +1,9 @@
 import { useState } from "react";
-import { Alert, Button, Text, TextInput, View, Pressable } from "react-native";
+import { Alert, Button, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
-import { useRouter } from "expo-router";
 import { signUpWithEmail } from "../lib/auth";
 
 export default function SignupScreen() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,16 +17,24 @@ export default function SignupScreen() {
       if (error) {
         Alert.alert("Signup failed", error.message);
         return;
+    }
+
+    localStorage.setItem("user", JSON.stringify(data.user));
       }
 
       if (data?.session) {
-        router.replace("/select-mode");
+        router.replace("/dashboard");
         return;
       }
 
-      Alert.alert("Signup complete", "You can now log in.");
-      router.replace("/va");
-    } catch (err) {
+      if (data?.user) {
+        Alert.alert("Success", "Account created. You can now log in.");
+        router.replace("/va");
+        return;
+      }
+
+      Alert.alert("Signup", "Account created.");
+    } catch (err: any) {
       Alert.alert("Signup failed", err?.message || "Unknown error");
     } finally {
       setLoading(false);
@@ -37,10 +42,8 @@ export default function SignupScreen() {
   }
 
   return (
-    <View style={{ flex: 1, justifyContent: "center", padding: 20 }}>
-      <Text style={{ fontSize: 28, fontWeight: "700", marginBottom: 24 }}>
-        Sign Up
-      </Text>
+    <View style={{ flex: 1, justifyContent: "center", padding: 20, gap: 12 }}>
+      <Text style={{ fontSize: 28, fontWeight: "700" }}>Sign Up</Text>
 
       <TextInput
         placeholder="Email"
@@ -48,7 +51,7 @@ export default function SignupScreen() {
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
-        style={{ borderWidth: 1, padding: 12, borderRadius: 8, marginBottom: 12 }}
+        style={{ borderWidth: 1, padding: 12, borderRadius: 8 }}
       />
 
       <TextInput
@@ -56,20 +59,14 @@ export default function SignupScreen() {
         secureTextEntry
         value={password}
         onChangeText={setPassword}
-        style={{ borderWidth: 1, padding: 12, borderRadius: 8, marginBottom: 16 }}
+        style={{ borderWidth: 1, padding: 12, borderRadius: 8 }}
       />
 
       <Button
-        title={loading ? "Creating account..." : "Sign Up"}
+        title={loading ? "Creating account..." : "Create account"}
         onPress={handleSignup}
         disabled={loading}
       />
-
-      <Pressable onPress={() => router.push("/login")} style={{ marginTop: 20 }}>
-        <Text style={{ textAlign: "center", color: "#2563eb", fontSize: 16 }}>
-          Already have an account? Log in
-        </Text>
-      </Pressable>
     </View>
   );
 }

@@ -1,9 +1,50 @@
 import { useState } from "react";
 import { Alert, Button, Text, TextInput, View, Pressable } from "react-native";
 import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { signInWithEmail } from "../lib/auth";
 
+
+const handleLogin = async () => {
+  try {
+    console.log("LOGIN CLICKED");
+
+    const response = await fetch("https://buildtrace-va.onrender.comlogin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
+
+    console.log("STATUS:", response.status);
+
+    const data = await response.json();
+    console.log("DATA:", data);
+
+    if (!response.ok || !data.success) {
+      alert(data.error || "Login failed");
+      return;
+    }
+
+    // SUCCESS → redirect
+    window.location.href = "/va";
+
+  } router.replace("/va");
+
+    catch (err) {
+    console.log("LOGIN ERROR:", err);
+    alert("Network error");
+  }
+};
+
+
 export default function LoginScreen() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,7 +102,7 @@ export default function LoginScreen() {
         disabled={loading}
       />
 
-      <Pressable onPress={() => router.push("/signup")} style={{ marginTop: 20 }}>
+      <Pressable onPress={handleLogin} // replaced inline router.push("/signup")} style={{ marginTop: 20 }}>
         <Text style={{ textAlign: "center", color: "#2563eb", fontSize: 16 }}>
           Need an account? Sign up
         </Text>
