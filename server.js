@@ -644,7 +644,11 @@ app.post("/logout", (req, res) => {
 
 // everything except login/health is protected
 app.use((req, res, next) => {
-  if (req.path.startsWith("/login") || req.path === "/health") {
+if (
+  req.path.startsWith("/login") ||
+  req.path.startsWith("/signup") ||
+  req.path === "/health"
+) {
     return next();
   }
 
