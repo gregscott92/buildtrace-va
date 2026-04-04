@@ -461,6 +461,26 @@ function clearAuthCookie(res) {
   );
 }
 
+
+function setAccessTokenCookie(res, accessToken) {
+  if (!accessToken) return;
+  const isProd = process.env.NODE_ENV === "production";
+  res.append("Set-Cookie",
+    "access_token=" +
+      encodeURIComponent(accessToken) +
+      "; Path=/; HttpOnly; SameSite=Lax" +
+      (isProd ? "; Secure" : "")
+  );
+}
+
+function clearAccessTokenCookie(res) {
+  const isProd = process.env.NODE_ENV === "production";
+  res.append("Set-Cookie",
+    "access_token=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax" +
+      (isProd ? "; Secure" : "")
+  );
+}
+
 function escapeHtml(str) {
   return String(str || "")
     .replace(/&/g, "&amp;")
@@ -3810,6 +3830,28 @@ app.post("/analyze", async (req, res) => {
       important: readSection("Important")
     };
 
+    try {
+      await supabase.from("va_claims").insert({
+        user_id: req.apiUser.id,
+        input_text: JSON.stringify({
+          issue,
+          serviceContext
+        }),
+        result_text: result || "",
+        extracted_text: visionExtract || "",
+        detected_condition: structured.condition !== "N/A" ? structured.condition : null,
+        estimated_rating:
+          structured.estimatedRating && structured.estimatedRating !== "N/A"
+            ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10) || null
+            : null,
+        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
+        source_type: normalizedImageBase64 ? "image_upload" : "text_only",
+        export_summary: result || ""
+      });
+    } catch (saveErr) {
+      console.log("SAVE CLAIM ERROR BASE64:", saveErr?.message || saveErr);
+    }
+
     return res.json({
       success: true,
       likelihood:
@@ -4327,9 +4369,16 @@ app.post("/signup", async (req, res) => {
       });
     }
 
+    const accessToken = data?.session?.access_token ?? null;
+    if (accessToken) {
+      setAccessTokenCookie(res, accessToken);
+    }
+
     return res.json({
       success: true,
       error: null,
+      access_token: accessToken,
+      refresh_token: data?.session?.refresh_token ?? null,
       user: {
         id: data?.user?.id ?? data?.session?.user?.id ?? null,
         email: data?.user?.email ?? data?.session?.user?.email ?? null

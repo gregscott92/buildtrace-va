@@ -105,6 +105,11 @@
           if (data.user && data.user.email) {
             localStorage.setItem("userEmail", data.user.email);
           }
+          if (data.access_token) {
+            document.cookie =
+              "access_token=" + encodeURIComponent(data.access_token) +
+              "; Path=/; SameSite=Lax";
+          }
         } catch {}
 
         window.location.href = "/dashboard";
