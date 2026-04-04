@@ -684,8 +684,8 @@ return res.json({
 });
 
 app.post("/logout", (req, res) => {
-  clearAuthCookie(res);
-  return res.json({ success: true });
+  clearAccessTokenCookie(res);
+  return res.redirect("/login");
 });
 
 // everything except login/health is protected
