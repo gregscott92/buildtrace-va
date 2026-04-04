@@ -108,24 +108,6 @@
       font-weight: 700;
       margin: 0 0 12px;
     }
-    .field {
-      font-size: 16px;
-      margin-bottom: 8px;
-      line-height: 1.5;
-    }
-    .field strong {
-      font-weight: 700;
-    }
-    .block-title {
-      font-size: 18px;
-      font-weight: 700;
-      margin: 18px 0 8px;
-    }
-    .block-sub {
-      font-size: 13px;
-      color: #6b7280;
-      margin-bottom: 8px;
-    }
     .item {
       font-size: 15px;
       margin-bottom: 6px;
@@ -144,19 +126,6 @@
       font-size: 28px;
       font-weight: 700;
       margin-bottom: 12px;
-    }
-    .claim-row {
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 10px;
-      color: white;
-    }
-    .claim-row small {
-      color: #aab4c8;
-      display: block;
-      margin-top: 6px;
     }
     .topbar {
       display: flex;
@@ -180,6 +149,16 @@
     .hidden-file {
       display: none;
     }
+    .notice {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      color: #7c2d12;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 18px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
@@ -192,6 +171,10 @@
 
     <h1>VA Mode</h1>
     <div class="sub">Upload evidence and describe the condition or claim issue.</div>
+
+    <div class="notice">
+      <strong>Do not enter PII.</strong> Do not upload or type SSNs, full addresses, dates of birth, claim numbers, bank info, or other sensitive personal identifiers.
+    </div>
 
     <label class="label" for="issue">Short description</label>
     <textarea
@@ -206,13 +189,18 @@
       style="min-height: 90px;"
     ></textarea>
 
-    <input id="fileInput" class="hidden-file" type="file" accept="image/*,.jpg,.jpeg,.png,.webp" />
+    <input
+      id="fileInput"
+      class="hidden-file"
+      type="file"
+      accept="image/*,.jpg,.jpeg,.png,.webp"
+    />
 
-    <button id="pickBtn" class="btn btn-blue" type="button" id="uploadBtn">Upload Image</button>
+    <button id="uploadBtn" class="btn btn-blue" type="button">Upload Image</button>
 
     <img id="preview" class="preview" alt="Preview" />
 
-    <button id="analyzeBtn" onclick="handleAnalyze()" class="btn btn-green" type="button">Analyze Claim</button>
+    <button id="analyzeBtn" class="btn btn-green" type="button">Analyze Claim</button>
 
     <div id="loading" class="loading" style="display:none;">Analyzing...</div>
 
@@ -224,220 +212,78 @@
     </div>
   </div>
 
-  
+  <script>
+    let uploadedImageDataUrl = "";
 
-<script>
-(function () {
-  async function renderClaimsStandalone() {
-    const el = document.getElementById("claimsList");
-    if (!el) return;
-
-    el.innerText = "Loading...";
-
-    try {
-      const token = await getAccessToken();
-
-    const res = await fetch("/claims", {
-      headers: {
-        Authorization: "Bearer " + token
-      }
-    });
-
-    const res = await fetch("/claims", {
-      headers: {
-        Authorization: "Bearer " + token
-      }
-    });
-      const data = await res.json();
-
-      if (!res.ok) {
-        el.innerText = data.details || data.error || "Failed to load claims";
-        return;
-      }
-
-      const claims = Array.isArray(data.claims) ? data.claims : [];
-
-      if (!claims.length) {
-        el.innerText = "No saved claims yet.";
-        return;
-      }
-
-      el.innerHTML = claims.map(function (c) {
-        const condition = c.detected_condition || c.condition || "N/A";
-        const rating =
-          c.estimated_rating === null || c.estimated_rating === undefined
-            ? "N/A"
-            : c.estimated_rating;
-        const confidence = c.confidence_label || c.confidence || "N/A";
-        const confidenceColor =
-          confidence === "High" ? "#16a34a" :
-          confidence === "Medium" ? "#d97706" :
-          confidence === "Low" ? "#dc2626" :
-          "#e2e8f0";
-        const date = c.created_at ? new Date(c.created_at).toLocaleString() : "";
-
-        return `
-          <div style="margin-bottom:15px;padding:12px;border:1px solid #334155;border-radius:10px;background:#0b1220;color:#e2e8f0;">
-            <div style="margin-bottom:6px;"><strong>Condition:</strong> ${condition}</div>
-            <div style="margin-bottom:6px;"><strong>Rating:</strong> ${rating}%</div>
-            <div style="margin-bottom:6px;"><strong>Confidence:</strong> <span style="color:${confidenceColor};font-weight:700;">${confidence}</span></div>
-            <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
-          </div>
-        `;
-      }).join("");
-    } catch (err) {
-      el.innerText = err.message || "Error loading claims";
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", renderClaimsStandalone);
-  } else {
-    renderClaimsStandalone();
-  }
-})();
-
-async function handleAnalyze() {
-  alert("analyze started");
-  const issue = String(document.getElementById("issue")?.value || "").trim();
-  const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
-  const resultMount = document.getElementById("resultMount");
-  const loading = document.getElementById("loading");
-  const analyzeBtn = document.getElementById("analyzeBtn");
-
-  if (!resultMount) {
-    alert("Result area not found");
-    return;
-  }
-
-  if (!issue && !serviceContext && !uploadedImageDataUrl) {
-    resultMount.innerHTML = `
-      <div class="card">
-        <div class="section-title">Result</div>
-        <div class="item">Enter your condition details first.</div>
-      </div>
-    `;
-    return;
-  }
-
-  try {
-    if (loading) loading.style.display = "block";
-    if (analyzeBtn) {
-      analyzeBtn.disabled = true;
-      analyzeBtn.style.opacity = "0.7";
+    function getAccessToken() {
+      const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : "";
     }
 
-    const payload = {
-      issue,
-      serviceContext,
-      normalizedImageBase64: uploadedImageDataUrl || ""
-    };
-
-    const response = await fetch("/va/analyze-base64", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data?.details || data?.error || "Analysis failed");
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
     }
 
-    const parsed = data.structured || data.parsed || {};
-    const condition = parsed.condition || "N/A";
-    const diagnosticCode = parsed.diagnosticCode || "N/A";
-    const estimatedRating = parsed.estimatedRating || data.likelihood || "N/A";
-    const confidence = parsed.confidence || "N/A";
-    const reasoning = parsed.reasoning || "N/A";
-    const evidenceNeeded = parsed.evidenceNeeded || "N/A";
-    const nextSteps = parsed.nextSteps || "N/A";
-    const important = parsed.important || "N/A";
-    const disclaimer =
-      data.disclaimer ||
-      "This tool provides an estimate only. Final determinations are made by the VA.";
+    async function loadClaims() {
+      const el = document.getElementById("claimsList");
+      if (!el) return;
 
-    resultMount.innerHTML = `
-      <div class="card">
-        <div class="section-title">Result</div>
-        <div class="item"><strong>Condition:</strong> ${condition}</div>
-        <div class="item"><strong>Diagnostic Code:</strong> ${diagnosticCode}</div>
-        <div class="item"><strong>Estimated Rating:</strong> ${estimatedRating}</div>
-        <div class="item"><strong>Confidence:</strong> ${confidence}</div>
-        <div class="item"><strong>Reasoning:</strong><br>${String(reasoning).replace(/\n/g, "<br>")}</div>
-        <div class="item"><strong>Evidence Still Needed:</strong><br>${String(evidenceNeeded).replace(/\n/g, "<br>")}</div>
-        <div class="item"><strong>Next Steps:</strong><br>${String(nextSteps).replace(/\n/g, "<br>")}</div>
-        <div class="item"><strong>Important:</strong><br>${String(important).replace(/\n/g, "<br>")}</div>
-        <div class="item" style="margin-top:14px;font-size:13px;color:#94a3b8;">
-          <strong>Disclaimer:</strong> ${disclaimer}
-        </div>
-      </div>
-    `;
-  } catch (err) {
-    resultMount.innerHTML = `
-      <div class="card">
-        <div class="section-title">Result</div>
-        <div class="item">${err?.message || "Analysis failed"}</div>
-      </div>
-    `;
-  } finally {
-    if (loading) loading.style.display = "none";
-    if (analyzeBtn) {
-      analyzeBtn.disabled = false;
-      analyzeBtn.style.opacity = "1";
-    }
-  }
-}
+      el.innerText = "Loading...";
 
-document.getElementById("analyzeBtn")?.addEventListener("click", handleAnalyze);
+      try {
+        const token = getAccessToken();
 
+        if (!token) {
+          el.innerText = "Login required";
+          return;
+        }
 
-let uploadedImageDataUrl = "";
+        const res = await fetch("/claims", {
+          headers: {
+            Authorization: "Bearer " + token
+          }
+        });
 
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+        const data = await res.json();
 
-const hiddenImageInput = document.createElement("input");
-hiddenImageInput.type = "file";
-hiddenImageInput.accept = "image/*";
-hiddenImageInput.style.display = "none";
-document.body.appendChild(hiddenImageInput);
+        if (!res.ok) {
+          el.innerText = data.details || data.error || "Failed to load claims";
+          return;
+        }
 
-hiddenImageInput.addEventListener("change", async function () {
-  const file = hiddenImageInput.files && hiddenImageInput.files[0];
+        const claims = Array.isArray(data.claims) ? data.claims : [];
 
-  if (!file) {
-    uploadedImageDataUrl = "";
-    return;
-  }
+        if (!claims.length) {
+          el.innerText = "No saved claims yet.";
+          return;
+        }
 
-  try {
-    uploadedImageDataUrl = await fileToDataUrl(file);
+        el.innerHTML = claims.map((c) => {
+          const condition = c.detected_condition || c.condition || "N/A";
+          const rating =
+            c.estimated_rating === null || c.estimated_rating === undefined
+              ? "N/A"
+              : c.estimated_rating;
+          const confidence = c.confidence_label || c.confidence || "N/A";
+          const confidenceColor =
+            confidence === "High" ? "#16a34a" :
+            confidence === "Medium" ? "#d97706" :
+            confidence === "Low" ? "#dc2626" :
+            "#e2e8f0";
+          const date = c.created_at ? new Date(c.created_at).toLocaleString() : "";
 
-    const uploadBtn = document.getElementById("uploadBtn");
-    if (uploadBtn) {
-      uploadBtn.innerText = "Change Image";
-    }
-  } catch (err) {
-    uploadedImageDataUrl = "";
-    alert(err?.message || "Could not read image");
-  }
-});
-
-document.getElementById("uploadBtn")?.addEventListener("click", function () {
-  hiddenImageInput.click();
-});
-
-</script>
-
-</body>
-</html>
+          return `
+            <div style="margin-bottom:15px;padding:12px;border:1px solid #334155;border-radius:10px;background:#0b1220;color:#e2e8f0;">
+              <div style="margin-bottom:6px;"><strong>Condition:</strong> ${condition}</div>
+              <div style="margin-bottom:6px;"><strong>Rating:</strong> ${rating}%</div>
+              <div style="margin-bottom:6px;"><strong>Confidence:</strong> <span style="color:${confidenceColor};font-weight:700;">${confidence}</span></div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
+            </div>
+          `;
+        }).join("");
+      } catch (err) {
