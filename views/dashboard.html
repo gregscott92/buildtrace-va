@@ -227,6 +227,7 @@
         }
 
         const res = await fetch("/claims", {
+          credentials: "include",
           headers: {
             Authorization: "Bearer " + token
           }
@@ -318,7 +319,9 @@
         };
 
         const response = await fetch("/va/analyze-base64", {
+          credentials: "include",
           method: "POST",
+credentials: "include",
           headers: {
             "Content-Type": "application/json",
             Authorization: "Bearer " + token
