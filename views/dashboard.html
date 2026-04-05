@@ -185,6 +185,7 @@
   Analyze Claim
 </button>
 <div id="result" style="margin-top:12px;color:white;"></div>
+<div id="debugBox" style="margin-top:12px;color:#93c5fd;font-size:14px;white-space:pre-wrap;"></div>
 
 
     <img id="preview" class="preview" alt="Preview" />
@@ -320,6 +321,189 @@ setTimeout(() => {
   if (btns[1]) btns[1].onclick = loadClaims;
 }, 500);
 </script>
+
+
+<!-- FORCE_VA_WEB_PATCH_START -->
+<script>
+(function () {
+  function dbg(msg) {
+    try {
+      const box = document.getElementById("debugBox");
+      console.log(msg);
+      if (box) box.textContent = String(msg);
+    } catch (e) {}
+  }
+
+  function getToken() {
+    try {
+      const a = localStorage.getItem("access_token") || "";
+      if (a) return a;
+    } catch (e) {}
+    try {
+      const b = sessionStorage.getItem("access_token") || "";
+      if (b) return b;
+    } catch (e) {}
+    try {
+      const cookie = document.cookie || "";
+      const m = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+      if (m && m[1]) return decodeURIComponent(m[1]);
+    } catch (e) {}
+    return "";
+  }
+
+  function getIssue() {
+    return (
+      document.getElementById("issue")?.value ||
+      document.querySelector('textarea[placeholder*="lower back pain"]')?.value ||
+      document.querySelectorAll("textarea")[0]?.value ||
+      ""
+    ).trim();
+  }
+
+  function getServiceContext() {
+    return (
+      document.getElementById("serviceContext")?.value ||
+      document.querySelector('textarea[placeholder*="deployed 2010-2011"]')?.value ||
+      document.querySelectorAll("textarea")[1]?.value ||
+      ""
+    ).trim();
+  }
+
+  async function analyze() {
+    const result = document.getElementById("result");
+    const issue = getIssue();
+    const serviceContext = getServiceContext();
+    const token = getToken();
+
+    dbg("analyze clicked | token=" + (token ? "yes" : "no") + " | issue=" + issue + " | ctx=" + serviceContext);
+
+    if (!result) return;
+
+    if (!issue && !serviceContext) {
+      result.innerHTML = "Please enter something first.";
+      return;
+    }
+
+    result.innerHTML = "Running...";
+
+    try {
+      const res = await fetch("/va/analyze-base64", {
+        method: "POST",
+        credentials: "include",
+        headers: Object.assign(
+          { "Content-Type": "application/json" },
+          token ? { "Authorization": "Bearer " + token } : {}
+        ),
+        body: JSON.stringify({
+          issue,
+          serviceContext,
+          normalizedImageBase64: ""
+        })
+      });
+
+      const raw = await res.text();
+      dbg("analyze status=" + res.status + " raw=" + raw.slice(0, 500));
+
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        result.innerHTML = "Analyze JSON parse error: " + raw;
+        return;
+      }
+
+      if (!res.ok) {
+        result.innerHTML = data.details || data.error || ("Analyze HTTP " + res.status);
+        return;
+      }
+
+      const parsed = data.structured || data.parsed || {};
+      result.innerHTML = `
+        <div><strong>Summary:</strong><br>${String(data.summary || "").replace(/\n/g, "<br>")}</div>
+        <div style="margin-top:8px;"><strong>Condition:</strong> ${parsed.condition || "N/A"}</div>
+        <div><strong>Estimated Rating:</strong> ${parsed.estimatedRating || data.likelihood || "N/A"}</div>
+        <div><strong>Confidence:</strong> ${parsed.confidence || "N/A"}</div>
+      `;
+
+      await loadClaims();
+    } catch (err) {
+      result.innerHTML = "Analyze error: " + (err?.message || err);
+      dbg("analyze exception=" + (err?.message || err));
+    }
+  }
+
+  async function loadClaims() {
+    const list = document.getElementById("claimsList");
+    const token = getToken();
+
+    if (!list) return;
+
+    dbg("loadClaims clicked | token=" + (token ? "yes" : "no"));
+    list.innerHTML = "Loading...";
+
+    try {
+      const res = await fetch("/claims", {
+        method: "GET",
+        credentials: "include",
+        headers: token ? { "Authorization": "Bearer " + token } : {}
+      });
+
+      const raw = await res.text();
+      dbg("claims status=" + res.status + " raw=" + raw.slice(0, 500));
+
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        list.innerHTML = "Claims JSON parse error: " + raw;
+        return;
+      }
+
+      if (!res.ok) {
+        list.innerHTML = data.details || data.error || ("Claims HTTP " + res.status);
+        return;
+      }
+
+      const claims = Array.isArray(data.claims) ? data.claims : [];
+      if (!claims.length) {
+        list.innerHTML = "No saved claims yet.";
+        return;
+      }
+
+      list.innerHTML = claims.map(c => `
+        <div style="margin:10px 0;padding:12px;border:1px solid #1f2937;border-radius:10px;">
+          <div><strong>Condition:</strong> ${c.detected_condition || "Unknown"}</div>
+          <div><strong>Rating:</strong> ${c.estimated_rating ?? "N/A"}</div>
+          <div><strong>Confidence:</strong> ${c.confidence_label || "Unknown"}</div>
+        </div>
+      `).join("");
+    } catch (err) {
+      list.innerHTML = "Claims error: " + (err?.message || err);
+      dbg("claims exception=" + (err?.message || err));
+    }
+  }
+
+  window.analyze = analyze;
+  window.loadClaims = loadClaims;
+
+  function bind() {
+    const a = document.getElementById("analyzeBtn");
+    const v = document.getElementById("viewSavedClaimsBtn");
+
+    if (a) a.onclick = analyze;
+    if (v) v.onclick = loadClaims;
+
+    dbg("bind complete | analyzeBtn=" + (!!a) + " | viewBtn=" + (!!v));
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bind);
+  } else {
+    bind();
+  }
+})();
+</script>
+<!-- FORCE_VA_WEB_PATCH_END -->
 
 </body>
 </html>
