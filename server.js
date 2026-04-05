@@ -3930,7 +3930,7 @@ app.post("/analyze-image", async (req, res) => {
       resultText: result
     });
 
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from("va_claims")
       .insert({
         user_id: req.apiUser.id,
@@ -4288,7 +4288,7 @@ app.post("/upload-paperwork-json", async (req, res) => {
       resultText: result
     });
 
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from("va_claims")
       .insert({
         user_id: req.apiUser.id,
