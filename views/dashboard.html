@@ -387,5 +387,230 @@ el.innerHTML = claims.map((c) => {
       init();
     }
   </script>
+
+<script>
+/* FORCE_WEB_FIX_V1 */
+(function () {
+  function getAccessTokenFixed() {
+    try {
+      const fromLocal = localStorage.getItem("access_token") || "";
+      if (fromLocal) return fromLocal;
+
+      const fromSession = sessionStorage.getItem("access_token") || "";
+      if (fromSession) return fromSession;
+
+      const hash = window.location.hash || "";
+      const m = hash.match(/access_token=([^&]+)/);
+      if (m && m[1]) {
+        const token = decodeURIComponent(m[1]);
+        try { localStorage.setItem("access_token", token); } catch {}
+        try { sessionStorage.setItem("access_token", token); } catch {}
+        return token;
+      }
+
+      const cookie = document.cookie || "";
+      const found = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+      return found ? decodeURIComponent(found[1]) : "";
+    } catch (e) {
+      console.error("TOKEN READ ERROR:", e);
+      return "";
+    }
+  }
+
+  async function loadClaimsFixed() {
+    const el = document.getElementById("claimsList");
+    if (!el) return;
+    el.innerText = "Loading...";
+
+    try {
+      const token = getAccessTokenFixed();
+      console.log("FIXED CLAIMS TOKEN:", token);
+
+      const res = await fetch("/claims", {
+        method: "GET",
+        credentials: "include",
+        headers: token ? { Authorization: "Bearer " + token } : {}
+      });
+
+      const raw = await res.text();
+      console.log("FIXED CLAIMS STATUS:", res.status);
+      console.log("FIXED CLAIMS RAW:", raw);
+
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        el.innerText = "Claims JSON parse error: " + raw;
+        return;
+      }
+
+      if (!res.ok) {
+        el.innerText = data?.details || data?.error || ("Claims HTTP " + res.status);
+        return;
+      }
+
+      const claims = Array.isArray(data?.claims) ? data.claims : [];
+      if (!claims.length) {
+        el.innerText = "No saved claims yet.";
+        return;
+      }
+
+      el.innerHTML = claims.map((c) => {
+        const condition = c?.detected_condition || c?.condition || "Unknown";
+        const rating = (c?.estimated_rating === 0 || c?.estimated_rating) ? c.estimated_rating : "N/A";
+        const confidence = c?.confidence_label || c?.confidence || "Unknown";
+        const created = c?.created_at ? new Date(c.created_at).toLocaleString() : "";
+        return `
+          <div style="margin-bottom:15px;padding:12px;border:1px solid #1f2937;border-radius:8px;">
+            <div><strong>Condition:</strong> ${condition}</div>
+            <div><strong>Rating:</strong> ${rating}</div>
+            <div><strong>Confidence:</strong> ${confidence}</div>
+            <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${created}</div>
+          </div>
+        `;
+      }).join("");
+    } catch (err) {
+      console.error("FIXED CLAIMS ERROR:", err);
+      el.innerText = err?.message || "Claims load failed";
+    }
+  }
+
+  async function handleAnalyzeFixed() {
+    const issue = String(document.getElementById("issue")?.value || "").trim();
+    const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
+    const resultMount = document.getElementById("resultMount");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const token = getAccessTokenFixed();
+
+    if (!resultMount) return;
+
+    resultMount.innerHTML = `
+      <div class="card">
+        <div class="section-title">Result</div>
+        <div class="item">Running...</div>
+      </div>
+    `;
+
+    if (!issue && !serviceContext) {
+      resultMount.innerHTML = `
+        <div class="card">
+          <div class="section-title">Result</div>
+          <div class="item">Enter your condition details first.</div>
+        </div>
+      `;
+      return;
+    }
+
+    if (!token) {
+      resultMount.innerHTML = `
+        <div class="card">
+          <div class="section-title">Result</div>
+          <div class="item">No access token found. Please log in again.</div>
+        </div>
+      `;
+      return;
+    }
+
+    try {
+      if (analyzeBtn) {
+        analyzeBtn.disabled = true;
+        analyzeBtn.style.opacity = "0.7";
+      }
+
+      const payload = {
+        issue,
+        serviceContext,
+        normalizedImageBase64: ""
+      };
+
+      const res = await fetch("/va/analyze-base64", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const raw = await res.text();
+      console.log("FIXED ANALYZE STATUS:", res.status);
+      console.log("FIXED ANALYZE RAW:", raw);
+
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        throw new Error("Analyze JSON parse error: " + raw);
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.details || data?.error || ("Analyze HTTP " + res.status));
+      }
+
+      const parsed = data?.structured || data?.parsed || {};
+      const summary = data?.summary || "No summary returned";
+
+      resultMount.innerHTML = `
+        <div class="card">
+          <div class="section-title">Result</div>
+          <div class="item"><strong>Summary:</strong><br>${String(summary).replace(/\n/g, "<br>")}</div>
+          <div class="item"><strong>Condition:</strong> ${parsed?.condition || "N/A"}</div>
+          <div class="item"><strong>Estimated Rating:</strong> ${parsed?.estimatedRating || data?.likelihood || "N/A"}</div>
+          <div class="item"><strong>Confidence:</strong> ${parsed?.confidence || "N/A"}</div>
+        </div>
+      `;
+
+      await loadClaimsFixed();
+    } catch (err) {
+      console.error("FIXED ANALYZE ERROR:", err);
+      resultMount.innerHTML = `
+        <div class="card">
+          <div class="section-title">Result</div>
+          <div class="item">${err?.message || "Analysis failed"}</div>
+        </div>
+      `;
+    } finally {
+      if (analyzeBtn) {
+        analyzeBtn.disabled = false;
+        analyzeBtn.style.opacity = "1";
+      }
+    }
+  }
+
+  function rebindButton(id, handler) {
+    const oldBtn = document.getElementById(id);
+    if (!oldBtn) return null;
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    newBtn.addEventListener("click", handler);
+    return newBtn;
+  }
+
+  function initForceWebFix() {
+    console.log("FORCE_WEB_FIX init");
+
+    rebindButton("analyzeBtn", handleAnalyzeFixed);
+    rebindButton("viewSavedClaimsBtn", loadClaimsFixed);
+
+    // optional secondary button if present
+    const altBtn = document.getElementById("load-claims-btn");
+    if (altBtn) {
+      const newAlt = altBtn.cloneNode(true);
+      altBtn.parentNode.replaceChild(newAlt, altBtn);
+      newAlt.addEventListener("click", loadClaimsFixed);
+    }
+
+    loadClaimsFixed();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initForceWebFix);
+  } else {
+    initForceWebFix();
+  }
+})();
+</script>
+
 </body>
 </html>
