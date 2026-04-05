@@ -3809,13 +3809,15 @@ app.post("/analyze", async (req, res) => {
       const { error: insertError } = await supabaseAdmin.from("va_claims").insert({
         user_id: req.apiUser.id,
         input_text: raw,
-        result_text: resultText || "",
+        result_text: summary || resultText || "",
         extracted_text: "",
         detected_condition: structured.condition !== "N/A" ? structured.condition : null,
         estimated_rating:
           structured.estimatedRating && structured.estimatedRating !== "N/A"
             ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10) || null
             : null,
+        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
+        export_summary: summary || resultText || null,
         confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
         source_type: normalizedImageBase64 ? "image_upload" : "text_only",
         export_summary: resultText || ""
