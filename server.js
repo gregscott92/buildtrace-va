@@ -3794,7 +3794,9 @@ app.post("/analyze", async (req, res) => {
       return String(match[1]).trim() || "N/A";
     }
 
-    const structured = {
+    const result = analyzeCfr38(input);
+
+      const structured = {
       condition: readSection("Condition"),
       diagnosticCode: readSection("Diagnostic Code"),
       estimatedRating: readSection("Estimated VA Rating"),
