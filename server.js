@@ -2444,7 +2444,7 @@ app.get("/api/admin/costs/health", async (req, res) => {
 // =======================
 // VA ROUTES
 // =======================
-app.post("/api/va/entries", requireApiUser, async (req, res) => {
+app.post("/api/va/entries",  async (req, res) => {
 try {
   const title = String(req.body.title || "").trim();
   const topic = String(req.body.topic || "").trim();
@@ -2560,7 +2560,7 @@ try {
     return res.status(500).json({ error: err.message });
   }
 });
-app.post("/api/va/analyze", requireApiUser, async (req, res) => {
+app.post("/api/va/analyze",  async (req, res) => {
   try {
     const { entry_id } = req.body;
 
@@ -2643,7 +2643,7 @@ Return JSON ONLY:
   }
 });
 
-app.post("/api/va/calculate-crsc", requireApiUser, async (req, res) => {
+app.post("/api/va/calculate-crsc",  async (req, res) => {
   try {
     const result = estimateCrsc({
       yearsOfService: req.body.years_of_service,
@@ -3609,7 +3609,7 @@ app.post("/api/runs/:id/post-x", async (req, res) => {
 // VA ROUTES
 // =======================
 
-app.post("/api/va/entries", requireApiUser, async (req, res) => {
+app.post("/api/va/entries",  async (req, res) => {
   try {
     const title = String(req.body.title || "").trim();
     const topic = String(req.body.topic || "").trim();
@@ -3683,7 +3683,7 @@ app.get("/", (req, res) => {
 app.get("/dashboard", (req, res) => {
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
-app.get("/api/runs", requireApiUser, async (req, res) => {
+app.get("/api/runs",  async (req, res) => {
   try {
     let query = supabase
       .from("build_logger_runs")
@@ -3714,7 +3714,7 @@ app.get("/api/runs", requireApiUser, async (req, res) => {
     });
   }
 });
-app.get("/api/va/entries", requireApiUser, async (req, res) => {
+app.get("/api/va/entries",  async (req, res) => {
   try {
     let query = supabase
       .from("va_entries")
@@ -4393,7 +4393,7 @@ app.post("/signup", async (req, res) => {
 
 
 
-app.post("/va/analyze", requireApiUser, upload.single("image"), async (req, res) => {
+app.post("/va/analyze",  upload.single("image"), async (req, res) => {
   console.log("=== /va/analyze hit ===");
   try {
     const issue = String(req.body?.issue || "").trim();
@@ -4507,7 +4507,7 @@ const structured = {
 
 
 
-app.post("/va/analyze-base64", requireApiUser, async (req, res) => {
+app.post("/va/analyze-base64",  async (req, res) => {
   let tempPath = null;
 
   try {
