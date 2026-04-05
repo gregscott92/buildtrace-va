@@ -239,7 +239,9 @@ function getAccessToken() {
       return;
     }
 
-    const claims = Array.isArray(data.claims) ? data.claims : [];
+    const claims = Array.isArray(data.claims)
+  ? data.claims.filter(c => c && typeof c === "object")
+  : [];
 
     if (!claims.length) {
       el.innerText = "No saved claims yet.";
