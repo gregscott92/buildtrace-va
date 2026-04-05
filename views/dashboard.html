@@ -466,5 +466,21 @@ if (typeof loadClaims !== "function") {
 }
 </script>
 
+
+<script>
+async function fileToDataUrl(file) {
+  return await new Promise((resolve, reject) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+</script>
+
 </body>
 </html>
