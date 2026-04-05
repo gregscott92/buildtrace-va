@@ -621,23 +621,24 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const accessToken =
-      data?.session?.access_token ||
-      data?.access_token ||
-      null;
+const accessToken =
+  data?.session?.access_token ||
+  data?.access_token ||
+  null;
 
-    if (accessToken) {
-      setAccessTokenCookie(res, accessToken);
-    }
+if (accessToken) {
+  setAccessTokenCookie(res, accessToken);
+}
 
-    return res.json({
-      success: true,
-      error: null,
-      user: {
-        id: data?.user?.id ?? data?.session?.user?.id ?? null,
-        email: data?.user?.email ?? data?.session?.user?.email ?? null
-      }
-    });
+return res.json({
+  success: true,
+  error: null,
+  access_token: accessToken,   // 🔥 THIS LINE IS REQUIRED
+  user: {
+    id: data?.user?.id ?? data?.session?.user?.id ?? null,
+    email: data?.user?.email ?? data?.session?.user?.email ?? null,
+  }
+});
   } catch (err) {
     return res.status(500).json({
       success: false,
