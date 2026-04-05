@@ -3802,12 +3802,9 @@ app.post("/analyze", async (req, res) => {
     try {
       await supabase.from("va_claims").insert({
         user_id: req.apiUser.id,
-        input_text: JSON.stringify({
-          issue,
-          serviceContext
-        }),
+        input_text: raw,
         result_text: resultText || "",
-        extracted_text: visionExtract || "",
+        extracted_text: "",
         detected_condition: structured.condition !== "N/A" ? structured.condition : null,
         estimated_rating:
           structured.estimatedRating && structured.estimatedRating !== "N/A"
@@ -3818,7 +3815,7 @@ app.post("/analyze", async (req, res) => {
         export_summary: resultText || ""
       });
     } catch (saveErr) {
-      console.log("SAVE CLAIM ERROR BASE64:", saveErr?.message || saveErr);
+      console.log("SAVE CLAIM ERROR:", saveErr);
     }
 
     return res.json({
