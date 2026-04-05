@@ -3845,6 +3845,8 @@ app.post("/analyze", async (req, res) => {
 // GET VA CLAIMS
 // =============================
 app.get("/claims", requireApiUser, async (req, res) => {
+  console.log("CLAIMS req.apiUser:", req.apiUser);
+
   try {
     const { data, error } = await supabase
       .from("va_claims")
