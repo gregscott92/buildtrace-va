@@ -189,7 +189,9 @@
 
     <div id="resultMount"></div>
 
-    <div class="claims-wrap">
+    <button id="viewSavedClaimsBtn" class="btn" type="button" style="margin-top:12px;">View Saved Claims</button>
+
+<div class="claims-wrap">
       <div class="claims-title">Saved VA Claims</div>
       <div id="claimsList" class="muted">Loading...</div>
     </div>
@@ -204,13 +206,22 @@
     const m = hash.match(/access_token=([^&]+)/);
     if (m && m[1]) {
       localStorage.setItem("access_token", decodeURIComponent(m[1]));
+      sessionStorage.setItem("access_token", decodeURIComponent(m[1]));
+      console.log("BOOTSTRAP TOKEN:", decodeURIComponent(m[1]));
       history.replaceState(null, "", window.location.pathname);
     }
   } catch {}
 })();
 function getAccessToken() {
-  const fromStorage = localStorage.getItem("access_token") || "";
-  if (fromStorage) return fromStorage;
+  const fromLocal = localStorage.getItem("access_token") || "";
+  if (fromLocal) return fromLocal;
+
+  const fromSession = sessionStorage.getItem("access_token") || "";
+  if (fromSession) return fromSession;
+
+  const hash = window.location.hash || "";
+  const m = hash.match(/access_token=([^&]+)/);
+  if (m && m[1]) return decodeURIComponent(m[1]);
 
   const cookie = document.cookie || "";
   const found = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
@@ -224,6 +235,7 @@ function getAccessToken() {
 
   try {
     const token = getAccessToken();
+    console.log("LOAD CLAIMS TOKEN:", token);
 
     const res = await fetch("/claims", {
       credentials: "include",
@@ -233,6 +245,8 @@ function getAccessToken() {
     });
 
     const data = await res.json();
+    console.log("LOAD CLAIMS STATUS:", res.status);
+    console.log("LOAD CLAIMS RESPONSE:", data);
 
     if (!res.ok) {
       el.innerText = data.details || data.error || "Failed to load claims";
@@ -291,6 +305,7 @@ el.innerHTML = claims.map((c) => {
       const loading = document.getElementById("loading");
       const analyzeBtn = document.getElementById("analyzeBtn");
       const token = getAccessToken();
+    console.log("LOAD CLAIMS TOKEN:", token);
 
       if (!resultMount) return;
 
@@ -480,6 +495,24 @@ async function fileToDataUrl(file) {
     }
   });
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    console.log("DOM READY -> loadClaims()");
+    loadClaims();
+
+    const btn = document.getElementById("viewSavedClaimsBtn");
+    if (btn) {
+      btn.addEventListener("click", function () {
+        console.log("VIEW SAVED CLAIMS CLICKED");
+        loadClaims();
+      });
+    }
+  } catch (err) {
+    console.error("CLAIMS INIT ERROR:", err);
+  }
+});
+
 </script>
 
 </body>
