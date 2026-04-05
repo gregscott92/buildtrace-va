@@ -3854,12 +3854,12 @@ app.get("/claims", requireApiUser, async (req, res) => {
   console.log("CLAIMS req.apiUser:", req.apiUser);
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("va_claims")
       .select("*")
       .eq("user_id", req.apiUser.id)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(50);
 
     if (error) {
       return res.status(500).json({
