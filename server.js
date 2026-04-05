@@ -3782,180 +3782,21 @@ app.post("/analyze", async (req, res) => {
 
     const resultText = analyzeCfr38(raw);
 
-    function readSection(label) {
-      const source = String(resultText || "");
-      const escaped = label.replace(/[.*+?^${}()|[\]\]/g, "\$&");
-      const regex = new RegExp(
-        "^" + escaped + ":\s*([\s\S]*?)(?=\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
-        "mi"
-      );
-      const match = source.match(regex);
-      if (!match || !match[1]) return "N/A";
-      return String(match[1]).trim() || "N/A";
-    }
+        
+function readSection(label) {
+  const source = String(resultText || "");
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-    const structured = {
-      condition: readSection("Condition"),
-      diagnosticCode: readSection("Diagnostic Code"),
-      estimatedRating: readSection("Estimated VA Rating"),
-      confidence: readSection("Confidence"),
-      reasoning: readSection("Reasoning"),
-      evidenceNeeded: readSection("Evidence Still Needed"),
-      nextSteps: readSection("Next Steps"),
-      important: readSection("Important")
-    };
+  const regex = new RegExp(
+    "^" + escaped + ":\\s*([\\s\\S]*?)(?=\\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
+    "mi"
+  );
 
-    const { error: insertError } = await supabaseAdmin
-      .from("va_claims")
-      .insert({
-        user_id: req.apiUser.id,
-        input_text: raw,
-        result_text: resultText || "",
-        extracted_text: "",
-        detected_condition: structured.condition !== "N/A" ? structured.condition : null,
-        estimated_rating:
-          structured.estimatedRating && structured.estimatedRating !== "N/A"
-            ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10) || null
-            : null,
-        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
-        export_summary: resultText || null
-      });
+  const match = source.match(regex);
+  if (!match || !match[1]) return "N/A";
 
-    if (insertError) {
-      return res.status(500).json({
-        error: "Failed to save claim",
-        details: insertError.message
-      });
-    }
-
-    return res.json({
-      success: true,
-      likelihood:
-        structured.estimatedRating && structured.estimatedRating !== "N/A"
-          ? structured.estimatedRating
-          : "See analysis",
-      summary: resultText,
-      parsed: structured,
-      disclaimer:
-        "This tool provides an estimate based on submitted information and does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
-    });
-  } catch (err) {
-    return res.status(500).json({
-      error: "VA analysis failed",
-      details: err.message
-    });
-  }
-});
-
-// =============================
-// GET VA CLAIMS
-// =============================
-app.get("/claims", requireApiUser, async (req, res) => {
-  console.log("CLAIMS req.apiUser:", req.apiUser);
-
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("va_claims")
-      .select("*")
-      .eq("user_id", req.apiUser.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (error) {
-      return res.status(500).json({
-        error: "Failed to fetch claims",
-        details: error.message
-      });
-    }
-
-    return res.json({ claims: data || [] });
-  } catch (err) {
-    return res.status(500).json({
-      error: "Server error",
-      details: err.message
-    });
-  }
-});
-
-
-// ============================
-// ANALYZE IMAGE PAPERWORK
-// ============================
-app.post("/analyze-image", async (req, res) => {
-  try {
-    const { imagePath } = req.body || {};
-
-    if (!imagePath) {
-      return res.status(400).json({ error: "Missing imagePath" });
-    }
-
-    const escapedPath = String(imagePath).replace(/"/g, '\"');
-    const ocrText = execSync(`python ocr.py "${escapedPath}"`, {
-      encoding: "utf8"
-    });
-
-    const cleanedText = String(ocrText || "").trim();
-
-    if (!cleanedText) {
-      return res.status(400).json({
-        error: "OCR returned no text",
-        extracted_text: ""
-      });
-    }
-
-    const filteredText = cleanOcrText(cleanedText);
-
-    if (!filteredText || isGarbageOcrText(filteredText)) {
-      return garbageOcrResponse(res, filteredText || cleanedText);
-    }
-
-    const result = analyzeCfr38(filteredText);
-
-    const detectedCondition = extractFieldFromResult_local(result, "Condition");
-    const estimatedRating = extractEstimatedRating_local(result);
-    const confidenceLabel = extractFieldFromResult_local(result, "Confidence");
-    const exportSummary = buildExportSummary_local({
-      condition: detectedCondition,
-      rating: estimatedRating,
-      confidence: confidenceLabel,
-      resultText: result
-    });
-
-    const { error: insertError } = await supabase
-      .from("va_claims")
-      .insert({
-        user_id: req.apiUser.id,
-        source_type: "image_ocr",
-        input_text: `[IMAGE OCR]`,
-        extracted_text: filteredText,
-        result_text: result,
-        detected_condition: detectedCondition,
-        estimated_rating: estimatedRating,
-        confidence_label: confidenceLabel,
-        export_summary: exportSummary
-      });
-
-    if (insertError) {
-      console.log("OCR CLAIM SAVE ERROR:", insertError);
-    }
-
-    return res.json({
-      extracted_text: filteredText,
-      result
-    });
-  } catch (err) {
-    return res.status(500).json({
-      error: "OCR failed",
-      details: err.message
-    });
-  }
-});
-
-
-// ============================
-// BROWSER PAPERWORK UPLOAD
-// ============================
-
+  return String(match[1]).trim() || "N/A";
+}
 function countRegexMatches(text, regex) {
   const matches = String(text || "").match(regex);
   return matches ? matches.length : 0;
@@ -4618,6 +4459,7 @@ const structured = {
     }
   }
 });
+
 
 
 
