@@ -3861,9 +3861,25 @@ app.post("/analyze", async (req, res) => {
 // =============================
 app.get("/claims", async (req, res) => {
   try {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+
+    if (!token) {
+      return res.status(401).json({ error: "No token" });
+    }
+
+    const { data: userData, error: userError } =
+      await supabaseAuth.auth.getUser(token);
+
+    if (userError || !userData?.user) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const userId = userData.user.id;
+
     const { data, error } = await supabaseAdmin
       .from("va_claims")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -3872,6 +3888,16 @@ app.get("/claims", async (req, res) => {
         error: "Failed to fetch claims",
         details: error.message
       });
+    }
+
+    return res.json({ claims: data || [] });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message
+    });
+  }
+});
     }
 
     return res.json({ claims: data || [] });
