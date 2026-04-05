@@ -552,34 +552,52 @@ async function getSupabaseUserFromRequest(req) {
     return { user: null, error: err.message };
   }
 }
+
 async function requireApiUser(req, res, next) {
   try {
-    const token =
-      req.cookies?.access_token ||
-      req.headers.authorization?.replace("Bearer ", "");
+    let token = null;
+
+    // 1. Authorization header
+    const authHeader = req.headers.authorization || "";
+    if (authHeader.startsWith("Bearer ")) {
+      token = authHeader.replace("Bearer ", "").trim();
+    }
+
+    // 2. Cookie fallback
+    if (!token) {
+      token = req.cookies?.access_token || null;
+    }
 
     if (!token) {
-      return res.status(401).json({ error: "Login required" });
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        user: null,
+      });
     }
 
-    const {
-      data: { user },
-      error,
-    } = await supabaseAuth.auth.getUser(token);
+    const { data, error } = await supabaseAuth.auth.getUser(token);
 
-    if (error || !user) {
-      return res.status(401).json({ error: "Invalid session" });
+    if (error || !data?.user) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid token",
+        user: null,
+      });
     }
 
-    req.apiUser = user;
+    req.user = data.user;
     return next();
+
   } catch (err) {
     return res.status(500).json({
-      error: "Auth failed",
-      details: err.message,
+      success: false,
+      error: "Auth failure",
+      user: null,
     });
   }
 }
+
 // DISABLED OLD LOGIN
 
 

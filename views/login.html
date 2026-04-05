@@ -94,8 +94,18 @@
           body: JSON.stringify({ email, password })
         });
 
-        const data = await res.json();
+       const data = await res.json();
 
+// handle supabase-style response
+const token =
+  data?.session?.access_token ||
+  data?.access_token ||
+  data?.data?.session?.access_token ||
+  "";
+
+if (token) {
+  localStorage.setItem("access_token", token);
+}
         if (!res.ok || !data.success) {
           msgEl.innerText = data.error || "Login failed";
           return;
@@ -108,7 +118,7 @@
           }
         } catch {}
 
-        window.location.href = "/dashboard";
+        window.location.href = "/dashboard#access_token=" + encodeURIComponent(token || data.access_token || "");
       } catch (err) {
         msgEl.innerText = err.message || "Network error";
       } finally {
