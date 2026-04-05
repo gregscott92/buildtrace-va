@@ -3805,7 +3805,7 @@ app.post("/analyze", async (req, res) => {
           issue,
           serviceContext
         }),
-        result_text: result || "",
+        result_text: resultText || "",
         extracted_text: visionExtract || "",
         detected_condition: structured.condition !== "N/A" ? structured.condition : null,
         estimated_rating:
@@ -3814,7 +3814,7 @@ app.post("/analyze", async (req, res) => {
             : null,
         confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
         source_type: normalizedImageBase64 ? "image_upload" : "text_only",
-        export_summary: result || ""
+        export_summary: resultText || ""
       });
     } catch (saveErr) {
       console.log("SAVE CLAIM ERROR BASE64:", saveErr?.message || saveErr);
