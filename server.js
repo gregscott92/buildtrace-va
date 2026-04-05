@@ -3784,9 +3784,9 @@ app.post("/analyze", async (req, res) => {
 
     function readSection(label) {
       const source = String(resultText || "");
-      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escaped = label.replace(/[.*+?^${}()|[\]\]/g, "\$&");
       const regex = new RegExp(
-        "^" + escaped + ":\\s*([\\s\\S]*?)(?=\\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
+        "^" + escaped + ":\s*([\s\S]*?)(?=\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
         "mi"
       );
       const match = source.match(regex);
@@ -3805,11 +3805,12 @@ app.post("/analyze", async (req, res) => {
       important: readSection("Important")
     };
 
-    try {
-      const { error: insertError } = await supabaseAdmin.from("va_claims").insert({
+    const { error: insertError } = await supabaseAdmin
+      .from("va_claims")
+      .insert({
         user_id: req.apiUser.id,
         input_text: raw,
-        result_text: summary || resultText || "",
+        result_text: resultText || "",
         extracted_text: "",
         detected_condition: structured.condition !== "N/A" ? structured.condition : null,
         estimated_rating:
@@ -3817,13 +3818,14 @@ app.post("/analyze", async (req, res) => {
             ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10) || null
             : null,
         confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
-        export_summary: summary || resultText || null,
-        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
-        source_type: normalizedImageBase64 ? "image_upload" : "text_only",
-        export_summary: resultText || ""
+        export_summary: resultText || null
       });
-    } catch (saveErr) {
-      console.log("SAVE CLAIM ERROR:", saveErr);
+
+    if (insertError) {
+      return res.status(500).json({
+        error: "Failed to save claim",
+        details: insertError.message
+      });
     }
 
     return res.json({
@@ -3838,14 +3840,12 @@ app.post("/analyze", async (req, res) => {
         "This tool provides an estimate based on submitted information and does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
     });
   } catch (err) {
-    console.log("VA ANALYZE ERROR:", err);
     return res.status(500).json({
       error: "VA analysis failed",
       details: err.message
     });
   }
 });
-
 
 // =============================
 // GET VA CLAIMS
