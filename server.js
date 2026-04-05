@@ -3898,16 +3898,6 @@ app.get("/claims", async (req, res) => {
     });
   }
 });
-    }
-
-    return res.json({ claims: data || [] });
-  } catch (err) {
-    return res.status(500).json({
-      error: "Server error",
-      details: err.message
-    });
-  }
-});
 
 
 // ============================
@@ -4516,18 +4506,8 @@ const structured = {
 
 
 
+
 app.post("/va/analyze-base64", requireApiUser, async (req, res) => {
-
-    // 🔥 FORCE BASE64 NORMALIZATION FIX
-    let normalizedImageBase64 = "";
-    if (req.body && typeof req.body.normalizedImageBase64 === "string") {
-      normalizedImageBase64 = req.body.normalizedImageBase64
-        .replace(/^data:image\/[^;]+;base64,/, "")
-        .replace(/\s+/g, "")
-        .trim();
-    }
-
-
   let tempPath = null;
 
   try {
@@ -4535,121 +4515,67 @@ app.post("/va/analyze-base64", requireApiUser, async (req, res) => {
     const serviceContext = String(req.body?.serviceContext || "").trim();
     const normalizedImageBase64 = String(req.body?.normalizedImageBase64 || "").trim();
 
-    console.log("=== /va/analyze-base64 hit ===");
-    console.log("issue:", issue);
-    console.log("serviceContext:", serviceContext);
-    console.log("has normalizedImageBase64:", !!normalizedImageBase64);
-
     if (!issue && !serviceContext && !normalizedImageBase64) {
-      return res.status(400).json({
-        error: "Provide text or upload an image"
-      });
+      return res.status(400).json({ error: "Provide text or upload an image" });
     }
 
     let visionExtract = "";
-
-    if (normalizedImageBase64) {
-      const match = normalizedImageBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-
-      if (!match) {
-        return res.status(400).json({
-          error: "Invalid image payload"
-        });
-      }
-
-      const mimeType = match[1];
-      const base64Data = match[2];
-
-      let ext = ".jpg";
-      if (mimeType.includes("png")) ext = ".png";
-      if (mimeType.includes("jpeg")) ext = ".jpg";
-      if (mimeType.includes("jpg")) ext = ".jpg";
-      if (mimeType.includes("webp")) ext = ".webp";
-
-      const uploadsDir = path.join(__dirname, "uploads");
-      fs.mkdirSync(uploadsDir, { recursive: true });
-
-      tempPath = path.join(uploadsDir, `va_upload_${Date.now()}${ext}`);
-      fs.writeFileSync(tempPath, Buffer.from(base64Data, "base64"));
-
-      const uploadedFile = {
-        path: tempPath,
-        mimetype: mimeType,
-        originalname: "upload" + ext
-      };
-
-      try {
-        visionExtract = await extractVisionTextFromUpload(uploadedFile, issue, serviceContext);
-        console.log("visionExtract length:", visionExtract.length);
-        console.log("visionExtract preview:", String(visionExtract).slice(0, 500));
-      } catch (visionErr) {
-        console.log("VISION EXTRACT ERROR:", visionErr.message);
-        visionExtract = "";
-      }
-    }
 
     const input = [issue, serviceContext, visionExtract]
       .filter(Boolean)
       .join("\\n\\n");
 
-    console.log("combined input length:", input.length);
-    console.log("combined input preview:", String(input).slice(0, 800));
-
-    const result = analyzeCfr38(input);
-
-    function readSection(label) {
-      const source = String(result || "");
-      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(
-        escaped + ":\\s*([\\s\\S]*?)(?=\\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
-        "i"
-      );
-      const match = source.match(regex);
-      if (!match || !match[1]) return "N/A";
-      return String(match[1]).trim().replace(/^[•-]\s*/gm, "").trim() || "N/A";
-    }
-
-    
-const structured = {
-      condition: readSection("Condition"),
-      diagnosticCode: readSection("Diagnostic Code"),
-      estimatedRating: readSection("Estimated VA Rating"),
-      confidence: readSection("Confidence"),
-      reasoning: readSection("Reasoning"),
-      evidenceNeeded: readSection("Evidence Still Needed"),
-      nextSteps: readSection("Next Steps"),
-      important: readSection("Important")
+    const structured = {
+      condition: "N/A",
+      diagnosticCode: "N/A",
+      estimatedRating: "N/A",
+      confidence: "N/A",
+      reasoning: "N/A",
+      evidenceNeeded: "N/A",
+      nextSteps: "N/A",
+      important: "N/A"
     };
+
+    // 🔥 SAVE CLAIM
+    try {
+      const payload = {
+        user_id: req.apiUser.id,
+        input_text: [issue, serviceContext].filter(Boolean).join(" | "),
+        result_text: result || "",
+        extracted_text: visionExtract || "",
+        detected_condition: structured.condition !== "N/A" ? structured.condition : null,
+        estimated_rating: null,
+        confidence_label: null,
+        source_type: normalizedImageBase64 ? "image_upload" : "text_only",
+        export_summary: result || ""
+      };
+
+      const { error } = await supabaseAdmin.from("va_claims").insert(payload);
+
+      if (error) console.log("INSERT ERROR:", error);
+      else console.log("INSERT SUCCESS");
+
+    } catch (e) {
+      console.log("SAVE ERROR:", e);
+    }
 
     return res.json({
       success: true,
-      likelihood:
-        structured.estimatedRating && structured.estimatedRating !== "N/A"
-          ? structured.estimatedRating
-          : "See analysis",
       summary: result,
       structured,
       visionExtract,
-      disclaimer:
-        "This tool provides an estimate only. Final VA decisions are made by the VA."
+      disclaimer: "This tool provides an estimate only."
     });
+
   } catch (err) {
-    console.log("VA ANALYZE BASE64 ERROR:", err);
+    console.log("ANALYZE ERROR:", err);
     return res.status(500).json({
       error: "VA analysis failed",
       details: err.message
     });
-  } finally {
-    try {
-      if (tempPath && fs.existsSync(tempPath)) {
-        fs.unlinkSync(tempPath);
-        console.log("temp upload deleted:", tempPath);
-      }
-    } catch (cleanupErr) {
-      console.log("UPLOAD CLEANUP ERROR:", cleanupErr.message);
-    }
   }
 });
+
 
 
 
