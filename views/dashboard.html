@@ -181,6 +181,12 @@
 
     <button id="uploadBtn" class="btn btn-blue" type="button">Upload Image</button>
 
+<button id="analyzeBtn" onclick="analyze()" style="width:100%;margin-top:16px;padding:18px 20px;border:none;border-radius:22px;background:#16a34a;color:white;font-size:22px;font-weight:700;">
+  Analyze Claim
+</button>
+<div id="result" style="margin-top:12px;color:white;"></div>
+
+
     <img id="preview" class="preview" alt="Preview" />
 
     <div id="result" style="margin-top:10px;color:white;"></div>
@@ -190,7 +196,12 @@
     <div id="resultMount"></div>
 
     <div class="claims-wrap">
-      <div class="claims-title">Saved VA Claims</div>
+      <div class="claims-title">
+<button id="viewSavedClaimsBtn" onclick="loadClaims()" style="width:100%;margin-top:20px;padding:18px 20px;border:none;border-radius:22px;background:#e5e7eb;color:black;font-size:22px;font-weight:700;">
+  View Saved Claims
+</button>
+
+Saved VA Claims</div>
       <div id="claimsList" class="muted">Loading...</div>
     </div>
   </div>
