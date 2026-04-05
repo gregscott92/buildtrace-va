@@ -183,7 +183,7 @@
 
     <img id="preview" class="preview" alt="Preview" />
 
-    <button onclick="analyze()">Analyze Claim</button>
+    <button onclick="analyze()">Analyze Claim</button><div id="result" style="margin-top:10px;color:white;"></div>
 
     <div id="loading" class="loading" style="display:none;">Analyzing...</div>
 
@@ -203,23 +203,51 @@
 
 
 <script>
-async function analyze() {
-  const issue =
-    document.getElementById("issue")?.value ||
-    document.querySelector('textarea[placeholder*="lower back pain"]')?.value ||
-    "";
-  const serviceContext =
-    document.getElementById("serviceContext")?.value ||
-    document.querySelector('textarea[placeholder*="deployed 2010-2011"]')?.value ||
-    "";
-  const resultBox = document.getElementById("resultMount");
 
-  resultBox.innerHTML = "Running...";
+async function analyze() {
+  const resultMount = document.getElementById("result");
+
+  const issue =
+    document.querySelector("textarea:nth-of-type(1)")?.value || "";
+
+  const serviceContext =
+    document.querySelector("textarea:nth-of-type(2)")?.value || "";
+
+  if (!issue && !serviceContext) {
+    resultMount.innerHTML = "Please enter something";
+    return;
+  }
+
+  resultMount.innerHTML = "Running...";
 
   try {
+    const token = localStorage.getItem("access_token");
+
     const res = await fetch("/va/analyze-base64", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify({
+        issue,
+        serviceContext
+      })
+    });
+
+    const data = await res.json();
+
+    resultMount.innerHTML = `
+      <div><b>Summary:</b><br>${data.summary || "No summary"}</div>
+      <div><b>Condition:</b> ${data.structured?.condition || "N/A"}</div>
+      <div><b>Rating:</b> ${data.structured?.estimatedRating || "N/A"}</div>
+    `;
+
+  } catch (err) {
+    resultMount.innerHTML = "ERROR: " + err.message;
+  }
+}
+,
       body: JSON.stringify({ issue, serviceContext })
     });
 
