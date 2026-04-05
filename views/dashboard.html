@@ -204,8 +204,14 @@
 
 <script>
 async function analyze() {
-  const issue = document.getElementById("issue").value || "";
-  const serviceContext = document.getElementById("serviceContext").value || "";
+  const issue =
+    document.getElementById("issue")?.value ||
+    document.querySelector('textarea[placeholder*="lower back pain"]')?.value ||
+    "";
+  const serviceContext =
+    document.getElementById("serviceContext")?.value ||
+    document.querySelector('textarea[placeholder*="deployed 2010-2011"]')?.value ||
+    "";
   const resultBox = document.getElementById("resultMount");
 
   resultBox.innerHTML = "Running...";
