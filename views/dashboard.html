@@ -246,29 +246,38 @@ function getAccessToken() {
       return;
     }
 
-    el.innerHTML = claims.map((c) => {
-      const condition = c.detected_condition || c.condition || "Unknown";
-      const rating =
-        c.estimated_rating === null || c.estimated_rating === undefined
-          ? "N/A"
-          : c.estimated_rating;
-      const confidence = c.confidence_label || c.confidence || "";
-      const confidenceColor =
-        confidence === "High" ? "#16a34a" :
-        confidence === "Medium" ? "#d97706" :
-        confidence === "Low" ? "#dc2626" :
-        "#e2e8f0";
-      const date = c.created_at ? new Date(c.created_at).toLocaleString() : "";
+    
+el.innerHTML = claims.map((c) => {
+  if (!c || typeof c !== "object") return "";
 
-      return `
-        <div style="margin-bottom:15px;padding:12px;border:1px solid #334155;border-radius:10px;">
-          <div style="margin-bottom:6px;"><strong>Condition:</strong> ${condition}</div>
-          <div style="margin-bottom:6px;"><strong>Rating:</strong> ${rating}</div>
-          <div style="margin-bottom:6px;"><strong>Confidence:</strong> <span style="color:${confidenceColor}">${confidence || "N/A"}</span></div>
-          <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
-        </div>
-      `;
-    }).join("");
+  const condition = c.detected_condition || c.condition || "Unknown";
+  const rating =
+    c.estimated_rating === null || c.estimated_rating === undefined
+      ? "N/A"
+      : c.estimated_rating;
+
+  const confidence = c.confidence_label || c.confidence || "Unknown";
+
+  const confidenceColor =
+    confidence === "High" ? "#16a34a" :
+    confidence === "Medium" ? "#d97706" :
+    confidence === "Low" ? "#dc2626" :
+    "#e2e8f0";
+
+  const date = c.created_at
+    ? new Date(c.created_at).toLocaleString()
+    : "";
+
+  return `
+    <div style="margin-bottom:15px;padding:12px;border:1px solid #1f2937;border-radius:8px;">
+      <div><strong>Condition:</strong> ${condition}</div>
+      <div><strong>Rating:</strong> ${rating}</div>
+      <div><strong>Confidence:</strong> <span style="color:${confidenceColor}">${confidence}</span></div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
+    </div>
+  `;
+}).join("");
+
   } catch (err) {
     el.innerText = err?.message || "Error loading claims";
   }
