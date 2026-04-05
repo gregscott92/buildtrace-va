@@ -587,6 +587,7 @@ async function requireApiUser(req, res, next) {
     }
 
     req.user = data.user;
+    req.apiUser = data.user;
     return next();
 
   } catch (err) {
