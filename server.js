@@ -3,11 +3,7 @@ const { analyzeCfr38 } = require("./lib/cfr38-engine");
 const multer = require("multer");
 const upload = multer({ dest: "uploads/" });
 
-      if (insertError) {
-        console.log("INSERT ERROR:", insertError);
-        return res.status(500).json({ error: insertError.message });
-      }
-
+      
 require("dotenv").config();
 
 const express = require("express");
@@ -408,6 +404,11 @@ function scoreMentalHealthDbq(visionExtract) {
 }
 
 const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
@@ -3805,7 +3806,7 @@ app.post("/analyze", async (req, res) => {
     };
 
     try {
-      const { error: insertError } = await supabase.from("va_claims").insert({
+      const { error: insertError } = await supabaseAdmin.from("va_claims").insert({
         user_id: req.apiUser.id,
         input_text: raw,
         result_text: resultText || "",
