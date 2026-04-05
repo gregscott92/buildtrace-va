@@ -3806,22 +3806,31 @@ app.post("/analyze", async (req, res) => {
     };
 
     try {
-      const { error: insertError } = await supabaseAdmin.from("va_claims").insert({
+      const payload = {
         user_id: req.apiUser.id,
         input_text: raw,
-        result_text: summary || resultText || "",
+        result_text: resultText || "",
         extracted_text: "",
-        detected_condition: structured.condition !== "N/A" ? structured.condition : null,
+        detected_condition:
+          structured.condition !== "N/A" ? structured.condition : null,
         estimated_rating:
           structured.estimatedRating && structured.estimatedRating !== "N/A"
-            ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10) || null
+            ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10)
             : null,
-        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
-        export_summary: summary || resultText || null,
-        confidence_label: structured.confidence !== "N/A" ? structured.confidence : null,
+        confidence_label:
+          structured.confidence !== "N/A" ? structured.confidence : null,
         source_type: normalizedImageBase64 ? "image_upload" : "text_only",
         export_summary: resultText || ""
-      });
+      };
+
+      const { data: insertData, error: insertError } =
+        await supabaseAdmin.from("va_claims").insert(payload).select();
+
+      if (insertError) {
+        console.log("INSERT ERROR:", insertError);
+      } else {
+        console.log("INSERT SUCCESS:", insertData);
+      }
     } catch (saveErr) {
       console.log("SAVE CLAIM ERROR:", saveErr);
     }
