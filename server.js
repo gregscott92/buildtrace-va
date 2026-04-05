@@ -3819,7 +3819,7 @@ app.post("/analyze", async (req, res) => {
             : null,
         confidence_label:
           structured.confidence !== "N/A" ? structured.confidence : null,
-        source_type: normalizedImageBase64 ? "image_upload" : "text_only",
+        source_type: "text_only",
         export_summary: resultText || ""
       };
 
