@@ -4430,11 +4430,11 @@ app.post("/va/analyze", requireApiUser, upload.single("image"), async (req, res)
     const input = [issue, serviceContext, visionExtract]
       .filter(Boolean)
       .join("\n\n");
+      const result = analyzeCfr38(input);
 
     console.log("combined input length:", input.length);
     console.log("combined input preview:", input.slice(0, 800));
 
-    const result = analyzeCfr38(input);
 
     console.log("analysis result preview:", String(result).slice(0, 800));
 
