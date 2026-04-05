@@ -3859,14 +3859,11 @@ app.post("/analyze", async (req, res) => {
 // =============================
 // GET VA CLAIMS
 // =============================
-app.get("/claims", requireApiUser, async (req, res) => {
-  console.log("CLAIMS req.apiUser:", req.apiUser);
-
+app.get("/claims", async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from("va_claims")
       .select("*")
-      .eq("user_id", req.apiUser.id)
       .order("created_at", { ascending: false })
       .limit(50);
 
