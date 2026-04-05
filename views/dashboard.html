@@ -183,7 +183,7 @@
 
     <img id="preview" class="preview" alt="Preview" />
 
-    <button id="analyzeBtn" class="btn btn-green" type="button">Analyze Claim</button><script>document.querySelector("button").onclick = handleAnalyze;</script>
+    <button id="analyzeBtn" class="btn btn-green" type="button">Analyze Claim</button>
 
     <div id="loading" class="loading" style="display:none;">Analyzing...</div>
 
@@ -197,419 +197,85 @@
     </div>
   </div>
 
-  <script>
-    let uploadedImageDataUrl = "";
+  
 
-(function bootstrapAccessToken() {
-  try {
-    const hash = window.location.hash || "";
-    const m = hash.match(/access_token=([^&]+)/);
-    if (m && m[1]) {
-      localStorage.setItem("access_token", decodeURIComponent(m[1]));
-      sessionStorage.setItem("access_token", decodeURIComponent(m[1]));
-      console.log("BOOTSTRAP TOKEN:", decodeURIComponent(m[1]));
-      history.replaceState(null, "", window.location.pathname);
-    }
-  } catch {}
-})();
-function getAccessToken() {
-  const fromLocal = localStorage.getItem("access_token") || "";
-  if (fromLocal) return fromLocal;
 
-  const fromSession = sessionStorage.getItem("access_token") || "";
-  if (fromSession) return fromSession;
 
-  const hash = window.location.hash || "";
-  const m = hash.match(/access_token=([^&]+)/);
-  if (m && m[1]) return decodeURIComponent(m[1]);
-
-  const cookie = document.cookie || "";
-  const found = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-  return found ? decodeURIComponent(found[1]) : "";
-}
-   async function loadClaims() {
-  const el = document.getElementById("claimsList");
-  if (!el) return;
-
-  el.innerText = "Loading...";
-
-  try {
-    const token = getAccessToken();
-    console.log("LOAD CLAIMS TOKEN:", token);
-
-    const res = await fetch("/claims", {
-      credentials: "include",
-      headers: token
-        ? { Authorization: "Bearer " + token }
-        : {}
-    });
-
-    const data = await res.json();
-    console.log("LOAD CLAIMS STATUS:", res.status);
-    console.log("LOAD CLAIMS RESPONSE:", data);
-
-    if (!res.ok) {
-      el.innerText = data.details || data.error || "Failed to load claims";
-      return;
-    }
-
-    const claims = Array.isArray(data.claims)
-  ? data.claims.filter(c => c && typeof c === "object")
-  : [];
-
-    if (!claims.length) {
-      el.innerText = "No saved claims yet.";
-      return;
-    }
-
-    
-el.innerHTML = claims.map((c) => {
-  if (!c || typeof c !== "object") return "";
-
-  const condition = c.detected_condition || c.condition || "Unknown";
-  const rating =
-    c.estimated_rating === null || c.estimated_rating === undefined
-      ? "N/A"
-      : c.estimated_rating;
-
-  const confidence = c.confidence_label || c.confidence || "Unknown";
-
-  const confidenceColor =
-    confidence === "High" ? "#16a34a" :
-    confidence === "Medium" ? "#d97706" :
-    confidence === "Low" ? "#dc2626" :
-    "#e2e8f0";
-
-  const date = c.created_at
-    ? new Date(c.created_at).toLocaleString()
-    : "";
-
-  return `
-    <div style="margin-bottom:15px;padding:12px;border:1px solid #1f2937;border-radius:8px;">
-      <div><strong>Condition:</strong> ${condition}</div>
-      <div><strong>Rating:</strong> ${rating}</div>
-      <div><strong>Confidence:</strong> <span style="color:${confidenceColor}">${confidence}</span></div>
-      <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
-    </div>
-  `;
-}).join("");
-
-  } catch (err) {
-    el.innerText = err?.message || "Error loading claims";
-  }
-}
-    async function handleAnalyze() {
-      const issue = String(document.getElementById("issue")?.value || "").trim();
-      const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
-      const resultMount = document.getElementById("resultMount");
-      const loading = document.getElementById("loading");
-      const analyzeBtn = document.getElementById("analyzeBtn");
-      const token = getAccessToken();
-    console.log("LOAD CLAIMS TOKEN:", token);
-
-      if (!resultMount) return;
-
-      if (!issue && !serviceContext && !uploadedImageDataUrl) {
-        resultMount.innerHTML = `
-        <div class="card">
-          <div class="section-title">Result</div>
-          <div class="item"><strong>Summary:</strong><br>${String(resultText || "").replace(/
-/g, "<br>")}</div>
-          <div class="item"><strong>Condition:</strong> ${parsed.condition || "N/A"}</div>
-          <div class="item"><strong>Estimated Rating:</strong> ${parsed.estimatedRating || data?.likelihood || "N/A"}</div>
-          <div class="item"><strong>Confidence:</strong> ${parsed.confidence || "N/A"}</div>
-        </div>
-      `;
-
-      await loadClaims();
-      } catch (err) {
-        resultMount.innerHTML = `
-          <div class="card">
-            <div class="section-title">Result</div>
-            <div class="item">${err?.message || "Analysis failed"}</div>
-          </div>
-        `;
-      } finally {
-        if (loading) loading.style.display = "none";
-        if (analyzeBtn) {
-          analyzeBtn.disabled = false;
-          analyzeBtn.style.opacity = "1";
-        }
-      }
-    }
-
-    function bindUpload() {
-      const fileInput = document.getElementById("fileInput");
-      const uploadBtn = document.getElementById("uploadBtn");
-      const preview = document.getElementById("preview");
-
-      if (!fileInput || !uploadBtn || !preview) return;
-
-      uploadBtn.addEventListener("click", () => {
-        fileInput.click();
-      });
-
-      fileInput.addEventListener("change", async () => {
-        const file = fileInput.files && fileInput.files[0];
-
-        if (!file) {
-          uploadedImageDataUrl = "";
-          preview.style.display = "none";
-          preview.removeAttribute("src");
-          uploadBtn.innerText = "Upload Image";
-          return;
-        }
-
-        try {
-          uploadedImageDataUrl = await fileToDataUrl(file);
-          preview.src = uploadedImageDataUrl;
-          preview.style.display = "block";
-          uploadBtn.innerText = "Change Image";
-        } catch (err) {
-          uploadedImageDataUrl = "";
-          preview.style.display = "none";
-          preview.removeAttribute("src");
-          uploadBtn.innerText = "Upload Image";
-          alert(err?.message || "Could not read image");
-        }
-      });
-    }
-
-    function init() {
-      document.getElementById("analyzeBtn")?.addEventListener("click", handleAnalyze);
-      bindUpload();
-      loadClaims();
-    }
-
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", init);
-    } else {
-      init();
-    }
-  </script>
 
 <script>
-/* FORCE_WEB_FIX_V1 */
-(function () {
-  function getAccessTokenFixed() {
-    try {
-      const fromLocal = localStorage.getItem("access_token") || "";
-      if (fromLocal) return fromLocal;
+async function analyze() {
+  const issue = document.getElementById("issue").value || "";
+  const serviceContext = document.getElementById("serviceContext").value || "";
+  const resultBox = document.getElementById("resultMount");
 
-      const fromSession = sessionStorage.getItem("access_token") || "";
-      if (fromSession) return fromSession;
+  resultBox.innerHTML = "Running...";
 
-      const hash = window.location.hash || "";
-      const m = hash.match(/access_token=([^&]+)/);
-      if (m && m[1]) {
-        const token = decodeURIComponent(m[1]);
-        try { localStorage.setItem("access_token", token); } catch {}
-        try { sessionStorage.setItem("access_token", token); } catch {}
-        return token;
-      }
+  try {
+    const res = await fetch("/va/analyze-base64", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ issue, serviceContext })
+    });
 
-      const cookie = document.cookie || "";
-      const found = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-      return found ? decodeURIComponent(found[1]) : "";
-    } catch (e) {
-      console.error("TOKEN READ ERROR:", e);
-      return "";
+    const text = await res.text();
+    console.log("RAW:", text);
+
+    let data = {};
+    try { data = JSON.parse(text); } catch {}
+
+    if (!res.ok) {
+      throw new Error(data.error || text);
     }
-  }
 
-  async function loadClaimsFixed() {
-    const el = document.getElementById("claimsList");
-    if (!el) return;
-    el.innerText = "Loading...";
-
-    try {
-      const token = getAccessTokenFixed();
-      console.log("FIXED CLAIMS TOKEN:", token);
-
-      const res = await fetch("/claims", {
-        method: "GET",
-        credentials: "include",
-        headers: token ? { Authorization: "Bearer " + token } : {}
-      });
-
-      const raw = await res.text();
-      console.log("FIXED CLAIMS STATUS:", res.status);
-      console.log("FIXED CLAIMS RAW:", raw);
-
-      let data = {};
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch (e) {
-        el.innerText = "Claims JSON parse error: " + raw;
-        return;
-      }
-
-      if (!res.ok) {
-        el.innerText = data?.details || data?.error || ("Claims HTTP " + res.status);
-        return;
-      }
-
-      const claims = Array.isArray(data?.claims) ? data.claims : [];
-      if (!claims.length) {
-        el.innerText = "No saved claims yet.";
-        return;
-      }
-
-      el.innerHTML = claims.map((c) => {
-        const condition = c?.detected_condition || c?.condition || "Unknown";
-        const rating = (c?.estimated_rating === 0 || c?.estimated_rating) ? c.estimated_rating : "N/A";
-        const confidence = c?.confidence_label || c?.confidence || "Unknown";
-        const created = c?.created_at ? new Date(c.created_at).toLocaleString() : "";
-        return `
-          <div style="margin-bottom:15px;padding:12px;border:1px solid #1f2937;border-radius:8px;">
-            <div><strong>Condition:</strong> ${condition}</div>
-            <div><strong>Rating:</strong> ${rating}</div>
-            <div><strong>Confidence:</strong> ${confidence}</div>
-            <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${created}</div>
-          </div>
-        `;
-      }).join("");
-    } catch (err) {
-      console.error("FIXED CLAIMS ERROR:", err);
-      el.innerText = err?.message || "Claims load failed";
-    }
-  }
-
-  async function handleAnalyzeFixed() {
-    const issue = String(document.getElementById("issue")?.value || "").trim();
-    const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
-    const resultMount = document.getElementById("resultMount");
-    const analyzeBtn = document.getElementById("analyzeBtn");
-    const token = getAccessTokenFixed();
-
-    if (!resultMount) return;
-
-    resultMount.innerHTML = `
-      <div class="card">
-        <div class="section-title">Result</div>
-        <div class="item">Running...</div>
-      </div>
+    resultBox.innerHTML = `
+      <div><b>Summary:</b> ${data.summary || "none"}</div>
+      <div><b>Condition:</b> ${data?.structured?.condition || "N/A"}</div>
+      <div><b>Rating:</b> ${data?.structured?.estimatedRating || "N/A"}</div>
+      <div><b>Confidence:</b> ${data?.structured?.confidence || "N/A"}</div>
     `;
+  } catch (e) {
+    resultBox.innerHTML = e.message;
+  }
+}
 
-    if (!issue && !serviceContext) {
-      resultMount.innerHTML = `
-        <div class="card">
-          <div class="section-title">Result</div>
-          <div class="item">Enter your condition details first.</div>
-        </div>
-      `;
+async function loadClaims() {
+  const box = document.getElementById("claimsList");
+  box.innerHTML = "Loading...";
+
+  try {
+    const res = await fetch("/claims");
+    const text = await res.text();
+    console.log("CLAIMS RAW:", text);
+
+    let data = {};
+    try { data = JSON.parse(text); } catch {}
+
+    if (!res.ok) {
+      throw new Error(data.error || text);
+    }
+
+    if (!data.claims || data.claims.length === 0) {
+      box.innerHTML = "No saved claims yet.";
       return;
     }
 
-    if (!token) {
-      resultMount.innerHTML = `
-        <div class="card">
-          <div class="section-title">Result</div>
-          <div class="item">No access token found. Please log in again.</div>
-        </div>
-      `;
-      return;
-    }
-
-    try {
-      if (analyzeBtn) {
-        analyzeBtn.disabled = true;
-        analyzeBtn.style.opacity = "0.7";
-      }
-
-      const payload = {
-        issue,
-        serviceContext,
-        normalizedImageBase64: ""
-      };
-
-      const res = await fetch("/va/analyze-base64", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const raw = await res.text();
-      console.log("FIXED ANALYZE STATUS:", res.status);
-      console.log("FIXED ANALYZE RAW:", raw);
-
-      let data = {};
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch (e) {
-        throw new Error("Analyze JSON parse error: " + raw);
-      }
-
-      if (!res.ok) {
-        throw new Error(data?.details || data?.error || ("Analyze HTTP " + res.status));
-      }
-
-      const parsed = data?.structured || data?.parsed || {};
-      const summary = data?.summary || "No summary returned";
-
-      resultMount.innerHTML = `
-        <div class="card">
-          <div class="section-title">Result</div>
-          <div class="item"><strong>Summary:</strong><br>${String(summary).replace(/\n/g, "<br>")}</div>
-          <div class="item"><strong>Condition:</strong> ${parsed?.condition || "N/A"}</div>
-          <div class="item"><strong>Estimated Rating:</strong> ${parsed?.estimatedRating || data?.likelihood || "N/A"}</div>
-          <div class="item"><strong>Confidence:</strong> ${parsed?.confidence || "N/A"}</div>
-        </div>
-      `;
-
-      await loadClaimsFixed();
-    } catch (err) {
-      console.error("FIXED ANALYZE ERROR:", err);
-      resultMount.innerHTML = `
-        <div class="card">
-          <div class="section-title">Result</div>
-          <div class="item">${err?.message || "Analysis failed"}</div>
-        </div>
-      `;
-    } finally {
-      if (analyzeBtn) {
-        analyzeBtn.disabled = false;
-        analyzeBtn.style.opacity = "1";
-      }
-    }
+    box.innerHTML = data.claims.map(c => `
+      <div style="margin:10px 0;padding:10px;border:1px solid #333">
+        <div>${c.detected_condition || "Unknown"}</div>
+        <div>Rating: ${c.estimated_rating ?? "N/A"}</div>
+      </div>
+    `).join("");
+  } catch (e) {
+    box.innerHTML = e.message;
   }
+}
 
-  function rebindButton(id, handler) {
-    const oldBtn = document.getElementById(id);
-    if (!oldBtn) return null;
-    const newBtn = oldBtn.cloneNode(true);
-    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
-    newBtn.addEventListener("click", handler);
-    return newBtn;
-  }
-
-  function initForceWebFix() {
-    console.log("FORCE_WEB_FIX init");
-
-    rebindButton("analyzeBtn", handleAnalyzeFixed);
-    rebindButton("viewSavedClaimsBtn", loadClaimsFixed);
-
-    // optional secondary button if present
-    const altBtn = document.getElementById("load-claims-btn");
-    if (altBtn) {
-      const newAlt = altBtn.cloneNode(true);
-      altBtn.parentNode.replaceChild(newAlt, altBtn);
-      newAlt.addEventListener("click", loadClaimsFixed);
-    }
-
-    loadClaimsFixed();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initForceWebFix);
-  } else {
-    initForceWebFix();
-  }
-})();
+// bind buttons
+setTimeout(() => {
+  document.querySelector("button").onclick = analyze;
+  const btns = document.querySelectorAll("button");
+  if (btns[1]) btns[1].onclick = loadClaims;
+}, 500);
 </script>
 
 </body>
