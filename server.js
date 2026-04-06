@@ -20,6 +20,14 @@ const { execFileSync } = require("child_process");
 
 const app = express();
 
+let visitCount = 0;
+
+function logVisit(route) {
+  visitCount++;
+  console.log("VISIT:", route, "| total:", visitCount);
+}
+
+
 // ===== SIMPLE VISIT TRACKING =====
 function logVisit(route) {
   try {
