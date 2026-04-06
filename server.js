@@ -4778,6 +4778,53 @@ app.get("/", (req, res) => {
 });
 // Frontend catch-all route
 
+app.post("/va/calc", (req, res) => {
+  try {
+    const { ratings = [], left = [], right = [] } = req.body || {};
+
+    function combineRatings(items) {
+      const sorted = [...items].map(Number).filter(n => !Number.isNaN(n)).sort((a, b) => b - a);
+      let combined = 0;
+      for (const r of sorted) {
+        combined = combined + (100 - combined) * (r / 100);
+      }
+      return combined;
+    }
+
+    function roundVA(value) {
+      return Math.floor((value + 5) / 10) * 10;
+    }
+
+    function applyBilateral(leftRatings, rightRatings) {
+      if (!leftRatings.length || !rightRatings.length) return 0;
+      const combined = combineRatings([...leftRatings, ...rightRatings]);
+      return combined + (combined * 0.10);
+    }
+
+    let total = 0;
+
+    if (left.length && right.length) {
+      const bilateralValue = applyBilateral(left, right);
+      const used = [...left, ...right].map(Number);
+      const remaining = ratings.map(Number).filter(r => !used.includes(r));
+      total = combineRatings([bilateralValue, ...remaining]);
+    } else {
+      total = combineRatings(ratings);
+    }
+
+    return res.json({
+      success: true,
+      raw: Number(total.toFixed(2)),
+      final: roundVA(total)
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "VA calc failed"
+    });
+  }
+});
+
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
 });
