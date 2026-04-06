@@ -201,8 +201,11 @@
 
         const structured = data.structured || {};
         const resultCard = document.getElementById("resultCard");
+
         resultCard.classList.remove("hidden");
+        resultCard.style.display = "block";
         resultCard.classList.add("pulse-result");
+
         resultCard.innerHTML = `
           <h2 class="section-title">Result</h2>
           <div class="result-grid">
@@ -216,8 +219,13 @@ ${structured.reasoning || "N/A"}</div>
 ${structured.nextSteps || "N/A"}</div>
         `;
 
-        resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
-        setTimeout(() => resultCard.classList.remove("pulse-result"), 3200);
+        resultCard.scrollIntoView({ behavior: "smooth", block: "center" });
+        resultCard.style.boxShadow = "0 0 20px #00ff99";
+
+        setTimeout(() => {
+          resultCard.classList.remove("pulse-result");
+          resultCard.style.boxShadow = "none";
+        }, 2500);
       } catch (err) {
         showError(err.message || "VA analysis failed");
       } finally {
