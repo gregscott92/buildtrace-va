@@ -4509,16 +4509,6 @@ if (allImages.length > 0 && typeof extractVisionTextFromBase64 === "function") {
   console.log("visionExtract length:", visionExtract.length);
 }
 
-    if (imageBase64 && typeof extractVisionTextFromBase64 === "function") {
-      try {
-        visionExtract = String(
-          (await extractVisionTextFromBase64(imageBase64)) || ""
-        ).trim();
-      } catch (visionErr) {
-        console.log("BASE64 OCR ERROR:", visionErr.message);
-        visionExtract = "";
-      }
-    }
 
     const input = [issue, serviceContext, visionExtract]
       .filter(Boolean)
