@@ -4779,6 +4779,7 @@ app.get("/", (req, res) => {
 // Frontend catch-all route
 
 app.post("/va/calc", (req, res) => {
+  console.log("VA CALC ROUTE HIT V2");
   try {
     const { ratings = [], left = [], right = [] } = req.body || {};
 
