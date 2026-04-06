@@ -20,6 +20,25 @@ const { execFileSync } = require("child_process");
 
 const app = express();
 
+// ===== FUNNEL TRACKING =====
+let funnel = {
+  signup: 0,
+  login: 0,
+  dashboard: 0
+};
+
+function track(route) {
+  if (funnel[route] !== undefined) {
+    funnel[route]++;
+  }
+
+  console.log(
+    "FUNNEL:",
+    JSON.stringify(funnel)
+  );
+}
+
+
 let visitCount = 0;
 
 function logVisit(route) {
@@ -77,6 +96,7 @@ app.get("/va", (req, res) => {
 
 app.get("/dashboard", (req, res) => {
   logVisit("dashboard");
+  track("dashboard");
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
 
@@ -675,6 +695,7 @@ app.get("/health", (req, res) => {
 
 app.get("/login", (req, res) => {
   logVisit("login");
+  track("login");
   return res.sendFile(path.join(__dirname, "views", "login.html"));
 });
 
@@ -3729,11 +3750,13 @@ app.post("/api/va/entries",  async (req, res) => {
 
 app.get("/login", (req, res) => {
   logVisit("login");
+  track("login");
   res.sendFile(require("path").join(__dirname, "views", "login.html"));
 });
 
 app.get("/signup", (req, res) => {
   logVisit("signup");
+  track("signup");
   return res.sendFile(path.join(__dirname, "views", "signup.html"));
 });
 
@@ -3742,6 +3765,7 @@ app.get("/", (req, res) => {
 });
 app.get("/dashboard", (req, res) => {
   logVisit("dashboard");
+  track("dashboard");
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
 app.get("/api/runs",  async (req, res) => {
