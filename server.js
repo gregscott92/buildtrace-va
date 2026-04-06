@@ -3733,6 +3733,7 @@ app.get("/login", (req, res) => {
 });
 
 app.get("/signup", (req, res) => {
+  logVisit("signup");
   return res.sendFile(path.join(__dirname, "views", "signup.html"));
 });
 
