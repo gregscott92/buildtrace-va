@@ -378,6 +378,12 @@
     }
 
     async function analyze() {
+
+  if (!canAnalyze()) {
+    alert("You've used your 3 free analyses. Request full access below.");
+    return;
+  }
+
   const btn = document.getElementById("analyzeBtn");
   btn.innerText = "Analyzing...";
   btn.disabled = true;
@@ -410,6 +416,9 @@
         });
 
         const data = await res.json();
+
+  incrementUsage();
+
 
       if (!res.ok) {
         alert(data.error || "Failed to analyze");
@@ -517,6 +526,23 @@
     document.getElementById("analyzeBtn").onclick = analyze;
     document.getElementById("loadBtn").onclick = loadClaims;
     document.getElementById("logoutBtn").onclick = logout;
-  </script>
+  
+
+// ===== Usage Limit =====
+function getUsageCount() {
+  return Number(localStorage.getItem("usageCount") || 0);
+}
+
+function incrementUsage() {
+  const count = getUsageCount() + 1;
+  localStorage.setItem("usageCount", count);
+  return count;
+}
+
+function canAnalyze() {
+  return getUsageCount() < 3;
+}
+
+</script>
 </body>
 </html>
