@@ -74,6 +74,33 @@ const {
 } = require("./lib/va-helpers");
 
 
+async function extractVisionTextFromBase64(base64Image) {
+  if (!base64Image) return "";
+
+  const imageUrl = `data:image/jpeg;base64,${base64Image}`;
+
+  const response = await openai.responses.create({
+    model: "gpt-4.1-mini",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: "Extract all readable text from this image. Return plain text only. Do not summarize."
+          },
+          {
+            type: "input_image",
+            image_url: imageUrl
+          }
+        ]
+      }
+    ]
+  });
+
+  return String(response.output_text || "").trim();
+}
+
 const PORT = process.env.PORT || 3000;
 
 const ENABLE_LOCAL_CRON =
