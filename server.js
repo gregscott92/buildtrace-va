@@ -87,7 +87,18 @@ async function extractVisionTextFromBase64(base64Image) {
         content: [
           {
             type: "input_text",
-            text: "Extract all readable text from this image. Return plain text only. Do not summarize."
+            text: "Extract all readable medical and claim-relevant text from this image.
+
+Focus on:
+- Diagnoses
+- Symptoms
+- Body parts affected
+- Frequency, severity, duration
+- Functional impact (work, daily life)
+- Range of motion if present
+- Medications or treatment
+
+Return clean structured text. Do not summarize away details."
           },
           {
             type: "input_image",
