@@ -3864,48 +3864,46 @@ app.post("/analyze", async (req, res) => {
 // =============================
 app.get("/claims", async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace("Bearer ", "");
-
-    if (!token) {
-      return res.status(401).json({ error: "No token" });
-    }
-
-    const { data: userData, error: userError } =
-      await supabaseAuth.auth.getUser(token);
-
-    if (userError || !userData?.user) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    const userId = userData.user.id;
-
-    const { data, error } = await supabaseAdmin
-      .from("va_claims")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (error) {
-      return res.status(500).json({
-        error: "Failed to fetch claims",
-        details: error.message
+    if (!req.apiUser || !req.apiUser.id) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        claims: [],
       });
     }
 
-    return res.json({ claims: data || [] });
+    const { data, error } = await supabaseAdmin
+      .from("va_claims")
+      .select(
+        "id, created_at, input_text, result_text, extracted_text, detected_condition, estimated_rating, confidence_label, source_type, export_summary"
+      )
+      .eq("user_id", req.apiUser.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.log("CLAIMS LOAD ERROR:", error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Failed to load claims",
+        claims: [],
+      });
+    }
+
+    return res.json({
+      success: true,
+      claims: data || [],
+    });
   } catch (err) {
+    console.log("CLAIMS ROUTE ERROR:", err);
     return res.status(500).json({
-      error: "Server error",
-      details: err.message
+      success: false,
+      error: err.message || "Server error",
+      claims: [],
     });
   }
 });
 
 
-// ============================
-// ANALYZE IMAGE PAPERWORK
-// ============================
 app.post("/analyze-image", async (req, res) => {
   try {
     const { imagePath } = req.body || {};
@@ -4394,29 +4392,113 @@ app.post("/signup", async (req, res) => {
   }
 });
 
+function parseVaSummary(summaryText) {
+  const text = String(summaryText || "");
+
+  function pick(label) {
+    const match = text.match(new RegExp(label + ":\\s*([^\\n\\r]+)", "i"));
+    return match ? match[1].trim() : null;
+  }
+
+  const condition = pick("Condition");
+  const ratingRaw = pick("Estimated VA Rating");
+  const confidence = pick("Confidence");
+
+  let numericEstimatedRating = null;
+  if (ratingRaw) {
+    const numberMatch = ratingRaw.match(/(\d+)/);
+    if (numberMatch) {
+      numericEstimatedRating = Number(numberMatch[1]);
+    }
+  }
+
+  return {
+    condition: condition && condition !== "N/A" ? condition : null,
+    estimatedRating: Number.isFinite(numericEstimatedRating)
+      ? numericEstimatedRating
+      : null,
+    confidence: confidence && confidence !== "N/A" ? confidence : null,
+  };
+}
+
 app.post("/va/analyze-base64", async (req, res) => {
   try {
-    const issue = String(req.body?.issue || "").trim();
-    const serviceContext = String(req.body?.serviceContext || "").trim();
-
-    if (!issue && !serviceContext) {
-      return res.status(400).json({ error: "Missing input" });
+    if (!req.apiUser || !req.apiUser.id) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
     }
 
-    const input = [issue, serviceContext].filter(Boolean).join("\n\n");
+    const issue = String(req.body?.issue || "").trim();
+    const serviceContext = String(req.body?.serviceContext || "").trim();
+    const imageBase64 = String(req.body?.imageBase64 || "").trim();
+
+    if (!issue && !serviceContext && !imageBase64) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing input",
+      });
+    }
+
+    let visionExtract = "";
+
+    if (imageBase64 && typeof extractVisionTextFromBase64 === "function") {
+      try {
+        visionExtract = String(
+          (await extractVisionTextFromBase64(imageBase64)) || ""
+        ).trim();
+      } catch (visionErr) {
+        console.log("BASE64 OCR ERROR:", visionErr.message);
+        visionExtract = "";
+      }
+    }
+
+    const input = [issue, serviceContext, visionExtract]
+      .filter(Boolean)
+      .join("\n\n");
 
     const result = analyzeCfr38(input);
+    const summary = String(result || "").trim();
+    const structured = parseVaSummary(summary);
+
+    const payload = {
+      user_id: req.apiUser.id,
+      input_text: [issue, serviceContext].filter(Boolean).join(" | "),
+      result_text: summary,
+      extracted_text: visionExtract || null,
+      detected_condition: structured.condition,
+      estimated_rating: structured.estimatedRating,
+      confidence_label: structured.confidence,
+      source_type: imageBase64 ? "image_upload" : "text_only",
+      export_summary: summary,
+    };
+
+    const { error: insertError } = await supabaseAdmin
+      .from("va_claims")
+      .insert(payload);
+
+    if (insertError) {
+      console.log("VA CLAIM INSERT ERROR:", insertError);
+      return res.status(500).json({
+        success: false,
+        error: "Claim analyzed but save failed",
+        details: insertError.message,
+      });
+    }
 
     return res.json({
       success: true,
-      summary: String(result || ""),
-      structured: {},
-      visionExtract: "",
+      summary,
+      structured,
+      visionExtract,
+      disclaimer:
+        "This tool provides an estimate only. Final VA decisions are made by the VA.",
     });
-
   } catch (err) {
-    console.log("VA ERROR:", err);
+    console.log("WEB VA ANALYZE BASE64 ERROR:", err);
     return res.status(500).json({
+      success: false,
       error: "VA analysis failed",
       details: err.message,
     });
