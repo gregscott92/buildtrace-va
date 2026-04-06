@@ -4625,7 +4625,9 @@ const structured = {
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, "public")));
 
-
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "dashboard.html"));
+});
 // Frontend catch-all route
 
 app.listen(PORT, function () {
