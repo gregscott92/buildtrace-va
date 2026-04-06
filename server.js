@@ -4774,26 +4774,23 @@ const structured = {
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "dashboard.html"));
+  return res.redirect("/signup");
 });
+
 // Frontend catch-all route
 
-
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: err.message || "VA calc failed"
-    });
-  }
-});
-
 app.post("/va/calc", (req, res) => {
-  console.log("VA CALC ROUTE HIT V2");
+  console.log("VA CALC ROUTE HIT CLEAN");
+
   try {
     const { ratings = [], left = [], right = [] } = req.body || {};
 
     function combineRatings(items) {
-      const sorted = [...items].map(Number).filter(n => !Number.isNaN(n)).sort((a, b) => b - a);
+      const sorted = [...items]
+        .map(Number)
+        .filter((n) => !Number.isNaN(n))
+        .sort((a, b) => b - a);
+
       let combined = 0;
       for (const r of sorted) {
         combined = combined + (100 - combined) * (r / 100);
@@ -4816,7 +4813,10 @@ app.post("/va/calc", (req, res) => {
     if (left.length && right.length) {
       const bilateralValue = applyBilateral(left, right);
       const used = [...left, ...right].map(Number);
-      const remaining = ratings.map(Number).filter(r => !used.includes(r));
+      const remaining = ratings
+        .map(Number)
+        .filter((r) => !used.includes(r));
+
       total = combineRatings([bilateralValue, ...remaining]);
     } else {
       total = combineRatings(ratings);
@@ -4825,8 +4825,15 @@ app.post("/va/calc", (req, res) => {
     return res.json({
       success: true,
       raw: Number(total.toFixed(2)),
-      final: roundVA(total)
+      final: roundVA(total),
     });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "VA calc failed",
+    });
+  }
+});
 
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
