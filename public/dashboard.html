@@ -262,6 +262,33 @@
       <div id="errorBox" class="error hidden"></div>
     </div>
 
+<div class="card" style="margin-top:16px;">
+  <div class="actions">
+
+    <button onclick="requestAccess()" style="
+      background:#f59e0b;
+      color:#111;
+      font-weight:800;
+      border-radius:14px;
+      padding:14px;
+    ">
+      Request Full Access
+    </button>
+
+    <button onclick="reportIssue()" style="
+      background:#ef4444;
+      color:white;
+      font-weight:800;
+      border-radius:14px;
+      padding:14px;
+    ">
+      Report Issue / Suggest Fix
+    </button>
+
+  </div>
+</div>
+
+
     <div id="resultCard" class="card hidden">
       <div class="section-title">Result</div>
       <div class="result-grid">
@@ -541,6 +568,20 @@ function incrementUsage() {
 
 function canAnalyze() {
   return getUsageCount() < 3;
+}
+
+
+
+function requestAccess() {
+  const subject = encodeURIComponent("Request Full Access - VA Tool");
+  const body = encodeURIComponent("I'd like full access.\n\nEmail:\nUse Case:");
+  window.location.href = `mailto:greg.scott92@icloud.com?subject=${subject}&body=${body}`;
+}
+
+function reportIssue() {
+  const subject = encodeURIComponent("VA Tool Issue / Fix");
+  const body = encodeURIComponent("Describe the issue or suggested fix:\n\nSteps:\nExpected:\nActual:");
+  window.location.href = `mailto:greg.scott92@icloud.com?subject=${subject}&body=${body}`;
 }
 
 </script>
