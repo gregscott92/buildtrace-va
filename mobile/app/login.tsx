@@ -1,46 +1,7 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState } from "react";
 import { Alert, Button, Text, TextInput, View, Pressable } from "react-native";
-import { router } from "expo-router";
 import { useRouter } from "expo-router";
-import { signInWithEmail } from "../lib/auth";
-
-
-const handleLogin = async () => {
-  try {
-    console.log("LOGIN CLICKED");
-
-    const response = await fetch("https://buildtrace-va.onrender.comlogin", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    });
-
-    console.log("STATUS:", response.status);
-
-    const data = await response.json();
-    console.log("DATA:", data);
-
-    if (!response.ok || !data.success) {
-      alert(data.error || "Login failed");
-      return;
-    }
-
-    // SUCCESS → redirect
-    window.location.href = "/va";
-
-  } router.replace("/va");
-
-    catch (err) {
-    console.log("LOGIN ERROR:", err);
-    alert("Network error");
-  }
-};
-
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -52,21 +13,43 @@ export default function LoginScreen() {
   async function handleLogin() {
     try {
       setLoading(true);
+      console.log("LOGIN CLICKED");
 
-      const { data, error } = await signInWithEmail(email.trim(), password);
+      const response = await fetch("https://buildtrace-va.onrender.com/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      });
 
-      if (error) {
-        Alert.alert("Login failed", error.message);
+      console.log("STATUS:", response.status);
+
+      const data = await response.json();
+      console.log("DATA:", data);
+
+      if (!response.ok || !data?.success) {
+        Alert.alert("Login failed", data?.error || "Login failed");
         return;
       }
 
-      if (data?.session) {
-        router.replace("/select-mode");
+      if (data?.access_token) {
+        await AsyncStorage.setItem("access_token", data.access_token);
+        console.log("TOKEN SAVED:", data.access_token);
+
+        const verify = await AsyncStorage.getItem("access_token");
+        console.log("VERIFY TOKEN:", verify);
+      } else {
+        Alert.alert("Login failed", "No access token returned.");
         return;
       }
 
-      Alert.alert("Login failed", "No session returned.");
-    } catch (err) {
+      router.replace("/select-mode");
+    } catch (err: any) {
+      console.log("LOGIN ERROR:", err);
       Alert.alert("Login failed", err?.message || "Unknown error");
     } finally {
       setLoading(false);
@@ -102,7 +85,10 @@ export default function LoginScreen() {
         disabled={loading}
       />
 
-      <Pressable onPress={handleLogin} // replaced inline router.push("/signup")} style={{ marginTop: 20 }}>
+      <Pressable
+        onPress={() => router.push("/signup")}
+        style={{ marginTop: 20 }}
+      >
         <Text style={{ textAlign: "center", color: "#2563eb", fontSize: 16 }}>
           Need an account? Sign up
         </Text>

@@ -1,170 +1,72 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VA Claim Analyzer</title>
-
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #041b4d;
-      color: #ffffff;
-    }
-
-    .wrap {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 120px;
-      border-radius: 14px;
-      padding: 12px;
-      font-size: 16px;
-      border: none;
-    }
-
-    button {
-      width: 100%;
-      padding: 18px;
-      border-radius: 14px;
-      border: none;
-      font-size: 18px;
-      font-weight: bold;
-      margin-top: 12px;
-      cursor: pointer;
-    }
-
-    .green {
-      background: #1ca44c;
-      color: white;
-    }
-
-    .gray {
-      background: #e5e5ea;
-      color: black;
-    }
-
-    .card {
-      background: #0a2566;
-      padding: 16px;
-      border-radius: 16px;
-      margin-top: 16px;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .claim {
-      background: #082059;
-      padding: 12px;
-      border-radius: 12px;
-      margin-top: 10px;
-    }
-  </style>
+  <title>VA Claim Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
+<body style="font-family: Arial; padding: 20px; background:#0b1b34; color:white;">
 
-<body>
-  <div class="wrap">
+<h2>VA Claim Analyzer</h2>
 
-    <textarea id="context" placeholder="Describe your condition, symptoms, service connection..."></textarea>
+<textarea id="context" placeholder="Describe your condition..." style="width:100%; height:100px;"></textarea>
 
-    <button id="analyzeBtn" class="green">Analyze Claim</button>
+<br><br>
 
-    <div id="resultCard" class="card hidden"></div>
+<button id="analyzeBtn">Analyze</button>
+<button id="loadBtn">View Saved Claims</button>
 
-    <button id="loadBtn" class="gray">View Saved Claims</button>
+<div id="resultCard" style="margin-top:20px;"></div>
 
-    <div id="claimsCard" class="card hidden"></div>
+<div id="claimsCard" style="margin-top:20px;"></div>
 
-  </div>
+<script>
+async function analyze() {
+  const text = document.getElementById("context").value.trim();
 
-  <script>
-    function getToken() {
-      return (
-        localStorage.getItem("token") ||
-        localStorage.getItem("accessToken") ||
-        ""
-      );
+  const res = await fetch("/va/analyze-base64", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + localStorage.getItem("token")
+    },
+    body: JSON.stringify({
+      issue: "",
+      serviceContext: text,
+      imageBase64: ""
+    })
+  });
+
+  const data = await res.json();
+
+  document.getElementById("resultCard").innerHTML =
+    "<b>Condition:</b> " + (data.structured?.condition || "N/A") + "<br>" +
+    "<b>Rating:</b> " + (data.structured?.estimatedRating || "N/A") + "<br>" +
+    "<b>Confidence:</b> " + (data.structured?.confidence || "N/A");
+}
+
+async function loadClaims() {
+  const res = await fetch("/claims", {
+    headers: {
+      Authorization: "Bearer " + localStorage.getItem("token")
     }
+  });
 
-    async function analyze() {
-      const text = document.getElementById("context").value.trim();
+  const data = await res.json();
 
-      if (!text) {
-        alert("Enter something");
-        return;
-      }
+  const container = document.getElementById("claimsCard");
 
-      const res = await fetch("/va/analyze-base64", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + getToken()
-        },
-        body: JSON.stringify({
-          issue: "",
-          serviceContext: text,
-          imageBase64: ""
-        })
-      });
+  container.innerHTML = data.claims.map(c => `
+    <div style="border:1px solid #444; padding:10px; margin:10px 0;">
+      <b>${c.detected_condition || "N/A"}</b><br>
+      Rating: ${c.estimated_rating ?? "N/A"}<br>
+      Confidence: ${c.confidence_label || "N/A"}
+    </div>
+  `).join("");
+}
 
-      const data = await res.json();
-
-      if (!data.success) {
-        alert(data.error || "Failed");
-        return;
-      }
-
-      document.getElementById("resultCard").classList.remove("hidden");
-
-      document.getElementById("resultCard").innerHTML = `
-        <b>Condition:</b> ${data.structured.condition || "N/A"}<br>
-        <b>Rating:</b> ${data.structured.estimatedRating ?? "N/A"}<br>
-        <b>Confidence:</b> ${data.structured.confidence || "N/A"}<br><br>
-        ${data.summary.replace(/\n/g, "<br>")}
-      `;
-    }
-
-    async function loadClaims() {
-      const res = await fetch("/claims", {
-        headers: {
-          Authorization: "Bearer " + getToken()
-        }
-      });
-
-      const data = await res.json();
-
-      if (!data.success) {
-        alert("Failed to load claims");
-        return;
-      }
-
-      const container = document.getElementById("claimsCard");
-      container.classList.remove("hidden");
-
-      if (!data.claims.length) {
-        container.innerHTML = "No saved claims.";
-        return;
-      }
-
-      container.innerHTML = data.claims.map(c => `
-        <div class="claim">
-          <b>${c.detected_condition || "N/A"}</b><br>
-          Rating: ${c.estimated_rating ?? "N/A"}<br>
-          Confidence: ${c.confidence_label || "N/A"}
-        </div>
-      `).join("");
-    }
-
-    document.getElementById("analyzeBtn").onclick = analyze;
-    document.getElementById("loadBtn").onclick = loadClaims;
-  </script>
+document.getElementById("analyzeBtn").onclick = analyze;
+document.getElementById("loadBtn").onclick = loadClaims;
+</script>
 
 </body>
 </html>

@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BuildTrace VA</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #06153a;
+      color: white;
+    }
+    .wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 52px;
+      font-weight: 700;
+      text-align: center;
+      margin: 40px 0 10px;
+    }
+    .sub {
+      color: #aab4c8;
+      font-size: 18px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .label {
+      color: white;
+      margin-bottom: 8px;
+      font-weight: 600;
+      display: block;
+    }
+    textarea {
+      width: 100%;
+      background: white;
+      color: #111827;
+      border: 0;
+      border-radius: 12px;
+      padding: 14px;
+      min-height: 110px;
+      margin-bottom: 16px;
+      font-size: 16px;
+      resize: vertical;
+    }
+    .btn {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 18px;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-blue {
+      background: #2563eb;
+      color: white;
+      margin-bottom: 18px;
+    }
+    .btn-green {
+      background: #16a34a;
+      color: white;
+      margin-bottom: 24px;
+    }
+    .btn:disabled {
+      background: #64748b;
+      cursor: not-allowed;
+    }
+    .preview {
+      width: 100%;
+      max-height: 360px;
+      object-fit: cover;
+      border-radius: 14px;
+      margin-bottom: 18px;
+      display: none;
+    }
+    .card {
+      background: white;
+      color: #111827;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 30px;
+    }
+    .section-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 12px;
+    }
+    .item {
+      font-size: 15px;
+      margin-bottom: 6px;
+      line-height: 1.5;
+    }
+    .loading {
+      text-align: center;
+      margin-bottom: 20px;
+      color: white;
+    }
+    .claims-wrap {
+      margin-top: 10px;
+      margin-bottom: 30px;
+    }
+    .claims-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+    .topbtn {
+      background: #7f1d1d;
+      color: white;
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .muted {
+      color: #aab4c8;
+    }
+    .hidden-file {
+      display: none;
+    }
+    .notice {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      color: #7c2d12;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 18px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <form method="POST" action="/logout">
+        <button class="topbtn" type="submit">Logout</button>
+      </form>
+    </div>
+
+    <h1>VA Mode</h1>
+    <div class="sub">Upload evidence and describe the condition or claim issue.</div>
+
+    <div class="notice">
+      <strong>Do not enter PII.</strong> Do not upload or type SSNs, full addresses, dates of birth, claim numbers, bank info, or other sensitive personal identifiers.
+    </div>
+
+    <label class="label" for="issue">Short description</label>
+    <textarea
+      id="issue"
+      placeholder="Example: lower back pain, tinnitus, knee issue, migraine records"
+    ></textarea>
+
+    <label class="label" for="serviceContext">Service context</label>
+    <textarea
+      id="serviceContext"
+      placeholder="Example: deployed 2010-2011, airborne ops, MOS, injury event, hearing exposure"
+      style="min-height: 90px;"
+    ></textarea>
+
+    <input
+      id="fileInput"
+      class="hidden-file"
+      type="file"
+      accept="image/*,.jpg,.jpeg,.png,.webp"
+    />
+
+    <button id="uploadBtn" class="btn btn-blue" type="button">Upload Image</button>
+
+    <img id="preview" class="preview" alt="Preview" />
+
+    <button id="analyzeBtn" class="btn btn-green" type="button">Analyze Claim</button>
+
+    <div id="loading" class="loading" style="display:none;">Analyzing...</div>
+
+    <div id="resultMount"></div>
+
+    <div class="claims-wrap">
+      <div class="claims-title">Saved VA Claims</div>
+      <div id="claimsList" class="muted">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    let uploadedImageDataUrl = "";
+
+(function bootstrapAccessToken() {
+  try {
+    const hash = window.location.hash || "";
+    const m = hash.match(/access_token=([^&]+)/);
+    if (m && m[1]) {
+      localStorage.setItem("access_token", decodeURIComponent(m[1]));
+      history.replaceState(null, "", window.location.pathname);
+    }
+  } catch {}
+})();
+function getAccessToken() {
+  const fromStorage = localStorage.getItem("access_token") || "";
+  if (fromStorage) return fromStorage;
+
+  const cookie = document.cookie || "";
+  const found = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+  return found ? decodeURIComponent(found[1]) : "";
+}
+   async function loadClaims() {
+  const el = document.getElementById("claimsList");
+  if (!el) return;
+
+  el.innerText = "Loading...";
+
+  try {
+    const token = getAccessToken();
+
+    const res = await fetch("/claims", {
+      credentials: "include",
+      headers: token
+        ? { Authorization: "Bearer " + token }
+        : {}
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      el.innerText = data.details || data.error || "Failed to load claims";
+      return;
+    }
+
+    const claims = Array.isArray(data.claims)
+  ? data.claims.filter(c => c && typeof c === "object")
+  : [];
+
+    if (!claims.length) {
+      el.innerText = "No saved claims yet.";
+      return;
+    }
+
+    
+el.innerHTML = claims.map((c) => {
+  if (!c || typeof c !== "object") return "";
+
+  const condition = c.detected_condition || c.condition || "Unknown";
+  const rating =
+    c.estimated_rating === null || c.estimated_rating === undefined
+      ? "N/A"
+      : c.estimated_rating;
+
+  const confidence = c.confidence_label || c.confidence || "Unknown";
+
+  const confidenceColor =
+    confidence === "High" ? "#16a34a" :
+    confidence === "Medium" ? "#d97706" :
+    confidence === "Low" ? "#dc2626" :
+    "#e2e8f0";
+
+  const date = c.created_at
+    ? new Date(c.created_at).toLocaleString()
+    : "";
+
+  return `
+    <div style="margin-bottom:15px;padding:12px;border:1px solid #1f2937;border-radius:8px;">
+      <div><strong>Condition:</strong> ${condition}</div>
+      <div><strong>Rating:</strong> ${rating}</div>
+      <div><strong>Confidence:</strong> <span style="color:${confidenceColor}">${confidence}</span></div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:6px;">${date}</div>
+    </div>
+  `;
+}).join("");
+
+  } catch (err) {
+    el.innerText = err?.message || "Error loading claims";
+  }
+}
+    async function handleAnalyze() {
+      const issue = String(document.getElementById("issue")?.value || "").trim();
+      const serviceContext = String(document.getElementById("serviceContext")?.value || "").trim();
+      const resultMount = document.getElementById("resultMount");
+      const loading = document.getElementById("loading");
+      const analyzeBtn = document.getElementById("analyzeBtn");
+      const token = getAccessToken();
+
+      if (!resultMount) return;
+
+      if (!issue && !serviceContext && !uploadedImageDataUrl) {
+        resultMount.innerHTML = `
+          <div class="card">
+            <div class="section-title">Result</div>
+            <div class="item">Enter your condition details first.</div>
+          </div>
+        `;
+        return;
+      }
+
+      if (!token) {
+        resultMount.innerHTML = `
+          <div class="card">
+            <div class="section-title">Result</div>
+            <div class="item">Login required</div>
+          </div>
+        `;
+        return;
+      }
+
+      try {
+        if (loading) loading.style.display = "block";
+        if (analyzeBtn) {
+          analyzeBtn.disabled = true;
+          analyzeBtn.style.opacity = "0.7";
+        }
+
+        const payload = {
+          issue,
+          serviceContext,
+          normalizedImageBase64: uploadedImageDataUrl || ""
+        };
+
+        const response = await fetch("/va/analyze-base64", { credentials: "include", 
+          credentials: "include",
+          method: "POST",
+credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.details || data?.error || "Analysis failed");
+        }
+
+        const parsed = data.structured || data.parsed || {};
+        const condition = parsed.condition || "N/A";
+        const diagnosticCode = parsed.diagnosticCode || "N/A";
+        const estimatedRating = parsed.estimatedRating || data.likelihood || "N/A";
+        const confidence = parsed.confidence || "N/A";
+        const reasoning = parsed.reasoning || "N/A";
+        const evidenceNeeded = parsed.evidenceNeeded || "N/A";
+        const nextSteps = parsed.nextSteps || "N/A";
+        const important = parsed.important || "N/A";
+        const disclaimer =
+          data.disclaimer ||
+          "This tool provides an estimate only. Final determinations are made by the VA.";
+
+        resultMount.innerHTML = `
+          <div class="card">
+            <div class="section-title">Result</div>
+            <div class="item"><strong>Condition:</strong> ${condition}</div>
+            <div class="item"><strong>Diagnostic Code:</strong> ${diagnosticCode}</div>
+            <div class="item"><strong>Estimated Rating:</strong> ${estimatedRating}</div>
+            <div class="item"><strong>Confidence:</strong> ${confidence}</div>
+            <div class="item"><strong>Reasoning:</strong><br>${String(reasoning).replace(/\n/g, "<br>")}</div>
+            <div class="item"><strong>Evidence Still Needed:</strong><br>${String(evidenceNeeded).replace(/\n/g, "<br>")}</div>
+            <div class="item"><strong>Next Steps:</strong><br>${String(nextSteps).replace(/\n/g, "<br>")}</div>
+            <div class="item"><strong>Important:</strong><br>${String(important).replace(/\n/g, "<br>")}</div>
+            <div class="item" style="margin-top:14px;font-size:13px;color:#94a3b8;">
+              <strong>Disclaimer:</strong> ${disclaimer}
+            </div>
+          </div>
+        `;
+
+        await loadClaims();
+      } catch (err) {
+        resultMount.innerHTML = `
+          <div class="card">
+            <div class="section-title">Result</div>
+            <div class="item">${err?.message || "Analysis failed"}</div>
+          </div>
+        `;
+      } finally {
+        if (loading) loading.style.display = "none";
+        if (analyzeBtn) {
+          analyzeBtn.disabled = false;
+          analyzeBtn.style.opacity = "1";
+        }
+      }
+    }
+
+    function bindUpload() {
+      const fileInput = document.getElementById("fileInput");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const preview = document.getElementById("preview");
+
+      if (!fileInput || !uploadBtn || !preview) return;
+
+      uploadBtn.addEventListener("click", () => {
+        fileInput.click();
+      });
+
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files && fileInput.files[0];
+
+        if (!file) {
+          uploadedImageDataUrl = "";
+          preview.style.display = "none";
+          preview.removeAttribute("src");
+          uploadBtn.innerText = "Upload Image";
+          return;
+        }
+
+        try {
+          uploadedImageDataUrl = await fileToDataUrl(file);
+          preview.src = uploadedImageDataUrl;
+          preview.style.display = "block";
+          uploadBtn.innerText = "Change Image";
+        } catch (err) {
+          uploadedImageDataUrl = "";
+          preview.style.display = "none";
+          preview.removeAttribute("src");
+          uploadBtn.innerText = "Upload Image";
+          alert(err?.message || "Could not read image");
+        }
+      });
+    }
+
+    function init() {
+      document.getElementById("analyzeBtn")?.addEventListener("click", handleAnalyze);
+      bindUpload();
+      loadClaims();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
