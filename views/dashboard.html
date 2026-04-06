@@ -1,509 +1,72 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BuildTrace VA</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #06153a;
-      color: white;
-    }
-    .wrap {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 20px;
-      min-height: 100vh;
-    }
-    h1 {
-      font-size: 52px;
-      font-weight: 700;
-      text-align: center;
-      margin: 40px 0 10px;
-    }
-    .sub {
-      color: #aab4c8;
-      font-size: 18px;
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    .label {
-      color: white;
-      margin-bottom: 8px;
-      font-weight: 600;
-      display: block;
-    }
-    textarea {
-      width: 100%;
-      background: white;
-      color: #111827;
-      border: 0;
-      border-radius: 12px;
-      padding: 14px;
-      min-height: 110px;
-      margin-bottom: 16px;
-      font-size: 16px;
-      resize: vertical;
-    }
-    .btn {
-      width: 100%;
-      border: 0;
-      border-radius: 14px;
-      padding: 18px;
-      font-size: 20px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .btn-blue {
-      background: #2563eb;
-      color: white;
-      margin-bottom: 18px;
-    }
-    .btn-green {
-      background: #16a34a;
-      color: white;
-      margin-bottom: 24px;
-    }
-    .btn:disabled {
-      background: #64748b;
-      cursor: not-allowed;
-    }
-    .preview {
-      width: 100%;
-      max-height: 360px;
-      object-fit: cover;
-      border-radius: 14px;
-      margin-bottom: 18px;
-      display: none;
-    }
-    .card {
-      background: white;
-      color: #111827;
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 30px;
-    }
-    .section-title {
-      font-size: 22px;
-      font-weight: 700;
-      margin: 0 0 12px;
-    }
-    .item {
-      font-size: 15px;
-      margin-bottom: 6px;
-      line-height: 1.5;
-    }
-    .loading {
-      text-align: center;
-      margin-bottom: 20px;
-      color: white;
-    }
-    .claims-wrap {
-      margin-top: 10px;
-      margin-bottom: 30px;
-    }
-    .claims-title {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-    .topbar {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 10px;
-      margin-bottom: 10px;
-    }
-    .topbtn {
-      background: #7f1d1d;
-      color: white;
-      border: 0;
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .muted {
-      color: #aab4c8;
-    }
-    .hidden-file {
-      display: none;
-    }
-    .notice {
-      background: #fff7ed;
-      border: 1px solid #fdba74;
-      color: #7c2d12;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 18px;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-  </style>
+  <title>VA Claim Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
-<body>
-  <div class="wrap">
-    <div class="topbar">
-      <form method="POST" action="/logout">
-        <button class="topbtn" type="submit">Logout</button>
-      </form>
-    </div>
+<body style="font-family: Arial; padding: 20px; background:#0b1b34; color:white;">
 
-    <h1>VA Mode</h1>
-    <div class="sub">Upload evidence and describe the condition or claim issue.</div>
+<h2>VA Claim Analyzer</h2>
 
-    <div class="notice">
-      <strong>Do not enter PII.</strong> Do not upload or type SSNs, full addresses, dates of birth, claim numbers, bank info, or other sensitive personal identifiers.
-    </div>
+<textarea id="context" placeholder="Describe your condition..." style="width:100%; height:100px;"></textarea>
 
-    <label class="label" for="issue">Short description</label>
-    <textarea
-      id="issue"
-      placeholder="Example: lower back pain, tinnitus, knee issue, migraine records"
-    ></textarea>
+<br><br>
 
-    <label class="label" for="serviceContext">Service context</label>
-    <textarea
-      id="serviceContext"
-      placeholder="Example: deployed 2010-2011, airborne ops, MOS, injury event, hearing exposure"
-      style="min-height: 90px;"
-    ></textarea>
+<button id="analyzeBtn">Analyze</button>
+<button id="loadBtn">View Saved Claims</button>
 
-    <input
-      id="fileInput"
-      class="hidden-file"
-      type="file"
-      accept="image/*,.jpg,.jpeg,.png,.webp"
-    />
+<div id="resultCard" style="margin-top:20px;"></div>
 
-    <button id="uploadBtn" class="btn btn-blue" type="button">Upload Image</button>
-
-<button id="analyzeBtn" onclick="analyze()" style="width:100%;margin-top:16px;padding:18px 20px;border:none;border-radius:22px;background:#16a34a;color:white;font-size:22px;font-weight:700;">
-  Analyze Claim
-</button>
-<div id="result" style="margin-top:12px;color:white;"></div>
-<div id="debugBox" style="margin-top:12px;color:#93c5fd;font-size:14px;white-space:pre-wrap;"></div>
-
-
-    <img id="preview" class="preview" alt="Preview" />
-
-    <div id="result" style="margin-top:10px;color:white;"></div>
-
-    <div id="loading" class="loading" style="display:none;">Analyzing...</div>
-
-    <div id="resultMount"></div>
-
-    <div class="claims-wrap">
-      <div class="claims-title">
-<button id="viewSavedClaimsBtn" onclick="loadClaims()" style="width:100%;margin-top:20px;padding:18px 20px;border:none;border-radius:22px;background:#e5e7eb;color:black;font-size:22px;font-weight:700;">
-  View Saved Claims
-</button>
-
-Saved VA Claims</div>
-      <div id="claimsList" class="muted">Loading...</div>
-    </div>
-  </div>
-
-  
-
-
-
+<div id="claimsCard" style="margin-top:20px;"></div>
 
 <script>
-
 async function analyze() {
-  const resultMount = document.getElementById("result");
+  const text = document.getElementById("context").value.trim();
 
-  const issue =
-    document.querySelector("textarea:nth-of-type(1)")?.value || "";
+  const res = await fetch("/va/analyze-base64", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + localStorage.getItem("token")
+    },
+    body: JSON.stringify({
+      issue: "",
+      serviceContext: text,
+      imageBase64: ""
+    })
+  });
 
-  const serviceContext =
-    document.querySelector("textarea:nth-of-type(2)")?.value || "";
+  const data = await res.json();
 
-  if (!issue && !serviceContext) {
-    resultMount.innerHTML = "Please enter something";
-    return;
-  }
-
-  resultMount.innerHTML = "Running...";
-
-  try {
-    const token = localStorage.getItem("access_token");
-
-    const res = await fetch("/va/analyze-base64", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + token
-      },
-      body: JSON.stringify({
-        issue,
-        serviceContext
-      })
-    });
-
-    const data = await res.json();
-
-    resultMount.innerHTML = `
-      <div><b>Summary:</b><br>${data.summary || "No summary"}</div>
-      <div><b>Condition:</b> ${data.structured?.condition || "N/A"}</div>
-      <div><b>Rating:</b> ${data.structured?.estimatedRating || "N/A"}</div>
-    `;
-
-  } catch (err) {
-    resultMount.innerHTML = "ERROR: " + err.message;
-  }
-}
-,
-      body: JSON.stringify({ issue, serviceContext })
-    });
-
-    const text = await res.text();
-    console.log("RAW:", text);
-
-    let data = {};
-    try { data = JSON.parse(text); } catch {}
-
-    if (!res.ok) {
-      throw new Error(data.error || text);
-    }
-
-    resultBox.innerHTML = `
-      <div><b>Summary:</b> ${data.summary || "none"}</div>
-      <div><b>Condition:</b> ${data?.structured?.condition || "N/A"}</div>
-      <div><b>Rating:</b> ${data?.structured?.estimatedRating || "N/A"}</div>
-      <div><b>Confidence:</b> ${data?.structured?.confidence || "N/A"}</div>
-    `;
-  } catch (e) {
-    resultBox.innerHTML = e.message;
-  }
+  document.getElementById("resultCard").innerHTML =
+    "<b>Condition:</b> " + (data.structured?.condition || "N/A") + "<br>" +
+    "<b>Rating:</b> " + (data.structured?.estimatedRating || "N/A") + "<br>" +
+    "<b>Confidence:</b> " + (data.structured?.confidence || "N/A");
 }
 
 async function loadClaims() {
-  const box = document.getElementById("claimsList");
-  box.innerHTML = "Loading...";
-
-  try {
-    const res = await fetch("/claims");
-    const text = await res.text();
-    console.log("CLAIMS RAW:", text);
-
-    let data = {};
-    try { data = JSON.parse(text); } catch {}
-
-    if (!res.ok) {
-      throw new Error(data.error || text);
+  const res = await fetch("/claims", {
+    headers: {
+      Authorization: "Bearer " + localStorage.getItem("token")
     }
+  });
 
-    if (!data.claims || data.claims.length === 0) {
-      box.innerHTML = "No saved claims yet.";
-      return;
-    }
+  const data = await res.json();
 
-    box.innerHTML = data.claims.map(c => `
-      <div style="margin:10px 0;padding:10px;border:1px solid #333">
-        <div>${c.detected_condition || "Unknown"}</div>
-        <div>Rating: ${c.estimated_rating ?? "N/A"}</div>
-      </div>
-    `).join("");
-  } catch (e) {
-    box.innerHTML = e.message;
-  }
+  const container = document.getElementById("claimsCard");
+
+  container.innerHTML = data.claims.map(c => `
+    <div style="border:1px solid #444; padding:10px; margin:10px 0;">
+      <b>${c.detected_condition || "N/A"}</b><br>
+      Rating: ${c.estimated_rating ?? "N/A"}<br>
+      Confidence: ${c.confidence_label || "N/A"}
+    </div>
+  `).join("");
 }
 
-// bind buttons
-setTimeout(() => {
-  document.querySelector("button").onclick = analyze;
-  const btns = document.querySelectorAll("button");
-  if (btns[1]) btns[1].onclick = loadClaims;
-}, 500);
+document.getElementById("analyzeBtn").onclick = analyze;
+document.getElementById("loadBtn").onclick = loadClaims;
 </script>
-
-
-<!-- FORCE_VA_WEB_PATCH_START -->
-<script>
-(function () {
-  function dbg(msg) {
-    try {
-      const box = document.getElementById("debugBox");
-      console.log(msg);
-      if (box) box.textContent = String(msg);
-    } catch (e) {}
-  }
-
-  function getToken() {
-    try {
-      const a = localStorage.getItem("access_token") || "";
-      if (a) return a;
-    } catch (e) {}
-    try {
-      const b = sessionStorage.getItem("access_token") || "";
-      if (b) return b;
-    } catch (e) {}
-    try {
-      const cookie = document.cookie || "";
-      const m = cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-      if (m && m[1]) return decodeURIComponent(m[1]);
-    } catch (e) {}
-    return "";
-  }
-
-  function getIssue() {
-    return (
-      document.getElementById("issue")?.value ||
-      document.querySelector('textarea[placeholder*="lower back pain"]')?.value ||
-      document.querySelectorAll("textarea")[0]?.value ||
-      ""
-    ).trim();
-  }
-
-  function getServiceContext() {
-    return (
-      document.getElementById("serviceContext")?.value ||
-      document.querySelector('textarea[placeholder*="deployed 2010-2011"]')?.value ||
-      document.querySelectorAll("textarea")[1]?.value ||
-      ""
-    ).trim();
-  }
-
-  async function analyze() {
-    const result = document.getElementById("result");
-    const issue = getIssue();
-    const serviceContext = getServiceContext();
-    const token = getToken();
-
-    dbg("analyze clicked | token=" + (token ? "yes" : "no") + " | issue=" + issue + " | ctx=" + serviceContext);
-
-    if (!result) return;
-
-    if (!issue && !serviceContext) {
-      result.innerHTML = "Please enter something first.";
-      return;
-    }
-
-    result.innerHTML = "Running...";
-
-    try {
-      const res = await fetch("/va/analyze-base64", {
-        method: "POST",
-        credentials: "include",
-        headers: Object.assign(
-          { "Content-Type": "application/json" },
-          token ? { "Authorization": "Bearer " + token } : {}
-        ),
-        body: JSON.stringify({
-          issue,
-          serviceContext,
-          normalizedImageBase64: ""
-        })
-      });
-
-      const raw = await res.text();
-      dbg("analyze status=" + res.status + " raw=" + raw.slice(0, 500));
-
-      let data = {};
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch (e) {
-        result.innerHTML = "Analyze JSON parse error: " + raw;
-        return;
-      }
-
-      if (!res.ok) {
-        result.innerHTML = data.details || data.error || ("Analyze HTTP " + res.status);
-        return;
-      }
-
-      const parsed = data.structured || data.parsed || {};
-      result.innerHTML = `
-        <div><strong>Summary:</strong><br>${String(data.summary || "").replace(/\n/g, "<br>")}</div>
-        <div style="margin-top:8px;"><strong>Condition:</strong> ${parsed.condition || "N/A"}</div>
-        <div><strong>Estimated Rating:</strong> ${parsed.estimatedRating || data.likelihood || "N/A"}</div>
-        <div><strong>Confidence:</strong> ${parsed.confidence || "N/A"}</div>
-      `;
-
-      await loadClaims();
-    } catch (err) {
-      result.innerHTML = "Analyze error: " + (err?.message || err);
-      dbg("analyze exception=" + (err?.message || err));
-    }
-  }
-
-  async function loadClaims() {
-    const list = document.getElementById("claimsList");
-    const token = getToken();
-
-    if (!list) return;
-
-    dbg("loadClaims clicked | token=" + (token ? "yes" : "no"));
-    list.innerHTML = "Loading...";
-
-    try {
-      const res = await fetch("/claims", {
-        method: "GET",
-        credentials: "include",
-        headers: token ? { "Authorization": "Bearer " + token } : {}
-      });
-
-      const raw = await res.text();
-      dbg("claims status=" + res.status + " raw=" + raw.slice(0, 500));
-
-      let data = {};
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch (e) {
-        list.innerHTML = "Claims JSON parse error: " + raw;
-        return;
-      }
-
-      if (!res.ok) {
-        list.innerHTML = data.details || data.error || ("Claims HTTP " + res.status);
-        return;
-      }
-
-      const claims = Array.isArray(data.claims) ? data.claims : [];
-      if (!claims.length) {
-        list.innerHTML = "No saved claims yet.";
-        return;
-      }
-
-      list.innerHTML = claims.map(c => `
-        <div style="margin:10px 0;padding:12px;border:1px solid #1f2937;border-radius:10px;">
-          <div><strong>Condition:</strong> ${c.detected_condition || "Unknown"}</div>
-          <div><strong>Rating:</strong> ${c.estimated_rating ?? "N/A"}</div>
-          <div><strong>Confidence:</strong> ${c.confidence_label || "Unknown"}</div>
-        </div>
-      `).join("");
-    } catch (err) {
-      list.innerHTML = "Claims error: " + (err?.message || err);
-      dbg("claims exception=" + (err?.message || err));
-    }
-  }
-
-  window.analyze = analyze;
-  window.loadClaims = loadClaims;
-
-  function bind() {
-    const a = document.getElementById("analyzeBtn");
-    const v = document.getElementById("viewSavedClaimsBtn");
-
-    if (a) a.onclick = analyze;
-    if (v) v.onclick = loadClaims;
-
-    dbg("bind complete | analyzeBtn=" + (!!a) + " | viewBtn=" + (!!v));
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bind);
-  } else {
-    bind();
-  }
-})();
-</script>
-<!-- FORCE_VA_WEB_PATCH_END -->
 
 </body>
 </html>
