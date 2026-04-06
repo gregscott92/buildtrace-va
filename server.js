@@ -20,6 +20,14 @@ const { execFileSync } = require("child_process");
 
 const app = express();
 
+// ===== CREATOR BYPASS =====
+const CREATOR_EMAIL = "greg.scott92@icloud.com";
+
+function isCreator(user) {
+  return user && user.email === CREATOR_EMAIL;
+}
+
+
 // ===== FUNNEL TRACKING =====
 let funnel = {
   signup: 0,

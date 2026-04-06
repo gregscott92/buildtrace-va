@@ -448,7 +448,14 @@
 
 
       if (!res.ok) {
-        alert(data.error || "Failed to analyze");
+        
+if (data.error === "Invalid token") {
+  localStorage.removeItem("token");
+  window.location.href = "/login";
+  return;
+}
+alert(data.error || "Failed to analyze");
+
         return;
       }
 
@@ -493,7 +500,14 @@
         const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Failed to analyze");
+        
+if (data.error === "Invalid token") {
+  localStorage.removeItem("token");
+  window.location.href = "/login";
+  return;
+}
+alert(data.error || "Failed to analyze");
+
         return;
       }
 
