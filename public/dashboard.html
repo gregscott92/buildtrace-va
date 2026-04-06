@@ -1,72 +1,337 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>VA Claim Tool</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-</head>
-<body style="font-family: Arial; padding: 20px; background:#0b1b34; color:white;">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VA Claim Analyzer</title>
+  <style>
+    * { box-sizing: border-box; }
 
-<h2>VA Claim Analyzer</h2>
-
-<textarea id="context" placeholder="Describe your condition..." style="width:100%; height:100px;"></textarea>
-
-<br><br>
-
-<button id="analyzeBtn">Analyze</button>
-<button id="loadBtn">View Saved Claims</button>
-
-<div id="resultCard" style="margin-top:20px;"></div>
-
-<div id="claimsCard" style="margin-top:20px;"></div>
-
-<script>
-async function analyze() {
-  const text = document.getElementById("context").value.trim();
-
-  const res = await fetch("/va/analyze-base64", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + localStorage.getItem("token")
-    },
-    body: JSON.stringify({
-      issue: "",
-      serviceContext: text,
-      imageBase64: ""
-    })
-  });
-
-  const data = await res.json();
-
-  document.getElementById("resultCard").innerHTML =
-    "<b>Condition:</b> " + (data.structured?.condition || "N/A") + "<br>" +
-    "<b>Rating:</b> " + (data.structured?.estimatedRating || "N/A") + "<br>" +
-    "<b>Confidence:</b> " + (data.structured?.confidence || "N/A");
-}
-
-async function loadClaims() {
-  const res = await fetch("/claims", {
-    headers: {
-      Authorization: "Bearer " + localStorage.getItem("token")
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #041b4d;
+      color: #ffffff;
     }
-  });
 
-  const data = await res.json();
+    .wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 24px 18px 40px;
+    }
 
-  const container = document.getElementById("claimsCard");
+    h1 {
+      margin: 0 0 20px;
+      font-size: 28px;
+      font-weight: 800;
+    }
 
-  container.innerHTML = data.claims.map(c => `
-    <div style="border:1px solid #444; padding:10px; margin:10px 0;">
-      <b>${c.detected_condition || "N/A"}</b><br>
-      Rating: ${c.estimated_rating ?? "N/A"}<br>
-      Confidence: ${c.confidence_label || "N/A"}
+    .card {
+      background: #0a2566;
+      border-radius: 18px;
+      padding: 18px;
+      margin-top: 18px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      border: none;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 18px;
+      line-height: 1.4;
+      resize: vertical;
+      background: #f2f4f8;
+      color: #111827;
+    }
+
+    .actions {
+      display: grid;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 20px 18px;
+      font-size: 20px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .btn-analyze {
+      background: #18a84a;
+      color: #ffffff;
+    }
+
+    .btn-analyze:disabled,
+    .btn-saved:disabled {
+      opacity: 0.7;
+      cursor: default;
+    }
+
+    .btn-saved {
+      background: #ebedf0;
+      color: #111111;
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .result-grid {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .result-row {
+      font-size: 18px;
+      line-height: 1.4;
+    }
+
+    .label {
+      font-weight: 800;
+    }
+
+    .summary {
+      white-space: pre-wrap;
+      line-height: 1.5;
+      font-size: 17px;
+    }
+
+    .claims-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .claim-item {
+      background: #082059;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .claim-meta {
+      color: #cbd5e1;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .muted {
+      color: #cbd5e1;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .error {
+      background: #7f1d1d;
+      color: #fee2e2;
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-top: 14px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 600px) {
+      .wrap {
+        padding: 18px 14px 30px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      textarea {
+        min-height: 160px;
+        font-size: 17px;
+      }
+
+      button {
+        font-size: 18px;
+        padding: 18px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>VA Claim Analyzer</h1>
+
+    <div class="card">
+      <textarea
+        id="context"
+        placeholder="Describe your condition, symptoms, service connection, treatment history, flare-ups, range-of-motion findings, and work or daily impact..."
+      ></textarea>
+
+      <div class="actions">
+        <button id="analyzeBtn" class="btn-analyze">Analyze Claim</button>
+        <button id="loadBtn" class="btn-saved">View Saved Claims</button>
+      </div>
+
+      <div id="errorBox" class="error hidden"></div>
     </div>
-  `).join("");
-}
 
-document.getElementById("analyzeBtn").onclick = analyze;
-document.getElementById("loadBtn").onclick = loadClaims;
-</script>
+    <div id="resultCard" class="card hidden">
+      <div class="section-title">Result</div>
+      <div class="result-grid">
+        <div class="result-row"><span class="label">Condition:</span> <span id="resultCondition">N/A</span></div>
+        <div class="result-row"><span class="label">Estimated Rating:</span> <span id="resultRating">N/A</span></div>
+        <div class="result-row"><span class="label">Confidence:</span> <span id="resultConfidence">N/A</span></div>
+      </div>
+      <div id="resultSummary" class="summary"></div>
+    </div>
 
+    <div id="claimsCard" class="card hidden">
+      <div class="section-title">Saved VA Claims</div>
+      <div id="claimsList" class="claims-list"></div>
+    </div>
+  </div>
+
+  <script>
+    function getToken() {
+      return (
+        localStorage.getItem("token") ||
+        localStorage.getItem("authToken") ||
+        localStorage.getItem("accessToken") ||
+        localStorage.getItem("jwt") ||
+        ""
+      );
+    }
+
+    function showError(message) {
+      const box = document.getElementById("errorBox");
+      if (!message) {
+        box.classList.add("hidden");
+        box.textContent = "";
+        return;
+      }
+      box.textContent = message;
+      box.classList.remove("hidden");
+    }
+
+    function setButtonState(id, text, disabled) {
+      const btn = document.getElementById(id);
+      btn.textContent = text;
+      btn.disabled = disabled;
+    }
+
+    async function analyze() {
+      showError("");
+
+      const text = document.getElementById("context").value.trim();
+      if (!text) {
+        showError("Enter claim details first.");
+        return;
+      }
+
+      setButtonState("analyzeBtn", "Analyzing...", true);
+
+      try {
+        const res = await fetch("/va/analyze-base64", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + getToken()
+          },
+          body: JSON.stringify({
+            issue: "",
+            serviceContext: text,
+            imageBase64: ""
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Analyze failed");
+        }
+
+        document.getElementById("resultCondition").textContent =
+          data.structured?.condition || "N/A";
+
+        document.getElementById("resultRating").textContent =
+          data.structured?.estimatedRating !== null &&
+          data.structured?.estimatedRating !== undefined
+            ? data.structured.estimatedRating + "%"
+            : "N/A";
+
+        document.getElementById("resultConfidence").textContent =
+          data.structured?.confidence || "N/A";
+
+        document.getElementById("resultSummary").textContent =
+          data.summary || "";
+
+        document.getElementById("resultCard").classList.remove("hidden");
+      } catch (err) {
+        showError(err.message || "Analyze failed.");
+      } finally {
+        setButtonState("analyzeBtn", "Analyze Claim", false);
+      }
+    }
+
+    async function loadClaims() {
+      showError("");
+      setButtonState("loadBtn", "Loading...", true);
+
+      try {
+        const res = await fetch("/claims", {
+          headers: {
+            Authorization: "Bearer " + getToken()
+          }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Failed to load claims");
+        }
+
+        const claims = Array.isArray(data.claims) ? data.claims : [];
+        const list = document.getElementById("claimsList");
+
+        if (!claims.length) {
+          list.innerHTML = `<div class="muted">No saved claims yet.</div>`;
+        } else {
+          list.innerHTML = claims.map(c => {
+            const created = c.created_at
+              ? new Date(c.created_at).toLocaleString()
+              : "Unknown date";
+
+            const rating =
+              c.estimated_rating !== null && c.estimated_rating !== undefined
+                ? c.estimated_rating + "%"
+                : "N/A";
+
+            return `
+              <div class="claim-item">
+                <div class="result-row"><span class="label">Condition:</span> ${c.detected_condition || "N/A"}</div>
+                <div class="result-row"><span class="label">Rating:</span> ${rating}</div>
+                <div class="result-row"><span class="label">Confidence:</span> ${c.confidence_label || "N/A"}</div>
+                <div class="claim-meta">${created}</div>
+              </div>
+            `;
+          }).join("");
+        }
+
+        document.getElementById("claimsCard").classList.remove("hidden");
+      } catch (err) {
+        showError(err.message || "Failed to load claims.");
+      } finally {
+        setButtonState("loadBtn", "View Saved Claims", false);
+      }
+    }
+
+    document.getElementById("analyzeBtn").onclick = analyze;
+    document.getElementById("loadBtn").onclick = loadClaims;
+  </script>
 </body>
 </html>
