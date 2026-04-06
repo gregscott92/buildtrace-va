@@ -4510,9 +4510,9 @@ if (allImages.length > 0 && typeof extractVisionTextFromBase64 === "function") {
 }
 
 
-    const input = [issue, serviceContext, visionExtract]
-      .filter(Boolean)
-      .join("\n\n");
+    const input = visionExtract
+      ? visionExtract
+      : [issue, serviceContext].filter(Boolean).join("\n\n");
 
     const result = analyzeCfr38(input);
     const summary = String(result || "").trim();
