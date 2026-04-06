@@ -18,7 +18,18 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-const app = express();   // ✅ ONLY ONE TIME
+const app = express();
+
+// ===== SIMPLE VISIT TRACKING =====
+function logVisit(route) {
+  try {
+    const line = `${new Date().toISOString()} | ${route}\n`;
+    require("fs").appendFileSync("visits.log", line);
+  } catch (e) {
+    console.log("visit log error", e.message);
+  }
+}
+   // ✅ ONLY ONE TIME
 
 // ----------------------------
 // MIDDLEWARE
@@ -57,6 +68,7 @@ app.get("/va", (req, res) => {
 });
 
 app.get("/dashboard", (req, res) => {
+  logVisit("dashboard");
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
 
@@ -654,6 +666,7 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
+  logVisit("login");
   return res.sendFile(path.join(__dirname, "views", "login.html"));
 });
 
@@ -3707,6 +3720,7 @@ app.post("/api/va/entries",  async (req, res) => {
 // =====================
 
 app.get("/login", (req, res) => {
+  logVisit("login");
   res.sendFile(require("path").join(__dirname, "views", "login.html"));
 });
 
@@ -3718,6 +3732,7 @@ app.get("/", (req, res) => {
   return res.redirect("/signup");
 });
 app.get("/dashboard", (req, res) => {
+  logVisit("dashboard");
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
 app.get("/api/runs",  async (req, res) => {
