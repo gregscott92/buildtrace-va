@@ -4931,6 +4931,50 @@ function neededForNext(totalValue) {
   }
 });
 
+
+
+app.post("/lead", async (req, res) => {
+  try {
+    const { email, data } = req.body || {};
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: "Email required"
+      });
+    }
+
+    const payload = {
+      email: String(email).trim(),
+      claim_data: data || {},
+      created_at: new Date().toISOString()
+    };
+
+    const { error } = await supabaseAdmin
+      .from("leads")
+      .insert(payload);
+
+    if (error) {
+      console.log("LEAD INSERT ERROR:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to save lead"
+      });
+    }
+
+    return res.json({
+      success: true
+    });
+  } catch (err) {
+    console.log("LEAD ROUTE ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Lead save failed"
+    });
+  }
+});
+
+
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
 });

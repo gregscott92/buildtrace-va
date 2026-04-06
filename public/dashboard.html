@@ -200,6 +200,17 @@
         }
 
         const structured = data.structured || {};
+
+        localStorage.setItem("lastResult", JSON.stringify({
+          condition: structured.condition || "N/A",
+          estimated_rating: structured.estimatedRating || "N/A",
+          confidence: structured.confidence || "N/A",
+          reasoning: structured.reasoning || "",
+          next_steps: structured.nextSteps || "",
+          important: structured.important || "",
+          disclaimer: data.disclaimer || ""
+        }));
+
         const resultCard = document.getElementById("resultCard");
 
         resultCard.classList.remove("hidden");
@@ -216,7 +227,25 @@
           <div class="summary"><span class="label">Reasoning:</span>
 ${structured.reasoning || "N/A"}</div>
           <div class="summary" style="margin-top:14px;"><span class="label">Next Steps:</span>
-${structured.nextSteps || "N/A"}</div>
+${structured.nextSteps || "N/A"}
+          <div id="leadCapture" style="margin-top:20px;">
+            <div style="font-size:18px;font-weight:700;margin-bottom:10px;">Save this claim + get next steps</div>
+            <input
+              id="userEmail"
+              type="email"
+              placeholder="Enter email to save your claim"
+              style="padding:12px;width:100%;border-radius:8px;border:none;font-size:16px;"
+            />
+            <button
+              id="saveLeadBtn"
+              onclick="saveLead()"
+              style="margin-top:10px;width:100%;padding:14px;background:#22c55e;color:white;border:none;border-radius:8px;font-size:16px;font-weight:700;"
+            >
+              Save My Claim
+            </button>
+            <div id="leadStatus" style="margin-top:10px;color:#cbd5e1;font-size:14px;"></div>
+          </div>
+</div>
         `;
 
         resultCard.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -242,6 +271,54 @@ ${structured.nextSteps || "N/A"}</div>
       renderSelectedPages();
     });
     document.getElementById("analyzeBtn").addEventListener("click", analyze);
-  </script>
+  
+    async function saveLead() {
+      const emailEl = document.getElementById("userEmail");
+      const statusEl = document.getElementById("leadStatus");
+      const btnEl = document.getElementById("saveLeadBtn");
+      const email = String(emailEl?.value || "").trim();
+      const lastResult = JSON.parse(localStorage.getItem("lastResult") || "{}");
+
+      if (!email) {
+        statusEl.textContent = "Enter an email first.";
+        return;
+      }
+
+      btnEl.disabled = true;
+      btnEl.innerText = "Saving...";
+      statusEl.textContent = "";
+
+      try {
+        const res = await fetch("/lead", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            data: lastResult
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          statusEl.textContent = data.error || "Failed to save lead.";
+          btnEl.disabled = false;
+          btnEl.innerText = "Save My Claim";
+          return;
+        }
+
+        statusEl.textContent = "Saved. We’ll send next steps.";
+        btnEl.innerText = "Saved";
+      } catch (err) {
+        statusEl.textContent = err.message || "Failed to save lead.";
+        btnEl.disabled = false;
+        btnEl.innerText = "Save My Claim";
+      }
+    }
+
+
+</script>
 </body>
 </html>
