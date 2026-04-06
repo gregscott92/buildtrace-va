@@ -4394,7 +4394,34 @@ app.post("/signup", async (req, res) => {
   }
 });
 
+app.post("/va/analyze-base64", async (req, res) => {
+  try {
+    const issue = String(req.body?.issue || "").trim();
+    const serviceContext = String(req.body?.serviceContext || "").trim();
 
+    if (!issue && !serviceContext) {
+      return res.status(400).json({ error: "Missing input" });
+    }
+
+    const input = [issue, serviceContext].filter(Boolean).join("\n\n");
+
+    const result = analyzeCfr38(input);
+
+    return res.json({
+      success: true,
+      summary: String(result || ""),
+      structured: {},
+      visionExtract: "",
+    });
+
+  } catch (err) {
+    console.log("VA ERROR:", err);
+    return res.status(500).json({
+      error: "VA analysis failed",
+      details: err.message,
+    });
+  }
+});
 
 app.post("/va/analyze",  upload.single("image"), async (req, res) => {
   console.log("=== /va/analyze hit ===");
@@ -4509,223 +4536,6 @@ const structured = {
 
 
 
-
-app.post("/va/analyze-base64", requireApiUser, async (req, res) => {
-  let tempPath = null;
-
-  try {
-    const issue = String(req.body?.issue || "").trim();
-    const serviceContext = String(req.body?.serviceContext || "").trim();
-
-    let normalizedImageBase64 = String(
-      req.body?.normalizedImageBase64 || ""
-    ).trim();
-
-    // Accept either raw base64 or full data URL
-    if (
-      normalizedImageBase64 &&
-      !normalizedImageBase64.startsWith("data:image/")
-    ) {
-      normalizedImageBase64 = `data:image/jpeg;base64,${normalizedImageBase64}`;
-    }
-
-    if (!issue && !serviceContext && !normalizedImageBase64) {
-      return res.status(400).json({
-        error: "Provide text or upload an image",
-      });
-    }
-
-    let visionExtract = "";
-
-    if (normalizedImageBase64) {
-      const match = normalizedImageBase64.match(
-        /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/
-      );
-
-      if (!match) {
-        return res.status(400).json({
-          error: "Invalid image payload",
-        });
-      }
-
-      const mimeType = match[1];
-      const base64Data = match[2];
-
-      let ext = ".jpg";
-      if (mimeType.includes("png")) ext = ".png";
-      else if (mimeType.includes("jpeg")) ext = ".jpg";
-      else if (mimeType.includes("jpg")) ext = ".jpg";
-      else if (mimeType.includes("webp")) ext = ".webp";
-
-      const uploadsDir = path.join(__dirname, "uploads");
-      fs.mkdirSync(uploadsDir, { recursive: true });
-
-      tempPath = path.join(uploadsDir, `va_upload_${Date.now()}${ext}`);
-      fs.writeFileSync(tempPath, Buffer.from(base64Data, "base64"));
-
-      const uploadedFile = {
-        path: tempPath,
-        mimetype: mimeType,
-        originalname: `upload${ext}`,
-      };
-
-      try {
-        visionExtract = await extractVisionTextFromUpload(
-          uploadedFile,
-          issue,
-          serviceContext
-        );
-      } catch (visionErr) {
-        console.log("VISION EXTRACT ERROR:", visionErr.message);
-        visionExtract = "";
-      }
-    }
-
-    const input = [issue, serviceContext, visionExtract]
-      .filter(Boolean)
-      .join("\n\n");
-
-    const result = analyzeCfr38(input);
-
-    function readSection(label) {
-      const source = String(result || "");
-      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(
-        escaped +
-          ":\\s*([\\s\\S]*?)(?=\\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
-        "i"
-      );
-
-      const match = source.match(regex);
-      if (!match || !match[1]) return "N/A";
-
-      return (
-        String(match[1])
-          .trim()
-          .replace(/^[•-]\s*/gm, "")
-          .trim() || "N/A"
-      );
-    }
-
-    const structured = {
-      condition: readSection("Condition"),
-      diagnosticCode: readSection("Diagnostic Code"),
-      estimatedRating: readSection("Estimated VA Rating"),
-      confidence: readSection("Confidence"),
-      reasoning: readSection("Reasoning"),
-      evidenceNeeded: readSection("Evidence Still Needed"),
-      nextSteps: readSection("Next Steps"),
-      important: readSection("Important"),
-    };
-
-    const numericEstimatedRating =
-      structured.estimatedRating && structured.estimatedRating !== "N/A"
-        ? parseInt(
-            String(structured.estimatedRating).replace(/[^0-9]/g, ""),
-            10
-          ) || 0
-        : null;
-
-    const payload = {
-      user_id: req.apiUser.id,
-      input_text: [issue, serviceContext].filter(Boolean).join(" | "),
-      result_text: String(result || ""),
-      extracted_text: String(visionExtract || ""),
-      detected_condition:
-        structured.condition && structured.condition !== "N/A"
-          ? structured.condition
-          : null,
-      estimated_rating: numericEstimatedRating,
-      confidence_label:
-        structured.confidence && structured.confidence !== "N/A"
-          ? structured.confidence
-          : null,
-      source_type: normalizedImageBase64 ? "image_upload" : "text_only",
-      export_summary: String(result || ""),
-    };
-
-    try {
-      const { error: insertError } = await supabaseAdmin
-        .from("va_claims")
-        .insert(payload);
-
-      if (insertError) {
-        console.log("INSERT ERROR:", insertError);
-      } else {
-        console.log("INSERT SUCCESS for user:", req.apiUser.id);
-      }
-    } catch (saveErr) {
-      console.log("SAVE CLAIM ERROR:", saveErr);
-    }
-
-    return res.json({
-      success: true,
-      likelihood:
-        structured.estimatedRating && structured.estimatedRating !== "N/A"
-          ? structured.estimatedRating
-          : "See analysis",
-      summary: String(result || ""),
-      structured,
-      visionExtract: String(visionExtract || ""),
-      disclaimer:
-        "This tool provides an estimate only. Final VA decisions are made by the VA.",
-    });
-  } catch (err) {
-    console.log("WEB VA ANALYZE BASE64 ERROR:", err);
-    return res.status(500).json({
-      error: "VA analysis failed",
-      details: err.message,
-    });
-  } finally {
-    try {
-      if (tempPath && fs.existsSync(tempPath)) {
-        fs.unlinkSync(tempPath);
-        console.log("temp base64 upload deleted:", tempPath);
-      }
-    } catch (cleanupErr) {
-      console.log("BASE64 CLEANUP ERROR:", cleanupErr.message);
-    }
-  }
-});
-    // 🔥 SAVE CLAIM
-    try {
-      const payload = {
-        user_id: req.apiUser.id,
-        input_text: [issue, serviceContext].filter(Boolean).join(" | "),
-        result_text: result || "",
-        extracted_text: visionExtract || "",
-        detected_condition: structured.condition !== "N/A" ? structured.condition : null,
-        estimated_rating: null,
-        confidence_label: null,
-        source_type: normalizedImageBase64 ? "image_upload" : "text_only",
-        export_summary: result || ""
-      };
-
-      const { error } = await supabaseAdmin.from("va_claims").insert(payload);
-
-      if (error) console.log("INSERT ERROR:", error);
-      else console.log("INSERT SUCCESS");
-
-    } catch (e) {
-      console.log("SAVE ERROR:", e);
-    }
-
-    return res.json({
-      success: true,
-      summary: result,
-      structured,
-      visionExtract,
-      disclaimer: "This tool provides an estimate only."
-    });
-
-  } catch (err) {
-    console.log("ANALYZE ERROR:", err);
-    return res.status(500).json({
-      error: "VA analysis failed",
-      details: err.message
-    });
-  }
-});
 
 
 
