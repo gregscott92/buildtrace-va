@@ -567,7 +567,7 @@ function incrementUsage() {
 }
 
 function canAnalyze() {
-  return getUsageCount() < 3;
+  return isCreatorBypass() || getUsageCount() < 3;
 }
 
 
@@ -582,6 +582,16 @@ function reportIssue() {
   const subject = encodeURIComponent("VA Tool Issue / Fix");
   const body = encodeURIComponent("Describe the issue or suggested fix:\n\nSteps:\nExpected:\nActual:");
   window.location.href = `mailto:greg.scott92@icloud.com?subject=${subject}&body=${body}`;
+}
+
+
+// ===== CREATOR BYPASS =====
+if (window.location.search.includes("creator=1")) {
+  localStorage.setItem("creatorBypass", "true");
+}
+
+function isCreatorBypass() {
+  return localStorage.getItem("creatorBypass") === "true";
 }
 
 </script>
