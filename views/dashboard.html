@@ -20,10 +20,30 @@
       padding: 24px 18px 40px;
     }
 
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
     h1 {
-      margin: 0 0 20px;
+      margin: 0;
       font-size: 28px;
       font-weight: 800;
+    }
+
+    .logout-btn {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      background: #ef4444;
+      color: white;
+      width: auto;
     }
 
     .card {
@@ -68,15 +88,21 @@
       color: #ffffff;
     }
 
-    .btn-analyze:disabled,
-    .btn-saved:disabled {
-      opacity: 0.7;
-      cursor: default;
+    .btn-upload {
+      background: #2563eb;
+      color: #ffffff;
     }
 
     .btn-saved {
       background: #ebedf0;
       color: #111111;
+    }
+
+    .btn-analyze:disabled,
+    .btn-upload:disabled,
+    .btn-saved:disabled {
+      opacity: 0.7;
+      cursor: default;
     }
 
     .section-title {
@@ -141,6 +167,12 @@
       line-height: 1.4;
     }
 
+    .file-note {
+      margin-top: 10px;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
     @media (max-width: 600px) {
       .wrap {
         padding: 18px 14px 30px;
@@ -159,12 +191,20 @@
         font-size: 18px;
         padding: 18px 16px;
       }
+
+      .logout-btn {
+        font-size: 14px;
+        padding: 10px 12px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>VA Claim Analyzer</h1>
+    <div class="topbar">
+      <h1>VA Claim Analyzer</h1>
+      <button id="logoutBtn" class="logout-btn" type="button">Log Out</button>
+    </div>
 
     <div class="card">
       <textarea
@@ -172,11 +212,15 @@
         placeholder="Describe your condition, symptoms, service connection, treatment history, flare-ups, range-of-motion findings, and work or daily impact..."
       ></textarea>
 
+      <input id="imageInput" type="file" accept="image/*" class="hidden" />
+
       <div class="actions">
-        <button id="analyzeBtn" class="btn-analyze">Analyze Claim</button>
-        <button id="loadBtn" class="btn-saved">View Saved Claims</button>
+        <button id="uploadBtn" class="btn-upload" type="button">Upload Image</button>
+        <button id="analyzeBtn" class="btn-analyze" type="button">Analyze Claim</button>
+        <button id="loadBtn" class="btn-saved" type="button">View Saved Claims</button>
       </div>
 
+      <div id="fileNote" class="file-note hidden"></div>
       <div id="errorBox" class="error hidden"></div>
     </div>
 
@@ -197,6 +241,9 @@
   </div>
 
   <script>
+    let selectedImageBase64 = "";
+    let selectedImageName = "";
+
     function getToken() {
       return (
         localStorage.getItem("token") ||
@@ -224,12 +271,60 @@
       btn.disabled = disabled;
     }
 
+    function showFileNote(message) {
+      const note = document.getElementById("fileNote");
+      if (!message) {
+        note.classList.add("hidden");
+        note.textContent = "";
+        return;
+      }
+      note.textContent = message;
+      note.classList.remove("hidden");
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || "");
+          const base64 = result.includes(",") ? result.split(",")[1] : result;
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleImageSelect(event) {
+      showError("");
+
+      const file = event.target.files && event.target.files[0];
+      if (!file) {
+        selectedImageBase64 = "";
+        selectedImageName = "";
+        showFileNote("");
+        return;
+      }
+
+      try {
+        selectedImageBase64 = await fileToBase64(file);
+        selectedImageName = file.name || "image";
+        showFileNote("Selected image: " + selectedImageName);
+      } catch (err) {
+        selectedImageBase64 = "";
+        selectedImageName = "";
+        showFileNote("");
+        showError("Could not read image.");
+      }
+    }
+
     async function analyze() {
       showError("");
 
       const text = document.getElementById("context").value.trim();
-      if (!text) {
-        showError("Enter claim details first.");
+
+      if (!text && !selectedImageBase64) {
+        showError("Enter claim details or upload an image first.");
         return;
       }
 
@@ -245,7 +340,7 @@
           body: JSON.stringify({
             issue: "",
             serviceContext: text,
-            imageBase64: ""
+            imageBase64: selectedImageBase64
           })
         });
 
@@ -330,8 +425,22 @@
       }
     }
 
+    function logout() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("jwt");
+      window.location.href = "/login";
+    }
+
+    document.getElementById("uploadBtn").onclick = function () {
+      document.getElementById("imageInput").click();
+    };
+
+    document.getElementById("imageInput").addEventListener("change", handleImageSelect);
     document.getElementById("analyzeBtn").onclick = analyze;
     document.getElementById("loadBtn").onclick = loadClaims;
+    document.getElementById("logoutBtn").onclick = logout;
   </script>
 </body>
 </html>
