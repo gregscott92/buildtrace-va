@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VA Rating Calculator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:Arial,sans-serif; background:#041b4d; color:#fff; }
+    .wrap { max-width:760px; margin:0 auto; padding:24px 18px 40px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; }
+    h1 { margin:0; font-size:28px; font-weight:800; }
+    .btn { width:100%; border:none; border-radius:18px; padding:18px 16px; font-size:20px; font-weight:800; cursor:pointer; }
+    .btn-blue { background:#2563eb; color:#fff; }
+    .btn-red { background:#ef4444; color:#fff; width:auto; padding:12px 16px; font-size:16px; border-radius:14px; }
+    .card { background:#0a2566; border-radius:18px; padding:18px; margin-top:18px; box-shadow:0 4px 14px rgba(0,0,0,0.18); }
+    .label { display:block; font-weight:800; margin-bottom:8px; }
+    .field { width:100%; margin-top:8px; margin-bottom:14px; padding:14px 16px; border:none; border-radius:14px; font-size:16px; background:#f2f4f8; color:#111827; }
+    .result-row { font-size:18px; line-height:1.45; margin-bottom:10px; }
+    .muted { color:#cbd5e1; }
+    .hidden { display:none; }
+    .pulse { animation: pulseGlow 1s ease-in-out 3; border:2px solid #22c55e; }
+    @keyframes pulseGlow { 0%{box-shadow:0 0 0 rgba(34,197,94,0)} 50%{box-shadow:0 0 24px rgba(34,197,94,0.75)} 100%{box-shadow:0 0 0 rgba(34,197,94,0)}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>VA Rating Calculator</h1>
+      <button class="btn-red" onclick="window.location.href='/dashboard'">Back</button>
+    </div>
+
+    <div class="card">
+      <label class="label" for="vaRatings">All ratings (comma separated)</label>
+      <input id="vaRatings" class="field" type="text" placeholder="50,30,10" />
+
+      <label class="label" for="vaLeft">Left-side bilateral ratings (optional)</label>
+      <input id="vaLeft" class="field" type="text" placeholder="10,20" />
+
+      <label class="label" for="vaRight">Right-side bilateral ratings (optional)</label>
+      <input id="vaRight" class="field" type="text" placeholder="10,20" />
+
+      <label class="label"><input id="vaSpouse" type="checkbox" /> Spouse</label>
+      <label class="label"><input id="vaSpouseAid" type="checkbox" /> Spouse gets Aid and Attendance</label>
+
+      <label class="label" for="vaParents">Dependent parents</label>
+      <select id="vaParents" class="field">
+        <option value="0">0</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+      </select>
+
+      <label class="label" for="vaChildU18">Children under 18</label>
+      <input id="vaChildU18" class="field" type="number" min="0" value="0" />
+
+      <label class="label" for="vaChildSchool">Children 18+ in qualifying school</label>
+      <input id="vaChildSchool" class="field" type="number" min="0" value="0" />
+
+      <button id="vaCalcBtn" class="btn btn-blue" type="button">Run VA Calculator</button>
+
+      <div id="vaCalcResult" class="hidden card" style="margin-top:16px;"></div>
+    </div>
+  </div>
+
+  <script>
+    function getToken() {
+      return localStorage.getItem("token") || "";
+    }
+
+    function parseRatingsInput(value) {
+      return String(value || "")
+        .split(",")
+        .map(v => Number(String(v).trim()))
+        .filter(v => !Number.isNaN(v) && v > 0);
+    }
+
+    async function runVACalc() {
+      const ratings = parseRatingsInput(document.getElementById("vaRatings").value);
+      const left = parseRatingsInput(document.getElementById("vaLeft").value);
+      const right = parseRatingsInput(document.getElementById("vaRight").value);
+      const spouse = document.getElementById("vaSpouse").checked;
+      const spouse_aid = document.getElementById("vaSpouseAid").checked;
+      const parents = Number(document.getElementById("vaParents").value || 0);
+      const child_under_18 = Number(document.getElementById("vaChildU18").value || 0);
+      const child_school = Number(document.getElementById("vaChildSchool").value || 0);
+      const resultEl = document.getElementById("vaCalcResult");
+      const btn = document.getElementById("vaCalcBtn");
+
+      if (!ratings.length) {
+        alert("Enter at least one rating");
+        return;
+      }
+
+      const oldText = btn.innerText;
+      btn.innerText = "Calculating...";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch("/va/calc", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": getToken() ? "Bearer " + getToken() : ""
+          },
+          body: JSON.stringify({
+            ratings, left, right, spouse, spouse_aid, parents, child_under_18, child_school
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          alert(data.error || "VA calculator failed");
+          return;
+        }
+
+        resultEl.classList.remove("hidden");
+        resultEl.classList.add("pulse");
+        resultEl.innerHTML = `
+          <div class="result-row"><b>Raw Combined:</b> ${data.raw}%</div>
+          <div class="result-row"><b>Final VA Rating:</b> ${data.final}%</div>
+          <div class="result-row"><b>Estimated Monthly:</b> $${data.monthly_estimate}</div>
+          <div class="result-row"><b>Next tier:</b> ${data.next_needed ? "A new " + data.next_needed + "% rating" : "Already at max tier"}</div>
+          <div class="muted">Standard VA compensation estimate only.</div>
+        `;
+        resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(() => resultEl.classList.remove("pulse"), 3200);
+      } catch (err) {
+        alert(err.message || "VA calculator failed");
+      } finally {
+        btn.innerText = oldText;
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById("vaCalcBtn").addEventListener("click", runVACalc);
+  </script>
+</body>
+</html>

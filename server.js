@@ -4810,24 +4810,77 @@ app.post("/va/calc", (req, res) => {
 
     
     
-    function estimateMonthly(rate) {
-      const table = {
-        0: 0,
-        10: 171,
-        20: 338,
-        30: 524,
-        40: 755,
-        50: 1075,
-        60: 1361,
-        70: 1716,
-        80: 1995,
-        90: 2241,
-        100: 3737
+        function estimateMonthlyFull(finalRate, opts = {}) {
+      const spouse = !!opts.spouse;
+      const parents = Number(opts.parents || 0);
+      const childUnder18 = Number(opts.child_under_18 || 0);
+      const childSchool = Number(opts.child_school || 0);
+      const spouseAid = !!opts.spouse_aid;
+
+      const rate = Number(finalRate || 0);
+
+      if (rate === 10) return 180.42;
+      if (rate === 20) return 356.66;
+
+      const baseNoChildren = {
+        30: { alone: 552.47, spouse: 617.47, spouse1p: 669.47, spouse2p: 721.47, parent1: 604.47, parent2: 656.47, spouseAid: 61.00 },
+        40: { alone: 795.84, spouse: 882.84, spouse1p: 952.84, spouse2p: 1022.84, parent1: 865.84, parent2: 935.84, spouseAid: 81.00 },
+        50: { alone: 1132.90, spouse: 1241.90, spouse1p: 1329.90, spouse2p: 1417.90, parent1: 1220.90, parent2: 1308.90, spouseAid: 101.00 },
+        60: { alone: 1435.02, spouse: 1566.02, spouse1p: 1671.02, spouse2p: 1776.02, parent1: 1540.02, parent2: 1645.02, spouseAid: 121.00 },
+        70: { alone: 1808.45, spouse: 1961.45, spouse1p: 2084.45, spouse2p: 2207.45, parent1: 1931.45, parent2: 2054.45, spouseAid: 141.00 },
+        80: { alone: 2102.15, spouse: 2277.15, spouse1p: 2417.15, spouse2p: 2557.15, parent1: 2242.15, parent2: 2382.15, spouseAid: 161.00 },
+        90: { alone: 2362.30, spouse: 2559.30, spouse1p: 2717.30, spouse2p: 2875.30, parent1: 2520.30, parent2: 2678.30, spouseAid: 181.00 },
+        100:{ alone: 3938.58, spouse: 4158.17, spouse1p: 4334.41, spouse2p: 4510.65, parent1: 4114.82, parent2: 4291.06, spouseAid: 201.41 }
       };
-      return table[rate] || 0;
+
+      const baseWithChild = {
+        30: { childOnly: 596.47, spouse: 666.47, spouse1p: 718.47, spouse2p: 770.47, parent1: 648.47, parent2: 700.47, addU18: 32.00, addSchool: 105.00, spouseAid: 61.00 },
+        40: { childOnly: 853.84, spouse: 947.84, spouse1p: 1017.84, spouse2p: 1087.84, parent1: 923.84, parent2: 993.84, addU18: 43.00, addSchool: 140.00, spouseAid: 81.00 },
+        50: { childOnly: 1205.90, spouse: 1322.90, spouse1p: 1410.90, spouse2p: 1498.90, parent1: 1293.90, parent2: 1381.90, addU18: 54.00, addSchool: 176.00, spouseAid: 101.00 },
+        60: { childOnly: 1523.02, spouse: 1663.02, spouse1p: 1768.02, spouse2p: 1873.02, parent1: 1628.02, parent2: 1733.02, addU18: 65.00, addSchool: 211.00, spouseAid: 121.00 },
+        70: { childOnly: 1910.45, spouse: 2074.45, spouse1p: 2197.45, spouse2p: 2320.45, parent1: 2033.45, parent2: 2156.45, addU18: 76.00, addSchool: 246.00, spouseAid: 141.00 },
+        80: { childOnly: 2219.15, spouse: 2406.15, spouse1p: 2546.15, spouse2p: 2686.15, parent1: 2359.15, parent2: 2499.15, addU18: 87.00, addSchool: 281.00, spouseAid: 161.00 },
+        90: { childOnly: 2494.30, spouse: 2704.30, spouse1p: 2862.30, spouse2p: 3020.30, parent1: 2652.30, parent2: 2810.30, addU18: 98.00, addSchool: 317.00, spouseAid: 181.00 },
+        100:{ childOnly: 4085.43, spouse: 4318.99, spouse1p: 4495.23, spouse2p: 4671.47, parent1: 4261.67, parent2: 4437.91, addU18: 109.11, addSchool: 352.45, spouseAid: 201.41 }
+      };
+
+      if (![30,40,50,60,70,80,90,100].includes(rate)) return 0;
+
+      const hasAnyChild = (childUnder18 + childSchool) > 0;
+      let total = 0;
+
+      if (!hasAnyChild) {
+        const row = baseNoChildren[rate];
+        if (spouse && parents === 2) total = row.spouse2p;
+        else if (spouse && parents === 1) total = row.spouse1p;
+        else if (spouse) total = row.spouse;
+        else if (parents === 2) total = row.parent2;
+        else if (parents === 1) total = row.parent1;
+        else total = row.alone;
+
+        if (spouse && spouseAid) total += row.spouseAid;
+        return Number(total.toFixed(2));
+      }
+
+      const row = baseWithChild[rate];
+
+      if (spouse && parents === 2) total = row.spouse2p;
+      else if (spouse && parents === 1) total = row.spouse1p;
+      else if (spouse) total = row.spouse;
+      else if (parents === 2) total = row.parent2;
+      else if (parents === 1) total = row.parent1;
+      else total = row.childOnly;
+
+      const extraUnder18 = Math.max(0, childUnder18 - 1);
+      total += extraUnder18 * row.addU18;
+      total += childSchool * row.addSchool;
+
+      if (spouse && spouseAid) total += row.spouseAid;
+
+      return Number(total.toFixed(2));
     }
 
-    function neededForNext(totalValue) {
+function neededForNext(totalValue) {
       const currentTier = Math.floor((totalValue + 5) / 10) * 10;
       const nextTier = currentTier + 10;
 
@@ -4862,7 +4915,13 @@ app.post("/va/calc", (req, res) => {
       raw: Number(total.toFixed(2)),
       final: roundVA(total),
       next_needed: neededForNext(total),
-      monthly_estimate: estimateMonthly(roundVA(total)),
+      monthly_estimate: estimateMonthlyFull(roundVA(total), {
+      spouse: req.body?.spouse,
+      parents: req.body?.parents,
+      child_under_18: req.body?.child_under_18,
+      child_school: req.body?.child_school,
+      spouse_aid: req.body?.spouse_aid,
+    }),
     });
   } catch (err) {
     return res.status(500).json({

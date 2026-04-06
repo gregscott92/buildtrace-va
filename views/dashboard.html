@@ -6,356 +6,123 @@
   <title>VA Claim Analyzer</title>
   <style>
     * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #041b4d;
-      color: #ffffff;
-    }
-
-    .wrap {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 24px 18px 40px;
-    }
-
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: 800;
-    }
-
-    .logout-btn {
-      border: none;
-      border-radius: 14px;
-      padding: 12px 16px;
-      font-size: 16px;
-      font-weight: 800;
-      cursor: pointer;
-      background: #ef4444;
-      color: white;
-      width: auto;
-    }
-
-    .card {
-      background: #0a2566;
-      border-radius: 18px;
-      padding: 18px;
-      margin-top: 18px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 180px;
-      border: none;
-      border-radius: 16px;
-      padding: 16px;
-      font-size: 18px;
-      line-height: 1.4;
-      resize: vertical;
-      background: #f2f4f8;
-      color: #111827;
-    }
-
-    .actions {
-      display: grid;
-      gap: 14px;
-      margin-top: 16px;
-    }
-
-    button {
-      width: 100%;
-      border: none;
-      border-radius: 18px;
-      padding: 20px 18px;
-      font-size: 20px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .btn-analyze {
-      background: #18a84a;
-      color: #ffffff;
-    }
-
-    .btn-upload {
-      background: #2563eb;
-      color: #ffffff;
-    }
-
-    .btn-saved {
-      background: #ebedf0;
-      color: #111111;
-    }
-
-    .btn-clear {
-      background: #475569;
-      color: #ffffff;
-    }
-
-    .btn-analyze:disabled,
-    .btn-upload:disabled,
-    .btn-saved:disabled,
-    .btn-clear:disabled {
-      opacity: 0.7;
-      cursor: default;
-    }
-
-    .section-title {
-      margin: 0 0 14px;
-      font-size: 18px;
-      font-weight: 800;
-    }
-
-    .result-grid {
-      display: grid;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .result-row {
-      font-size: 18px;
-      line-height: 1.4;
-    }
-
-    .label {
-      font-weight: 800;
-    }
-
-    .summary {
-      white-space: pre-wrap;
-      line-height: 1.5;
-      font-size: 17px;
-    }
-
-    .claims-list {
-      display: grid;
-      gap: 12px;
-    }
-
-    .claim-item {
-      background: #082059;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 14px;
-    }
-
-    .claim-meta {
-      color: #cbd5e1;
-      font-size: 14px;
-      margin-top: 8px;
-    }
-
-    .muted {
-      color: #cbd5e1;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .error {
-      background: #7f1d1d;
-      color: #fee2e2;
-      border-radius: 14px;
-      padding: 12px 14px;
-      margin-top: 14px;
-      line-height: 1.4;
-    }
-
-    .file-note {
-      margin-top: 10px;
-      color: #cbd5e1;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    .pages-list {
-      margin-top: 12px;
-      display: grid;
-      gap: 8px;
-    }
-
-    .page-chip {
-      background: #082059;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      padding: 10px 12px;
-      color: #e2e8f0;
-      font-size: 14px;
-      word-break: break-word;
-    }
-
-    @media (max-width: 600px) {
-      .wrap {
-        padding: 18px 14px 30px;
-      }
-
-      h1 {
-        font-size: 24px;
-      }
-
-      textarea {
-        min-height: 160px;
-        font-size: 17px;
-      }
-
-      button {
-        font-size: 18px;
-        padding: 18px 16px;
-      }
-
-      .logout-btn {
-        font-size: 14px;
-        padding: 10px 12px;
-      }
-    }
+    body { margin: 0; font-family: Arial, sans-serif; background: #041b4d; color: #ffffff; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 24px 18px 40px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: 28px; font-weight: 800; }
+    .logout-btn { border: none; border-radius: 14px; padding: 12px 16px; font-size: 16px; font-weight: 800; cursor: pointer; background: #ef4444; color: white; width: auto; }
+    .card { background: #0a2566; border-radius: 18px; padding: 18px; margin-top: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+    .notice { background: rgba(255, 193, 7, 0.12); border: 1px solid rgba(255, 193, 7, 0.35); color: #ffe082; border-radius: 14px; padding: 14px; line-height: 1.5; font-size: 14px; margin-top: 12px; }
+    textarea { width: 100%; min-height: 180px; border: none; border-radius: 16px; padding: 16px; font-size: 18px; line-height: 1.4; resize: vertical; background: #f2f4f8; color: #111827; }
+    .actions { display: grid; gap: 14px; margin-top: 16px; }
+    button { width: 100%; border: none; border-radius: 18px; padding: 20px 18px; font-size: 20px; font-weight: 800; cursor: pointer; }
+    .btn-analyze { background: #18a84a; color: #ffffff; }
+    .btn-upload { background: #2563eb; color: #ffffff; }
+    .btn-saved { background: #ebedf0; color: #111111; }
+    .btn-clear { background: #475569; color: #ffffff; }
+    .btn-access { background: #f59e0b; color: #111111; }
+    .btn-report { background: #ef4444; color: #ffffff; }
+    .section-title { margin: 0 0 14px; font-size: 18px; font-weight: 800; }
+    .result-grid { display: grid; gap: 10px; margin-bottom: 14px; }
+    .result-row { font-size: 18px; line-height: 1.4; }
+    .label { font-weight: 800; }
+    .summary { white-space: pre-wrap; line-height: 1.5; font-size: 17px; }
+    .hidden { display: none; }
+    .error { background: #7f1d1d; color: #fee2e2; border-radius: 14px; padding: 12px 14px; margin-top: 14px; line-height: 1.4; }
+    .file-note { margin-top: 10px; color: #cbd5e1; font-size: 14px; line-height: 1.5; }
+    .pages-list { margin-top: 12px; display: grid; gap: 8px; }
+    .page-chip { background: #082059; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 10px 12px; color: #e2e8f0; font-size: 14px; word-break: break-word; }
+    .pulse-result { animation: pulseGlow 1s ease-in-out 3; border: 2px solid #22c55e !important; }
+    @keyframes pulseGlow { 0%{box-shadow:0 0 0 rgba(34,197,94,0)} 50%{box-shadow:0 0 24px rgba(34,197,94,0.75)} 100%{box-shadow:0 0 0 rgba(34,197,94,0)} }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="topbar">
       <h1>VA Claim Analyzer</h1>
-<div style="
-  background: rgba(255, 193, 7, 0.10);
-  border: 1px solid rgba(255, 193, 7, 0.35);
-  color: #ffe08a;
-  padding: 12px 14px;
-  border-radius: 12px;
-  margin: 14px 0 18px 0;
-  font-size: 14px;
-  line-height: 1.5;
-">
-  ⚠️ This tool provides an estimate based on your inputs. It is not a final VA decision.<br>
-  Ratings depend on full medical records, C&amp;P exams, and VA adjudication.
-</div>
-      <button id="logoutBtn" class="logout-btn" type="button">Log Out</button>
+      <button class="logout-btn" type="button" onclick="logout()">Log Out</button>
+    </div>
+
+    <div class="notice">
+      This tool provides an estimate only. Final VA decisions depend on the medical record, exams, and adjudication.
     </div>
 
     <div class="card">
-      <textarea
-        id="context"
-        placeholder="Describe your condition, symptoms, service connection, treatment history, flare-ups, range-of-motion findings, and work or daily impact..."
-      ></textarea>
-
-      <input id="imageInput" type="file" accept="image/*" multiple class="hidden" />
+      <textarea id="context" placeholder="Describe your condition, symptoms, service connection, treatment history, flare-ups, range-of-motion findings, and work or daily impact..."></textarea>
 
       <div class="actions">
         <button id="uploadBtn" class="btn-upload" type="button">Upload Image Pages</button>
-        <button id="clearImagesBtn" class="btn-clear" type="button">Clear Uploaded Pages</button>
+        <button id="clearBtn" class="btn-clear" type="button">Clear Uploaded Pages</button>
         <button id="analyzeBtn" class="btn-analyze" type="button">Analyze Claim</button>
-        <button id="loadBtn" class="btn-saved" type="button">View Saved Claims</button>
+        <button class="btn-saved" type="button" onclick="window.location.href='/saved-claims.html'">View Saved Claims</button>
+        <button class="btn-upload" type="button" onclick="window.location.href='/va-calculator.html'">Open VA Calculator</button>
       </div>
 
+      <input id="imageInput" type="file" accept="image/*" multiple class="hidden" />
       <div id="fileNote" class="file-note hidden"></div>
       <div id="pagesList" class="pages-list hidden"></div>
-      <div id="errorBox" class="error hidden"></div>
+      <div id="errorCard" class="error hidden"></div>
     </div>
 
+    <div id="resultCard" class="card hidden"></div>
 
-  <div class="card" id="vaCalcCard">
-    <h2 class="section-title">VA Rating Calculator</h2>
-
-    <label class="label" for="vaRatings">All ratings (comma separated)</label>
-    <input id="vaRatings" type="text" placeholder="50,30,10" style="width:100%;margin-top:8px;margin-bottom:14px;padding:14px 16px;border:none;border-radius:14px;font-size:16px;background:#f2f4f8;color:#111827;" />
-
-    <label class="label" for="vaLeft">Left-side bilateral ratings (optional)</label>
-    <input id="vaLeft" type="text" placeholder="10,20" style="width:100%;margin-top:8px;margin-bottom:14px;padding:14px 16px;border:none;border-radius:14px;font-size:16px;background:#f2f4f8;color:#111827;" />
-
-    <label class="label" for="vaRight">Right-side bilateral ratings (optional)</label>
-    <input id="vaRight" type="text" placeholder="10,20" style="width:100%;margin-top:8px;margin-bottom:14px;padding:14px 16px;border:none;border-radius:14px;font-size:16px;background:#f2f4f8;color:#111827;" />
-
-    <div class="actions">
-      <button id="vaCalcBtn" class="btn-upload" type="button">Run VA Calculator</button>
-    </div>
-
-    <div id="vaCalcResult" class="hidden" style="margin-top:14px;"></div>
-  </div>
-
-<div class="card" style="margin-top:16px;">
-  <div class="actions">
-
-    <button onclick="requestAccess()" style="
-      background:#f59e0b;
-      color:#111;
-      font-weight:800;
-      border-radius:14px;
-      padding:14px;
-    ">
-      Request Full Access
-    </button>
-
-    <button onclick="reportIssue()" style="
-      background:#ef4444;
-      color:white;
-      font-weight:800;
-      border-radius:14px;
-      padding:14px;
-    ">
-      Report Issue / Suggest Fix
-    </button>
-
-  </div>
-</div>
-
-
-    <div id="resultCard" class="card hidden">
-      <div class="section-title">Result</div>
-      <div class="result-grid">
-        <div class="result-row"><span class="label">Condition:</span> <span id="resultCondition">N/A</span></div>
-        <div class="result-row"><span class="label">Estimated Rating:</span> <span id="resultRating">N/A</span></div>
-        <div class="result-row"><span class="label">Confidence:</span> <span id="resultConfidence">N/A</span></div>
+    <div class="card">
+      <div class="actions" style="margin-top:0;">
+        <button class="btn-access" type="button" onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=Request%20Full%20Access%20to%20BuildTrace%20VA'">Request Full Access</button>
+        <button class="btn-report" type="button" onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=BuildTrace%20VA%20Issue%20or%20Suggested%20Fix'">Report Issue / Suggest Fix</button>
       </div>
-      <div id="resultSummary" class="summary"></div>
-    </div>
-
-    <div id="claimsCard" class="card hidden">
-      <div class="section-title">Saved VA Claims</div>
-      <div id="claimsList" class="claims-list"></div>
     </div>
   </div>
 
-  
-<script>
-
-
+  <script>
     let selectedImages = [];
 
     function getToken() {
-      return (
-        localStorage.getItem("token") ||
-        localStorage.getItem("authToken") ||
-        localStorage.getItem("accessToken") ||
-        localStorage.getItem("jwt") ||
-        ""
-      );
+      return localStorage.getItem("token") || "";
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
     }
 
     function showError(message) {
-      const box = document.getElementById("errorBox");
-      if (!message) {
-        box.classList.add("hidden");
-        box.textContent = "";
-        return;
-      }
-      box.textContent = message;
-      box.classList.remove("hidden");
+      const el = document.getElementById("errorCard");
+      el.textContent = message || "Something went wrong";
+      el.classList.remove("hidden");
+    }
+
+    function clearError() {
+      const el = document.getElementById("errorCard");
+      el.textContent = "";
+      el.classList.add("hidden");
     }
 
     function setButtonState(id, text, disabled) {
       const btn = document.getElementById(id);
-      btn.textContent = text;
+      if (!btn) return;
+      btn.innerText = text;
       btn.disabled = disabled;
+    }
+
+    function renderSelectedPages() {
+      const fileNote = document.getElementById("fileNote");
+      const pagesList = document.getElementById("pagesList");
+
+      if (!selectedImages.length) {
+        fileNote.classList.add("hidden");
+        pagesList.classList.add("hidden");
+        pagesList.innerHTML = "";
+        return;
+      }
+
+      fileNote.classList.remove("hidden");
+      pagesList.classList.remove("hidden");
+      fileNote.textContent = selectedImages.length + " page(s) attached";
+
+      pagesList.innerHTML = selectedImages.map((img, idx) => `
+        <div class="page-chip">Page ${idx + 1}: ${img.name || "image"}</div>
+      `).join("");
     }
 
     function fileToBase64(file) {
@@ -364,329 +131,109 @@
         reader.onload = () => {
           const result = String(reader.result || "");
           const base64 = result.includes(",") ? result.split(",")[1] : result;
-          resolve(base64);
+          resolve({ name: file.name, base64 });
         };
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     }
 
-    function renderSelectedPages() {
-      const note = document.getElementById("fileNote");
-      const list = document.getElementById("pagesList");
-
-      if (!selectedImages.length) {
-        note.classList.add("hidden");
-        note.textContent = "";
-        list.classList.add("hidden");
-        list.innerHTML = "";
-        return;
-      }
-
-      note.textContent = `${selectedImages.length} page(s) attached`;
-      note.classList.remove("hidden");
-
-      list.innerHTML = selectedImages.map((img, index) => `
-        <div class="page-chip">Page ${index + 1}: ${img.name}</div>
-      `).join("");
-      list.classList.remove("hidden");
-    }
-
-    async function handleImageSelect(event) {
-      showError("");
-
-      const files = Array.from(event.target.files || []);
+    async function handleUpload(ev) {
+      clearError();
+      const files = Array.from(ev.target.files || []);
       if (!files.length) return;
 
       try {
-        const converted = [];
-        for (const file of files) {
-          const base64 = await fileToBase64(file);
-          converted.push({
-            name: file.name || "image",
-            base64
-          });
-        }
-
+        const converted = await Promise.all(files.map(fileToBase64));
         selectedImages = selectedImages.concat(converted);
-        console.log("selected pages:", selectedImages.length);
         renderSelectedPages();
-        event.target.value = "";
       } catch (err) {
-        showError("Could not read one or more images.");
+        showError("Failed to read image files");
       }
-    }
 
-    function clearImages() {
-      selectedImages = [];
-      document.getElementById("imageInput").value = "";
-      renderSelectedPages();
-      showError("");
+      ev.target.value = "";
     }
 
     async function analyze() {
+      clearError();
 
-  if (!canAnalyze()) {
-    alert("You've used your 3 free analyses. Request full access below.");
-    return;
-  }
+      const token = getToken();
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
 
-  const btn = document.getElementById("analyzeBtn");
-  btn.innerText = "Analyzing...";
-  btn.disabled = true;
-      showError("");
+      const serviceContext = String(document.getElementById("context").value || "").trim();
 
-      const text = document.getElementById("context").value.trim();
-
-      if (!text && selectedImages.length === 0) {
-        showError("Enter claim details or upload image pages first.");
+      if (!serviceContext && !selectedImages.length) {
+        showError("Add claim details or upload image pages first");
         return;
       }
 
       setButtonState("analyzeBtn", "Analyzing...", true);
 
       try {
-        console.log("sending pages:", selectedImages.length);
-
-      const res = await fetch("/va/analyze-base64", {
+        const res = await fetch("/va/analyze-base64", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer " + getToken()
+            "Authorization": "Bearer " + token
           },
           body: JSON.stringify({
             issue: "",
-            serviceContext: text,
+            serviceContext,
             imageBase64: "",
-            imageBase64List: selectedImages.map((x) => x.base64)
+            imageBase64List: selectedImages.map(x => x.base64)
           })
         });
 
         const data = await res.json();
 
-  incrementUsage();
-
-
-      if (!res.ok) {
-        
-if (data.error === "Invalid token") {
-  localStorage.removeItem("token");
-  window.location.href = "/login";
-  return;
-}
-alert(data.error || "Failed to analyze");
-
-        return;
-      }
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || "Analyze failed");
+        if (!res.ok) {
+          if (res.status === 401) {
+            localStorage.removeItem("token");
+            window.location.href = "/login";
+            return;
+          }
+          showError(data.error || "Failed to analyze claim");
+          return;
         }
 
-        document.getElementById("resultCondition").textContent =
-          data.structured?.condition || "N/A";
+        const structured = data.structured || {};
+        const resultCard = document.getElementById("resultCard");
+        resultCard.classList.remove("hidden");
+        resultCard.classList.add("pulse-result");
+        resultCard.innerHTML = `
+          <h2 class="section-title">Result</h2>
+          <div class="result-grid">
+            <div class="result-row"><span class="label">Condition:</span> ${structured.condition || "N/A"}</div>
+            <div class="result-row"><span class="label">Estimated Rating:</span> ${structured.estimatedRating || "N/A"}</div>
+            <div class="result-row"><span class="label">Confidence:</span> ${structured.confidence || "N/A"}</div>
+          </div>
+          <div class="summary"><span class="label">Reasoning:</span>
+${structured.reasoning || "N/A"}</div>
+          <div class="summary" style="margin-top:14px;"><span class="label">Next Steps:</span>
+${structured.nextSteps || "N/A"}</div>
+        `;
 
-        document.getElementById("resultRating").textContent =
-          data.structured?.estimatedRating !== null &&
-          data.structured?.estimatedRating !== undefined
-            ? data.structured.estimatedRating + "%"
-            : "N/A";
-
-        document.getElementById("resultConfidence").textContent =
-          data.structured?.confidence || "N/A";
-
-        document.getElementById("resultSummary").textContent =
-          data.summary || "";
-
-        document.getElementById("resultCard").classList.remove("hidden");
+        resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(() => resultCard.classList.remove("pulse-result"), 3200);
       } catch (err) {
-        showError(err.message || "Analyze failed.");
+        showError(err.message || "VA analysis failed");
       } finally {
         setButtonState("analyzeBtn", "Analyze Claim", false);
       }
     }
 
-    async function loadClaims() {
-      showError("");
-      setButtonState("loadBtn", "Loading...", true);
-
-      try {
-        const res = await fetch("/claims", {
-          headers: {
-            Authorization: "Bearer " + getToken()
-          }
-        });
-
-        const data = await res.json();
-
-      if (!res.ok) {
-        
-if (data.error === "Invalid token") {
-  localStorage.removeItem("token");
-  window.location.href = "/login";
-  return;
-}
-alert(data.error || "Failed to analyze");
-
-        return;
-      }
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || "Failed to load claims");
-        }
-
-        const claims = Array.isArray(data.claims) ? data.claims : [];
-        const list = document.getElementById("claimsList");
-
-        if (!claims.length) {
-          list.innerHTML = `<div class="muted">No saved claims yet.</div>`;
-        } else {
-          list.innerHTML = claims.map(c => {
-            const created = c.created_at
-              ? new Date(c.created_at).toLocaleString()
-              : "Unknown date";
-
-            const rating =
-              c.estimated_rating !== null && c.estimated_rating !== undefined
-                ? c.estimated_rating + "%"
-                : "N/A";
-
-            return `
-              <div class="claim-item">
-                <div class="result-row"><span class="label">Condition:</span> ${c.detected_condition || "N/A"}</div>
-                <div class="result-row"><span class="label">Rating:</span> ${rating}</div>
-                <div class="result-row"><span class="label">Confidence:</span> ${c.confidence_label || "N/A"}</div>
-                <div class="claim-meta">${created}</div>
-              </div>
-            `;
-          }).join("");
-        }
-
-        document.getElementById("claimsCard").classList.remove("hidden");
-      } catch (err) {
-        showError(err.message || "Failed to load claims.");
-      } finally {
-        setButtonState("loadBtn", "View Saved Claims", false);
-      }
-    }
-
-    function logout() {
-      localStorage.removeItem("token");
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("jwt");
-      window.location.href = "/login";
-    }
-
-    document.getElementById("uploadBtn").onclick = function () {
+    document.getElementById("uploadBtn").addEventListener("click", () => {
       document.getElementById("imageInput").click();
-    };
-
-    document.getElementById("clearImagesBtn").onclick = clearImages;
-    document.getElementById("imageInput").addEventListener("change", handleImageSelect);
-    document.getElementById("analyzeBtn").onclick = analyze;
-    document.getElementById("loadBtn").onclick = loadClaims;
-    document.getElementById("logoutBtn").onclick = logout;
-  
-
-// ===== Usage Limit =====
-function getUsageCount() {
-  return Number(localStorage.getItem("usageCount") || 0);
-}
-
-function incrementUsage() {
-  const count = getUsageCount() + 1;
-  localStorage.setItem("usageCount", count);
-  return count;
-}
-
-function canAnalyze() {
-  return isCreatorBypass() || getUsageCount() < 3;
-}
-
-
-
-function requestAccess() {
-  const subject = encodeURIComponent("Request Full Access - VA Tool");
-  const body = encodeURIComponent("I'd like full access.\n\nEmail:\nUse Case:");
-  window.location.href = `mailto:greg.scott92@icloud.com?subject=${subject}&body=${body}`;
-}
-
-function reportIssue() {
-  const subject = encodeURIComponent("VA Tool Issue / Fix");
-  const body = encodeURIComponent("Describe the issue or suggested fix:\n\nSteps:\nExpected:\nActual:");
-  window.location.href = `mailto:greg.scott92@icloud.com?subject=${subject}&body=${body}`;
-}
-
-
-// ===== CREATOR BYPASS =====
-if (window.location.search.includes("creator=1")) {
-  localStorage.setItem("creatorBypass", "true");
-}
-
-function isCreatorBypass() {
-  return localStorage.getItem("creatorBypass") === "true";
-}
-
-
-function parseRatingsInput(value) {
-  return String(value || "")
-    .split(",")
-    .map(v => Number(String(v).trim()))
-    .filter(v => !Number.isNaN(v) && v > 0);
-}
-
-async function runVACalc() {
-  const ratings = parseRatingsInput(document.getElementById("vaRatings")?.value);
-  const left = parseRatingsInput(document.getElementById("vaLeft")?.value);
-  const right = parseRatingsInput(document.getElementById("vaRight")?.value);
-  const resultEl = document.getElementById("vaCalcResult");
-
-  if (!ratings.length) {
-    alert("Enter at least one rating");
-    return;
-  }
-
-  const btn = document.getElementById("vaCalcBtn");
-  const oldText = btn.innerText;
-  btn.innerText = "Calculating...";
-  btn.disabled = true;
-
-  try {
-    const res = await fetch("/va/calc", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ ratings, left, right })
     });
-
-    const data = await res.json();
-
-    if (!res.ok || !data.success) {
-      alert(data.error || "VA calculator failed");
-      return;
-    }
-
-    resultEl.classList.remove("hidden");
-    resultEl.innerHTML = `
-      <div class="result-grid">
-        <div class="result-row"><span class="label">Raw Combined:</span> ${data.raw}%</div>
-        <div class="result-row"><span class="label">Final VA Rating:</span> ${data.final}%</div>
-        <div class="result-row"><span class="label">Next Rating Needed:</span> ${data.next_needed ? data.next_needed + "%" : "Already at max tier"}</div>
-      </div>
-      <div class="muted">This is an estimator. Final VA decisions depend on the full record and adjudication.</div>
-    `;
-  } catch (err) {
-    alert(err.message || "VA calculator failed");
-  } finally {
-    btn.innerText = oldText;
-    btn.disabled = false;
-  }
-}
-
-
-document.getElementById("vaCalcBtn")?.addEventListener("click", runVACalc);
-</script>
+    document.getElementById("imageInput").addEventListener("change", handleUpload);
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      selectedImages = [];
+      renderSelectedPages();
+    });
+    document.getElementById("analyzeBtn").addEventListener("click", analyze);
+  </script>
 </body>
 </html>
