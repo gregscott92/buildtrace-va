@@ -4433,8 +4433,16 @@ app.post("/va/analyze-base64", async (req, res) => {
     const issue = String(req.body?.issue || "").trim();
     const serviceContext = String(req.body?.serviceContext || "").trim();
     const imageBase64 = String(req.body?.imageBase64 || "").trim();
+const imageBase64List = Array.isArray(req.body?.imageBase64List)
+  ? req.body.imageBase64List.map(x => String(x || "").trim()).filter(Boolean)
+  : [];
 
-    if (!issue && !serviceContext && !imageBase64) {
+const allImages = [
+  ...(imageBase64 ? [imageBase64] : []),
+  ...imageBase64List,
+];
+
+    if (!issue && !serviceContext && allImages.length === 0) {
       return res.status(400).json({
         success: false,
         error: "Missing input",
@@ -4442,6 +4450,26 @@ app.post("/va/analyze-base64", async (req, res) => {
     }
 
     let visionExtract = "";
+
+if (allImages.length > 0 && typeof extractVisionTextFromBase64 === "function") {
+  const extractedPages = [];
+
+  for (let i = 0; i < allImages.length; i++) {
+    try {
+      const pageText = String(
+        (await extractVisionTextFromBase64(allImages[i])) || ""
+      ).trim();
+
+      if (pageText) {
+        extractedPages.push(`Page ${i + 1}:\n${pageText}`);
+      }
+    } catch (visionErr) {
+      console.log(`BASE64 OCR ERROR PAGE ${i + 1}:`, visionErr.message);
+    }
+  }
+
+  visionExtract = extractedPages.join("\n\n");
+}
 
     if (imageBase64 && typeof extractVisionTextFromBase64 === "function") {
       try {
@@ -4470,7 +4498,7 @@ app.post("/va/analyze-base64", async (req, res) => {
       detected_condition: structured.condition,
       estimated_rating: structured.estimatedRating,
       confidence_label: structured.confidence,
-      source_type: imageBase64 ? "image_upload" : "text_only",
+      source_type: allImages.length > 0 ? "image_upload" : "text_only",
       export_summary: summary,
     };
 
@@ -4528,6 +4556,26 @@ app.post("/va/analyze",  upload.single("image"), async (req, res) => {
     }
 
     let visionExtract = "";
+
+if (allImages.length > 0 && typeof extractVisionTextFromBase64 === "function") {
+  const extractedPages = [];
+
+  for (let i = 0; i < allImages.length; i++) {
+    try {
+      const pageText = String(
+        (await extractVisionTextFromBase64(allImages[i])) || ""
+      ).trim();
+
+      if (pageText) {
+        extractedPages.push(`Page ${i + 1}:\n${pageText}`);
+      }
+    } catch (visionErr) {
+      console.log(`BASE64 OCR ERROR PAGE ${i + 1}:`, visionErr.message);
+    }
+  }
+
+  visionExtract = extractedPages.join("\n\n");
+}
     if (req.file) {
       try {
         visionExtract = await extractVisionTextFromUpload(req.file, issue, serviceContext);
