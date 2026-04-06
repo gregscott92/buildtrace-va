@@ -346,6 +346,7 @@
         }
 
         selectedImages = selectedImages.concat(converted);
+        console.log("selected pages:", selectedImages.length);
         renderSelectedPages();
         event.target.value = "";
       } catch (err) {
@@ -373,7 +374,9 @@
       setButtonState("analyzeBtn", "Analyzing...", true);
 
       try {
-        const res = await fetch("/va/analyze-base64", {
+        console.log("sending pages:", selectedImages.length);
+
+      const res = await fetch("/va/analyze-base64", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
