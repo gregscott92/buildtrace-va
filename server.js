@@ -24,7 +24,7 @@ const app = express();
 function logVisit(route) {
   try {
     const line = `${new Date().toISOString()} | ${route}\n`;
-    require("fs").appendFileSync("visits.log", line);
+    console.log("VISIT:", route, new Date().toISOString());
   } catch (e) {
     console.log("visit log error", e.message);
   }
