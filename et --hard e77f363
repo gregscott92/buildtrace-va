@@ -1,0 +1,30 @@
+[33m91194ed[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{Mon Apr 6 14:32:15 2026}: commit: fix auth middleware once and for all
+[33m69c3208[m HEAD@{Mon Apr 6 14:28:54 2026}: reset: moving to 69c3208
+[33ma7dfd99[m[33m ([m[1;32mbackup-broken-login[m[33m)[m HEAD@{Mon Apr 6 14:25:14 2026}: commit: attach auth token to all API requests
+[33m69c3208[m HEAD@{Mon Apr 6 14:06:21 2026}: commit: force explicit token save and dashboard token read
+[33mf7b11e9[m HEAD@{Mon Apr 6 13:59:57 2026}: commit: fix auth whitelist for dashboard and tool pages
+[33me776363[m HEAD@{Mon Apr 6 13:43:29 2026}: commit: add login page to public so token logic works
+[33m1234fd7[m HEAD@{Mon Apr 6 13:36:53 2026}: commit: make dashboard auth redirect silent on page load
+[33m2eeacee[m HEAD@{Mon Apr 6 13:30:29 2026}: commit: rebuild clean main dashboard
+[33m46ee5bf[m HEAD@{Mon Apr 6 13:24:19 2026}: commit: remove embedded calculator and dashboard auto-scroll
+[33m2e9897d[m HEAD@{Mon Apr 6 13:18:58 2026}: commit: force dashboard refresh
+[33m9c4019b[m HEAD@{Mon Apr 6 13:05:44 2026}: commit: split calculator and claims pages and add fuller VA pay tables
+[33m411a9ae[m HEAD@{Mon Apr 6 13:02:32 2026}: commit: split calculator and saved claims into separate pages
+[33mf6f60d3[m HEAD@{Mon Apr 6 12:53:43 2026}: commit: show monthly estimate in UI
+[33m3273e3e[m HEAD@{Mon Apr 6 12:28:14 2026}: commit: add va monthly estimate
+[33me98a6f2[m HEAD@{Mon Apr 6 12:18:07 2026}: commit: improve va calc duplicate handling and next tier insight
+[33m86faf66[m HEAD@{Mon Apr 6 12:12:49 2026}: commit: va calc ui live
+[33mbb8cc56[m HEAD@{Mon Apr 6 12:03:48 2026}: commit: rewrite clean server tail and va calc route
+[33mf5f6695[m HEAD@{Mon Apr 6 11:58:18 2026}: commit: fix va calc route order
+[33mdbc69a6[m HEAD@{Mon Apr 6 11:53:51 2026}: commit: add va calc route hit log
+[33m6158e80[m HEAD@{Mon Apr 6 11:51:30 2026}: commit: add va calc route
+[33md0bcd9b[m HEAD@{Mon Apr 6 11:45:16 2026}: commit: force bypass all 401 for va calc
+[33mb58cc67[m HEAD@{Mon Apr 6 11:32:05 2026}: commit: add VA calculator API
+[33ma0b6c9a[m HEAD@{Mon Apr 6 11:00:55 2026}: commit: handle invalid token automatically
+[33m4b3b061[m HEAD@{Mon Apr 6 09:52:09 2026}: commit: add creator bypass for free limit
+[33ma75075f[m HEAD@{Mon Apr 6 08:49:14 2026}: commit: add funnel tracking (signup -> login -> dashboard)
+[33md7910c9[m HEAD@{Mon Apr 6 08:47:47 2026}: commit: track signup visits
+[33m110d9f7[m HEAD@{Mon Apr 6 08:41:42 2026}: commit: add simple visit counter
+[33m7343027[m HEAD@{Mon Apr 6 07:13:35 2026}: commit: log visits to console instead of file
+[33medf68f3[m HEAD@{Mon Apr 6 07:10:19 2026}: commit: add simple visit tracking
+[33m8cfb379[m HEAD@{Mon Apr 6 06:53:33 2026}: commit: add request access + report issue email buttons

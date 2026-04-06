@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BuildTrace VA Login</title>
+  <title>BuildTrace VA Signup</title>
   <style>
     body {
       margin: 0;
@@ -57,23 +57,23 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>BuildTrace<br>VA Login</h1>
+    <h1>BuildTrace<br>VA Signup</h1>
 
     <input id="email" type="email" placeholder="Email" />
     <input id="password" type="password" placeholder="Password" />
-    <button id="loginBtn">Login</button>
+    <button id="signupBtn">Create Account</button>
 
-    <div class="row">Need account? <a href="/signup">Signup</a></div>
+    <div class="row">Already have account? <a href="/login">Login</a></div>
     <div id="msg"></div>
   </div>
 
   <script>
     const emailEl = document.getElementById("email");
     const passwordEl = document.getElementById("password");
-    const loginBtn = document.getElementById("loginBtn");
+    const signupBtn = document.getElementById("signupBtn");
     const msgEl = document.getElementById("msg");
 
-    async function handleLogin() {
+    async function handleSignup() {
       const email = String(emailEl.value || "").trim();
       const password = String(passwordEl.value || "");
 
@@ -82,31 +82,19 @@
         return;
       }
 
-      loginBtn.disabled = true;
-      loginBtn.innerText = "Logging in...";
+      signupBtn.disabled = true;
+      signupBtn.innerText = "Creating...";
       msgEl.innerText = "";
 
       try {
-        const res = await fetch("/login", {
+        const res = await fetch("/signup", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password })
         });
 
-       const data = await res.json();
-
-const accessToken =
-  data?.session?.access_token ||
-  data?.data?.session?.access_token ||
-  data?.access_token ||
-  data?.token ||
-  "";
-
-if (accessToken) {
-  localStorage.setItem("token", accessToken);
-}
-
+      const data = await res.json();
 
 // handle supabase-style response
 const token =
@@ -116,17 +104,17 @@ const token =
   "";
 
 if (token) {
-  
+  localStorage.setItem("access_token", token);
 }
         if (!res.ok || !data.success) {
-          msgEl.innerText = data.error || "Login failed";
+          msgEl.innerText = data.error || "Signup failed";
           return;
         }
 
         try {
           localStorage.setItem("user", JSON.stringify(data.user || {}));
           if (data.user && data.user.email) {
-            
+            localStorage.setItem("userEmail", data.user.email);
           }
         } catch {}
 
@@ -134,17 +122,17 @@ if (token) {
       } catch (err) {
         msgEl.innerText = err.message || "Network error";
       } finally {
-        loginBtn.disabled = false;
-        loginBtn.innerText = "Login";
+        signupBtn.disabled = false;
+        signupBtn.innerText = "Create Account";
       }
     }
 
-    loginBtn.addEventListener("click", handleLogin);
+    signupBtn.addEventListener("click", handleSignup);
     passwordEl.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") handleLogin();
+      if (e.key === "Enter") handleSignup();
     });
     emailEl.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") handleLogin();
+      if (e.key === "Enter") handleSignup();
     });
   </script>
 </body>
