@@ -4809,6 +4809,24 @@ app.post("/va/calc", (req, res) => {
     }
 
     
+    
+    function estimateMonthly(rate) {
+      const table = {
+        0: 0,
+        10: 171,
+        20: 338,
+        30: 524,
+        40: 755,
+        50: 1075,
+        60: 1361,
+        70: 1716,
+        80: 1995,
+        90: 2241,
+        100: 3737
+      };
+      return table[rate] || 0;
+    }
+
     function neededForNext(totalValue) {
       const currentTier = Math.floor((totalValue + 5) / 10) * 10;
       const nextTier = currentTier + 10;
@@ -4844,6 +4862,7 @@ app.post("/va/calc", (req, res) => {
       raw: Number(total.toFixed(2)),
       final: roundVA(total),
       next_needed: neededForNext(total),
+      monthly_estimate: estimateMonthly(roundVA(total)),
     });
   } catch (err) {
     return res.status(500).json({
