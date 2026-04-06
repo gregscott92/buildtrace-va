@@ -265,7 +265,14 @@
     </div>
   </div>
 
-  <script>
+  
+<script>
+const token = localStorage.getItem("token");
+
+if (!token) {
+  window.location.href = "/login";
+}
+
     let selectedImages = [];
 
     function getToken() {
@@ -362,6 +369,9 @@
     }
 
     async function analyze() {
+  const btn = document.getElementById("analyzeBtn");
+  btn.innerText = "Analyzing...";
+  btn.disabled = true;
       showError("");
 
       const text = document.getElementById("context").value.trim();
@@ -391,6 +401,11 @@
         });
 
         const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Failed to analyze");
+        return;
+      }
 
         if (!res.ok || !data.success) {
           throw new Error(data.error || "Analyze failed");
@@ -431,6 +446,11 @@
         });
 
         const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Failed to analyze");
+        return;
+      }
 
         if (!res.ok || !data.success) {
           throw new Error(data.error || "Failed to load claims");
