@@ -4778,6 +4778,15 @@ app.get("/", (req, res) => {
 });
 // Frontend catch-all route
 
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "VA calc failed"
+    });
+  }
+});
+
 app.post("/va/calc", (req, res) => {
   console.log("VA CALC ROUTE HIT V2");
   try {
@@ -4818,13 +4827,6 @@ app.post("/va/calc", (req, res) => {
       raw: Number(total.toFixed(2)),
       final: roundVA(total)
     });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: err.message || "VA calc failed"
-    });
-  }
-});
 
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
