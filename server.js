@@ -4808,14 +4808,31 @@ app.post("/va/calc", (req, res) => {
       return combined + (combined * 0.10);
     }
 
+    
+    function neededForNext(totalValue) {
+      const currentTier = Math.floor((totalValue + 5) / 10) * 10;
+      const nextTier = currentTier + 10;
+
+      if (nextTier > 100) return null;
+
+      for (let r = 10; r <= 100; r += 10) {
+        const test = combineRatings([totalValue, r]);
+        const rounded = Math.floor((test + 5) / 10) * 10;
+        if (rounded >= nextTier) return r;
+      }
+      return null;
+    }
+
     let total = 0;
 
     if (left.length && right.length) {
       const bilateralValue = applyBilateral(left, right);
       const used = [...left, ...right].map(Number);
-      const remaining = ratings
-        .map(Number)
-        .filter((r) => !used.includes(r));
+      const remaining = ratings.map(Number);
+      for (const u of used) {
+        const idx = remaining.indexOf(u);
+        if (idx !== -1) remaining.splice(idx, 1);
+      }
 
       total = combineRatings([bilateralValue, ...remaining]);
     } else {
@@ -4826,6 +4843,7 @@ app.post("/va/calc", (req, res) => {
       success: true,
       raw: Number(total.toFixed(2)),
       final: roundVA(total),
+      next_needed: neededForNext(total),
     });
   } catch (err) {
     return res.status(500).json({

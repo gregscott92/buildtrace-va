@@ -673,6 +673,7 @@ async function runVACalc() {
       <div class="result-grid">
         <div class="result-row"><span class="label">Raw Combined:</span> ${data.raw}%</div>
         <div class="result-row"><span class="label">Final VA Rating:</span> ${data.final}%</div>
+        <div class="result-row"><span class="label">Next Rating Needed:</span> ${data.next_needed ? data.next_needed + "%" : "Already at max tier"}</div>
       </div>
       <div class="muted">This is an estimator. Final VA decisions depend on the full record and adjudication.</div>
     `;
