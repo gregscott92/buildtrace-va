@@ -4442,6 +4442,12 @@ const allImages = [
   ...imageBase64List,
 ];
 
+console.log("issue length:", issue.length);
+console.log("serviceContext length:", serviceContext.length);
+console.log("single image present:", !!imageBase64);
+console.log("imageBase64List count:", imageBase64List.length);
+console.log("allImages count:", allImages.length);
+
     if (!issue && !serviceContext && allImages.length === 0) {
       return res.status(400).json({
         success: false,
@@ -4455,6 +4461,7 @@ if (allImages.length > 0 && typeof extractVisionTextFromBase64 === "function") {
   const extractedPages = [];
 
   for (let i = 0; i < allImages.length; i++) {
+    console.log("processing image page:", i + 1);
     try {
       const pageText = String(
         (await extractVisionTextFromBase64(allImages[i])) || ""
@@ -4469,6 +4476,7 @@ if (allImages.length > 0 && typeof extractVisionTextFromBase64 === "function") {
   }
 
   visionExtract = extractedPages.join("\n\n");
+  console.log("visionExtract length:", visionExtract.length);
 }
 
     if (imageBase64 && typeof extractVisionTextFromBase64 === "function") {
