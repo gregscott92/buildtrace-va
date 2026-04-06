@@ -4473,6 +4473,11 @@ if (allImages.length > 0 && typeof extractVisionTextFromBase64 === "function") {
       }
     } catch (visionErr) {
       console.log(`BASE64 OCR ERROR PAGE ${i + 1}:`, visionErr.message);
+      return res.status(500).json({
+        success: false,
+        error: `Image OCR failed on page ${i + 1}`,
+        details: visionErr.message,
+      });
     }
   }
 
