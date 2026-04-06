@@ -30,13 +30,18 @@
 
   <script>
     function getToken() {
-      return localStorage.getItem("token") || "";
+      return (
+        localStorage.getItem("token") ||
+        localStorage.getItem("accessToken") ||
+        localStorage.getItem("authToken") ||
+        ""
+      );
     }
 
     async function loadClaimsPage() {
       const token = getToken();
       if (!token) {
-        window.location.href = "/login";
+        document.getElementById("claimsCard").innerHTML = "<div>No login token found in browser storage.</div>";
         return;
       }
 
