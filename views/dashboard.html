@@ -262,6 +262,26 @@
       <div id="errorBox" class="error hidden"></div>
     </div>
 
+
+  <div class="card" id="vaCalcCard">
+    <h2 class="section-title">VA Rating Calculator</h2>
+
+    <label class="label" for="vaRatings">All ratings (comma separated)</label>
+    <input id="vaRatings" type="text" placeholder="50,30,10" style="width:100%;margin-top:8px;margin-bottom:14px;padding:14px 16px;border:none;border-radius:14px;font-size:16px;background:#f2f4f8;color:#111827;" />
+
+    <label class="label" for="vaLeft">Left-side bilateral ratings (optional)</label>
+    <input id="vaLeft" type="text" placeholder="10,20" style="width:100%;margin-top:8px;margin-bottom:14px;padding:14px 16px;border:none;border-radius:14px;font-size:16px;background:#f2f4f8;color:#111827;" />
+
+    <label class="label" for="vaRight">Right-side bilateral ratings (optional)</label>
+    <input id="vaRight" type="text" placeholder="10,20" style="width:100%;margin-top:8px;margin-bottom:14px;padding:14px 16px;border:none;border-radius:14px;font-size:16px;background:#f2f4f8;color:#111827;" />
+
+    <div class="actions">
+      <button id="vaCalcBtn" class="btn-upload" type="button">Run VA Calculator</button>
+    </div>
+
+    <div id="vaCalcResult" class="hidden" style="margin-top:14px;"></div>
+  </div>
+
 <div class="card" style="margin-top:16px;">
   <div class="actions">
 
@@ -608,6 +628,64 @@ function isCreatorBypass() {
   return localStorage.getItem("creatorBypass") === "true";
 }
 
+
+function parseRatingsInput(value) {
+  return String(value || "")
+    .split(",")
+    .map(v => Number(String(v).trim()))
+    .filter(v => !Number.isNaN(v) && v > 0);
+}
+
+async function runVACalc() {
+  const ratings = parseRatingsInput(document.getElementById("vaRatings")?.value);
+  const left = parseRatingsInput(document.getElementById("vaLeft")?.value);
+  const right = parseRatingsInput(document.getElementById("vaRight")?.value);
+  const resultEl = document.getElementById("vaCalcResult");
+
+  if (!ratings.length) {
+    alert("Enter at least one rating");
+    return;
+  }
+
+  const btn = document.getElementById("vaCalcBtn");
+  const oldText = btn.innerText;
+  btn.innerText = "Calculating...";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch("/va/calc", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ ratings, left, right })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      alert(data.error || "VA calculator failed");
+      return;
+    }
+
+    resultEl.classList.remove("hidden");
+    resultEl.innerHTML = `
+      <div class="result-grid">
+        <div class="result-row"><span class="label">Raw Combined:</span> ${data.raw}%</div>
+        <div class="result-row"><span class="label">Final VA Rating:</span> ${data.final}%</div>
+      </div>
+      <div class="muted">This is an estimator. Final VA decisions depend on the full record and adjudication.</div>
+    `;
+  } catch (err) {
+    alert(err.message || "VA calculator failed");
+  } finally {
+    btn.innerText = oldText;
+    btn.disabled = false;
+  }
+}
+
+
+document.getElementById("vaCalcBtn")?.addEventListener("click", runVACalc);
 </script>
 </body>
 </html>
