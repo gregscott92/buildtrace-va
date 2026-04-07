@@ -3864,98 +3864,6 @@ if (ENABLE_LOCAL_CRON) {
 // ============================
 // VA ANALYZE ROUTE (FORCED)
 // ============================
-app.post("/analyze", async (req, res) => {
-  try {
-    const { input } = req.body || {};
-
-    if (!input) {
-      return res.status(400).json({ error: "Missing input" });
-    }
-
-    const raw = String(input || "").trim();
-
-    if (!raw) {
-      return res.status(400).json({ error: "Missing input" });
-    }
-
-    const resultText = analyzeCfr38(raw);
-
-    function readSection(label) {
-      const source = String(resultText || "");
-      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(
-        "^" + escaped + ":\\s*([\\s\\S]*?)(?=\\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
-        "mi"
-      );
-      const match = source.match(regex);
-      if (!match || !match[1]) return "N/A";
-      return String(match[1]).trim() || "N/A";
-    }
-
-    const result = analyzeCfr38(input);
-
-      const structured = {
-      condition: readSection("Condition"),
-      diagnosticCode: readSection("Diagnostic Code"),
-      estimatedRating: readSection("Estimated VA Rating"),
-      confidence: readSection("Confidence"),
-      reasoning: readSection("Reasoning"),
-      evidenceNeeded: readSection("Evidence Still Needed"),
-      nextSteps: readSection("Next Steps"),
-      important: readSection("Important")
-    };
-
-    try {
-      const payload = {
-        user_id: req.apiUser.id,
-        input_text: raw,
-        result_text: resultText || "",
-        extracted_text: "",
-        detected_condition:
-          structured.condition !== "N/A" ? structured.condition : null,
-        estimated_rating:
-          structured.estimatedRating && structured.estimatedRating !== "N/A"
-            ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10)
-            : null,
-        confidence_label:
-          structured.confidence !== "N/A" ? structured.confidence : null,
-        source_type: "text_only",
-        export_summary: resultText || ""
-      };
-
-      const { data: insertData, error: insertError } =
-        await supabaseAdmin.from("va_claims").insert(payload).select();
-
-      if (insertError) {
-        console.log("INSERT ERROR:", insertError);
-      } else {
-        console.log("INSERT SUCCESS:", insertData);
-      }
-    } catch (saveErr) {
-      console.log("SAVE CLAIM ERROR:", saveErr);
-    }
-
-    return res.json({
-      success: true,
-      likelihood:
-        structured.estimatedRating && structured.estimatedRating !== "N/A"
-          ? structured.estimatedRating
-          : "See analysis",
-      summary: resultText,
-      parsed: structured,
-      disclaimer:
-        "This tool provides an estimate based on submitted information and does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
-    });
-  } catch (err) {
-    console.log("VA ANALYZE ERROR:", err);
-    return res.status(500).json({
-      error: "VA analysis failed",
-      details: err.message
-    });
-  }
-});
-
-
 // =============================
 // GET VA CLAIMS
 // =============================
@@ -5058,6 +4966,37 @@ function analyzeClaim(data) {
     cp_advice
   };
 }
+
+
+app.post("/analyze", async (req, res) => {
+  try {
+    const body = req.body || {};
+
+    let condition = String(body.condition || "").trim();
+    if (!condition) {
+      condition = "General condition";
+    }
+
+    const result = analyzeClaim({
+      condition,
+      in_service_event: !!body.in_service_event,
+      current_diagnosis: !!body.current_diagnosis,
+      nexus_letter: !!body.nexus_letter,
+      severity: body.severity || "moderate"
+    });
+
+    return res.json({
+      success: true,
+      result
+    });
+  } catch (err) {
+    console.log("ANALYZE ROUTE ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Analyze failed"
+    });
+  }
+});
 
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
