@@ -64,6 +64,34 @@
       <div id="errorCard" class="error hidden"></div>
     </div>
 
+    
+      <div class="card" style="margin-top:18px;">
+        <div class="section-title">Quick Claim Inputs</div>
+
+        <label style="display:block;margin-bottom:10px;">
+          <input id="inServiceEvent" type="checkbox" />
+          In-service event / injury / onset documented
+        </label>
+
+        <label style="display:block;margin-bottom:10px;">
+          <input id="currentDiagnosis" type="checkbox" />
+          Current diagnosis exists
+        </label>
+
+        <label style="display:block;margin-bottom:14px;">
+          <input id="nexusLetter" type="checkbox" />
+          Nexus letter / medical opinion exists
+        </label>
+
+        <label style="display:block;font-weight:700;margin-bottom:8px;">Severity</label>
+        <select id="severity" style="padding:12px;width:100%;border-radius:10px;border:none;font-size:16px;background:#f2f4f8;color:#111827;">
+          <option value="mild">Mild</option>
+          <option value="moderate" selected>Moderate</option>
+          <option value="severe">Severe</option>
+        </select>
+      </div>
+
+
     <div id="resultCard" class="card hidden"></div>
 
     <div class="card">
@@ -329,3 +357,82 @@
 </script>
 </body>
 </html>
+
+
+
+async function runAnalyze() {
+  try {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const condition = document.getElementById("serviceContext")?.value || "Claim";
+    const in_service_event = document.getElementById("inServiceEvent")?.checked || false;
+    const current_diagnosis = document.getElementById("currentDiagnosis")?.checked || false;
+    const nexus_letter = document.getElementById("nexusLetter")?.checked || false;
+    const severity = document.getElementById("severity")?.value || "moderate";
+
+    const res = await fetch("/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify({
+        condition,
+        in_service_event,
+        current_diagnosis,
+        nexus_letter,
+        severity
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        return;
+      }
+      alert(data.error || "Analyze failed");
+      return;
+    }
+
+    const r = data.result || {};
+    const el = document.getElementById("resultCard");
+
+    el.classList.remove("hidden");
+
+    el.innerHTML = `
+      <h2 class="section-title">Claim Result</h2>
+
+      <div><b>Condition:</b> ${r.condition}</div>
+      <div><b>Service Connection:</b> ${r.service_connection}</div>
+      <div><b>Estimated Rating:</b> ${r.estimated_rating}</div>
+      <div><b>Confidence:</b> ${r.confidence}</div>
+
+      <div style="margin-top:12px;">
+        <b>Why:</b><br>${r.why}
+      </div>
+
+      <div style="margin-top:12px;">
+        <b>Biggest Lever:</b><br>${r.biggest_lever}
+      </div>
+
+      <div style="margin-top:12px;">
+        <b>Next Steps:</b>
+        <ul>
+          ${(r.next_steps || []).map(s => `<li>${s}</li>`).join("")}
+        </ul>
+      </div>
+    `;
+
+  } catch (err) {
+    console.log(err);
+    alert("Something broke");
+  }
+}

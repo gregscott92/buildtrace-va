@@ -4975,6 +4975,64 @@ app.post("/lead", async (req, res) => {
 });
 
 
+function analyzeClaim(data) {
+  const condition = data.condition || "Unknown";
+  const hasServiceEvent = !!data.in_service_event;
+  const hasDiagnosis = !!data.current_diagnosis;
+  const hasNexus = !!data.nexus_letter;
+  const severity = data.severity || "moderate";
+
+  let service_connection;
+  let confidence;
+
+  if (hasServiceEvent && hasDiagnosis && hasNexus) {
+    service_connection = "Strong (Direct)";
+    confidence = "High";
+  } else if (hasServiceEvent && hasDiagnosis) {
+    service_connection = "Possible (Missing Nexus)";
+    confidence = "Medium";
+  } else {
+    service_connection = "Weak";
+    confidence = "Low";
+  }
+
+  let estimated_rating;
+  if (severity === "severe") {
+    estimated_rating = "50–70%";
+  } else if (severity === "moderate") {
+    estimated_rating = "10–30%";
+  } else {
+    estimated_rating = "0–10%";
+  }
+
+  const next_steps = [];
+
+  if (!hasNexus) {
+    next_steps.push("Get a nexus letter connecting condition to service");
+  }
+
+  if (!hasDiagnosis) {
+    next_steps.push("Obtain a current diagnosis from a medical provider");
+  }
+
+  next_steps.push("Prepare for C&P exam and explain worst-day symptoms");
+  next_steps.push("Make sure your statement clearly shows service event, current symptoms, and daily impact");
+
+  const biggest_lever = !hasNexus
+    ? "Get a nexus letter — this is the highest impact improvement"
+    : "Make sure your C&P exam reflects worst-day severity and functional loss";
+
+  return {
+    condition,
+    service_connection,
+    estimated_rating,
+    confidence,
+    why: "Based on presence of service event, current diagnosis, nexus evidence, and reported severity.",
+    next_steps,
+    biggest_lever
+  };
+}
+
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
 });
