@@ -246,7 +246,10 @@
           return;
         }
 
-        const condition = document.getElementById("serviceContext")?.value || "Claim";
+        let condition = document.getElementById("serviceContext")?.value || "";
+if (!condition.trim()) {
+  condition = "General condition";
+}
         const in_service_event = document.getElementById("inServiceEvent")?.checked || false;
         const current_diagnosis = document.getElementById("currentDiagnosis")?.checked || false;
         const nexus_letter = document.getElementById("nexusLetter")?.checked || false;
@@ -280,7 +283,7 @@
             window.location.href = "/login";
             return;
           }
-          showError(data.error || "Analyze failed");
+          showError(data.error || "Need more info. Try checking diagnosis or adding more detail.");
           btn.disabled = false;
           btn.innerText = oldText;
           return;
