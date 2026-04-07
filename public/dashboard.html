@@ -330,6 +330,7 @@ if (!condition.trim()) {
           <h2 class="section-title">Claim Result</h2>
 
           <div class="result-row"><span class="label">Condition:</span> ${r.condition || "Unknown"}</div>
+          <div class="result-row"><span class="label">Claim Type:</span> ${r.claim_type || "Unclear"}</div>
           <div class="result-row"><span class="label">Service Connection:</span> ${r.service_connection || "Unknown"}</div>
           <div class="result-row"><span class="label">Estimated Rating:</span> ${r.estimated_rating || "Unknown"}</div>
           <div class="result-row"><span class="label">Confidence:</span> ${r.confidence || "Unknown"}</div>
@@ -342,6 +343,16 @@ if (!condition.trim()) {
           <div class="summary">
             <span class="label">Biggest Lever:</span><br>
             ${r.biggest_lever || ""}
+          </div>
+
+          <div class="summary">
+            <span class="label">What Helps This Claim:</span>
+            <ul>${(r.helping_factors || []).map(item => `<li>${item}</li>`).join("")}</ul>
+          </div>
+
+          <div class="summary">
+            <span class="label">What Hurts This Claim:</span>
+            <ul>${(r.hurting_factors || []).map(item => `<li>${item}</li>`).join("")}</ul>
           </div>
 
           ${missingHtml}
