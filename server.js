@@ -5005,31 +5005,57 @@ function analyzeClaim(data) {
     estimated_rating = "0–10%";
   }
 
+  const missing = [];
   const next_steps = [];
 
-  if (!hasNexus) {
-    next_steps.push("Get a nexus letter connecting condition to service");
+  if (!hasServiceEvent) {
+    missing.push("Clear in-service event, onset, or documented incident");
   }
-
   if (!hasDiagnosis) {
-    next_steps.push("Obtain a current diagnosis from a medical provider");
+    missing.push("Current diagnosis from a medical provider");
+  }
+  if (!hasNexus) {
+    missing.push("Nexus letter or medical opinion linking the condition");
   }
 
-  next_steps.push("Prepare for C&P exam and explain worst-day symptoms");
-  next_steps.push("Make sure your statement clearly shows service event, current symptoms, and daily impact");
+  if (!hasNexus) {
+    next_steps.push("Get a nexus letter connecting the condition to service or to a service-connected condition");
+  }
+  if (!hasDiagnosis) {
+    next_steps.push("Get a current diagnosis and make sure it is clearly documented in your records");
+  }
+  if (!hasServiceEvent) {
+    next_steps.push("Gather service treatment records, buddy statements, incident records, or personal statement evidence");
+  }
+
+  next_steps.push("Prepare for the C&P exam and describe worst-day symptoms, frequency, and work/life impact");
+  next_steps.push("Make your statement simple: what happened in service, what you have now, and how it affects daily function");
 
   const biggest_lever = !hasNexus
-    ? "Get a nexus letter — this is the highest impact improvement"
-    : "Make sure your C&P exam reflects worst-day severity and functional loss";
+    ? "Get a nexus letter — this is the highest-impact improvement for this claim."
+    : !hasDiagnosis
+    ? "Get a current diagnosis clearly documented in your treatment records."
+    : "Make sure your C&P exam captures severity, frequency, and functional loss.";
+
+  const why = [
+    hasServiceEvent ? "There is some service-event support." : "Service-event support looks weak or missing.",
+    hasDiagnosis ? "A current diagnosis is present." : "A current diagnosis is missing.",
+    hasNexus ? "A nexus is present." : "A nexus is missing.",
+    `Reported severity is ${severity}.`
+  ].join(" ");
+
+  const cp_advice = "At the C&P exam, explain your worst days, how often symptoms happen, what they stop you from doing, and do not minimize flare-ups or functional loss.";
 
   return {
     condition,
     service_connection,
     estimated_rating,
     confidence,
-    why: "Based on presence of service event, current diagnosis, nexus evidence, and reported severity.",
+    why,
+    biggest_lever,
+    missing,
     next_steps,
-    biggest_lever
+    cp_advice
   };
 }
 

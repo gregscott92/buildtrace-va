@@ -407,31 +407,62 @@ async function runAnalyze() {
 
     el.classList.remove("hidden");
 
+    
     el.innerHTML = `
       <h2 class="section-title">Claim Result</h2>
 
-      <div><b>Condition:</b> ${r.condition}</div>
-      <div><b>Service Connection:</b> ${r.service_connection}</div>
-      <div><b>Estimated Rating:</b> ${r.estimated_rating}</div>
-      <div><b>Confidence:</b> ${r.confidence}</div>
-
-      <div style="margin-top:12px;">
-        <b>Why:</b><br>${r.why}
+      <div class="result-grid">
+        <div class="result-row"><span class="label">Condition:</span> ${r.condition || "Unknown"}</div>
+        <div class="result-row"><span class="label">Service Connection:</span> ${r.service_connection || "Unknown"}</div>
+        <div class="result-row"><span class="label">Estimated Rating:</span> ${r.estimated_rating || "Unknown"}</div>
+        <div class="result-row"><span class="label">Confidence:</span> ${r.confidence || "Unknown"}</div>
       </div>
 
-      <div style="margin-top:12px;">
-        <b>Biggest Lever:</b><br>${r.biggest_lever}
+      <div class="summary" style="margin-top:14px;">
+        <span class="label">Why:</span><br>
+        ${r.why || ""}
       </div>
 
-      <div style="margin-top:12px;">
-        <b>Next Steps:</b>
-        <ul>
-          ${(r.next_steps || []).map(s => `<li>${s}</li>`).join("")}
+      <div class="summary" style="margin-top:14px;">
+        <span class="label">Biggest Lever:</span><br>
+        ${r.biggest_lever || ""}
+      </div>
+
+      <div class="summary" style="margin-top:14px;">
+        <span class="label">What’s Missing:</span>
+        <ul style="margin-top:8px;padding-left:20px;">
+          ${(r.missing || []).map(item => `<li>${item}</li>`).join("")}
         </ul>
       </div>
-    `;
 
-  } catch (err) {
+      <div class="summary" style="margin-top:14px;">
+        <span class="label">Next Steps:</span>
+        <ul style="margin-top:8px;padding-left:20px;">
+          ${(r.next_steps || []).map(step => `<li>${step}</li>`).join("")}
+        </ul>
+      </div>
+
+      <div class="summary" style="margin-top:14px;">
+        <span class="label">C&P Advice:</span><br>
+        ${r.cp_advice || ""}
+      </div>
+
+      <div style="margin-top:20px;padding:16px;background:#0b1f4a;border-radius:14px;">
+        <div style="font-weight:700;margin-bottom:6px;">Save this claim</div>
+        <div style="font-size:14px;color:#cbd5e1;margin-bottom:10px;">Get this result and next steps emailed to you.</div>
+
+        <input id="userEmail" type="email" placeholder="Enter email"
+          style="padding:12px;width:100%;border-radius:10px;border:none;" />
+
+        <button onclick="saveLead()"
+          style="margin-top:10px;width:100%;padding:14px;background:#22c55e;color:white;border:none;border-radius:10px;font-weight:700;">
+          Save My Claim
+        </button>
+
+        <div id="leadStatus" style="margin-top:10px;color:#cbd5e1;"></div>
+      </div>
+    `;
+} catch (err) {
     console.log(err);
     alert("Something broke");
   }
