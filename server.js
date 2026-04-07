@@ -4884,40 +4884,119 @@ app.post("/lead", async (req, res) => {
 
 
 function analyzeClaim(data) {
-  const condition = data.condition || "Unknown";
-  const hasServiceEvent = !!data.in_service_event;
-  const hasDiagnosis = !!data.current_diagnosis;
-  const hasNexus = !!data.nexus_letter;
-  const severity = data.severity || "moderate";
+  const rawCondition = String(data.condition || "").trim();
+  const text = rawCondition.toLowerCase();
+
+  const explicitServiceEvent = !!data.in_service_event;
+  const explicitDiagnosis = !!data.current_diagnosis;
+  const explicitNexus = !!data.nexus_letter;
+  const selectedSeverity = data.severity || "moderate";
+
+  function hasAny(words) {
+    return words.some(word => text.includes(word));
+  }
+
+  let condition = "General condition";
+  if (hasAny(["back", "lower back", "lumbar", "spine"])) {
+    condition = "Lumbar / Back Condition";
+  } else if (hasAny(["migraine", "migraines", "headache", "headaches"])) {
+    condition = "Migraines / Headaches";
+  } else if (hasAny(["ptsd", "anxiety", "depression", "panic", "mental health"])) {
+    condition = "Mental Health Condition";
+  } else if (hasAny(["knee", "knees"])) {
+    condition = "Knee Condition";
+  } else if (hasAny(["shoulder"])) {
+    condition = "Shoulder Condition";
+  } else if (hasAny(["sleep apnea", "osa", "cpap"])) {
+    condition = "Sleep Apnea";
+  } else if (hasAny(["tinnitus", "hearing loss", "ringing in ears"])) {
+    condition = "Tinnitus / Hearing Loss";
+  } else if (hasAny(["gerd", "reflux", "acid reflux", "gi", "stomach"])) {
+    condition = "GI / GERD Condition";
+  }
+
+  const textServiceEvent = hasAny([
+    "in service", "while in service", "active duty", "deployment", "deployed",
+    "training", "field exercise", "injury in service", "hurt in service",
+    "combat", "mos", "airborne", "lifted", "march", "ruck", "service treatment record"
+  ]);
+
+  const textDiagnosis = hasAny([
+    "diagnosed", "diagnosis", "mri", "x-ray", "xray", "doctor", "provider",
+    "pcp", "orthopedic", "va diagnosed", "medical record", "treatment"
+  ]);
+
+  const textNexus = hasAny([
+    "nexus", "medical opinion", "linked to", "secondary to", "caused by", "due to"
+  ]);
+
+  const severeSignals = hasAny([
+    "severe", "daily", "constant", "flare", "flare-up", "flare up",
+    "miss work", "can't work", "cannot work", "limited motion",
+    "can't bend", "cannot bend", "radiculopathy", "numbness", "bed rest",
+    "panic attacks", "suicidal", "cpap", "prostrating"
+  ]);
+
+  const moderateSignals = hasAny([
+    "moderate", "pain", "recurring", "recurs", "weekly", "monthly",
+    "sleep issues", "anxiety", "headaches", "stiffness", "spasms"
+  ]);
+
+  const hasServiceEvent = explicitServiceEvent || textServiceEvent;
+  const hasDiagnosis = explicitDiagnosis || textDiagnosis;
+  const hasNexus = explicitNexus || textNexus;
+
+  let severity = selectedSeverity;
+  if (severeSignals) {
+    severity = "severe";
+  } else if (moderateSignals && severity !== "severe") {
+    severity = "moderate";
+  }
 
   let service_connection;
   let confidence;
 
   if (hasServiceEvent && hasDiagnosis && hasNexus) {
-    service_connection = "Strong (Direct)";
+    service_connection = "Strong";
     confidence = "High";
   } else if (hasServiceEvent && hasDiagnosis) {
-    service_connection = "Possible (Missing Nexus)";
+    service_connection = "Possible";
     confidence = "Medium";
+  } else if (hasServiceEvent || hasDiagnosis) {
+    service_connection = "Weak to Possible";
+    confidence = "Low";
   } else {
     service_connection = "Weak";
     confidence = "Low";
   }
 
-  let estimated_rating;
-  if (severity === "severe") {
-    estimated_rating = "50–70%";
-  } else if (severity === "moderate") {
-    estimated_rating = "10–30%";
+  let estimated_rating = "0–10%";
+
+  if (condition === "Lumbar / Back Condition") {
+    if (severity === "severe") estimated_rating = "20–40%";
+    else if (severity === "moderate") estimated_rating = "10–20%";
+    else estimated_rating = "0–10%";
+  } else if (condition === "Migraines / Headaches") {
+    if (severity === "severe") estimated_rating = "30–50%";
+    else if (severity === "moderate") estimated_rating = "10–30%";
+    else estimated_rating = "0–10%";
+  } else if (condition === "Mental Health Condition") {
+    if (severity === "severe") estimated_rating = "50–70%";
+    else if (severity === "moderate") estimated_rating = "30–50%";
+    else estimated_rating = "0–10%";
+  } else if (condition === "Sleep Apnea") {
+    estimated_rating = text.includes("cpap") ? "50%" : "0–30%";
   } else {
-    estimated_rating = "0–10%";
+    if (severity === "severe") estimated_rating = "30–50%";
+    else if (severity === "moderate") estimated_rating = "10–30%";
+    else estimated_rating = "0–10%";
   }
 
   const missing = [];
   const next_steps = [];
 
   if (!hasServiceEvent) {
-    missing.push("Clear in-service event, onset, or documented incident");
+    missing.push("Clear in-service event, onset, or documented service evidence");
   }
   if (!hasDiagnosis) {
     missing.push("Current diagnosis from a medical provider");
@@ -4926,40 +5005,46 @@ function analyzeClaim(data) {
     missing.push("Nexus letter or medical opinion linking the condition");
   }
 
+  if (!hasServiceEvent) {
+    next_steps.push("Gather service treatment records, line-of-duty evidence, buddy statements, or a personal statement explaining when this started");
+  }
+  if (!hasDiagnosis) {
+    next_steps.push("Get a current diagnosis and make sure it is clearly documented in your treatment records");
+  }
   if (!hasNexus) {
     next_steps.push("Get a nexus letter connecting the condition to service or to a service-connected condition");
   }
-  if (!hasDiagnosis) {
-    next_steps.push("Get a current diagnosis and make sure it is clearly documented in your records");
-  }
-  if (!hasServiceEvent) {
-    next_steps.push("Gather service treatment records, buddy statements, incident records, or personal statement evidence");
+
+  if (condition === "Lumbar / Back Condition") {
+    next_steps.push("Document range-of-motion limits, flare-ups, radiculopathy, numbness, missed work, and functional loss");
+  } else if (condition === "Migraines / Headaches") {
+    next_steps.push("Track frequency, duration, prostrating attacks, light sensitivity, nausea, and missed work");
+  } else if (condition === "Mental Health Condition") {
+    next_steps.push("Document social impairment, work impact, panic, sleep issues, concentration problems, and treatment history");
   }
 
-  next_steps.push("Prepare for the C&P exam and describe worst-day symptoms, frequency, and work/life impact");
-  next_steps.push("Make your statement simple: what happened in service, what you have now, and how it affects daily function");
+  next_steps.push("Prepare for the C&P exam and explain worst-day symptoms, frequency, and work/life impact");
 
   const biggest_lever = !hasNexus
-    ? "Get a nexus letter — this is the highest-impact improvement for this claim."
+    ? "Get a nexus letter — that is the biggest thing that could strengthen this claim."
     : !hasDiagnosis
-    ? "Get a current diagnosis clearly documented in your treatment records."
-    : "Make sure your C&P exam captures severity, frequency, and functional loss.";
+    ? "Get a current diagnosis clearly documented in your records."
+    : "Make sure the C&P exam captures severity, frequency, flare-ups, and functional loss.";
 
-  const why = [
-    hasServiceEvent ? "There is some service-event support." : "Service-event support looks weak or missing.",
-    hasDiagnosis ? "A current diagnosis is present." : "A current diagnosis is missing.",
-    hasNexus ? "A nexus is present." : "A nexus is missing.",
-    `Reported severity is ${severity}.`
-  ].join(" ");
+  const whyParts = [];
+  whyParts.push(hasServiceEvent ? "There are signs of service connection support." : "Service connection support looks limited.");
+  whyParts.push(hasDiagnosis ? "There are signs of a current diagnosis or treatment." : "A current diagnosis is not clearly supported.");
+  whyParts.push(hasNexus ? "There are signs of a nexus or secondary-link theory." : "A nexus is not clearly supported.");
+  whyParts.push(`The narrative suggests ${severity} severity.`);
 
-  const cp_advice = "At the C&P exam, explain your worst days, how often symptoms happen, what they stop you from doing, and do not minimize flare-ups or functional loss.";
+  const cp_advice = "At the C&P exam, describe your worst days, how often symptoms happen, what they stop you from doing, and do not minimize pain, flare-ups, or work/life impact.";
 
   return {
     condition,
     service_connection,
     estimated_rating,
     confidence,
-    why,
+    why: whyParts.join(" "),
     biggest_lever,
     missing,
     next_steps,
