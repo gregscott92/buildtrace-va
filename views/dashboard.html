@@ -185,6 +185,25 @@
   </div>
 
   <script>
+
+    async function trackEvent(eventName, data = {}) {
+      try {
+        await fetch("/track", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            event: eventName,
+            data
+          })
+        });
+      } catch (err) {
+        console.log("track failed", err);
+      }
+    }
+
+
     function logout() {
       localStorage.removeItem("token");
       window.location.href = "/login";
@@ -223,6 +242,11 @@
       statusEl.textContent = "";
 
       try {
+        trackEvent("lead_submitted", {
+          page: "dashboard",
+          email
+        });
+
         const res = await fetch("/lead", {
           method: "POST",
           headers: {
@@ -272,6 +296,15 @@ if (!condition.trim()) {
         btn.disabled = true;
         btn.innerText = "Analyzing...";
 
+        trackEvent("analyze_clicked", {
+          page: "dashboard",
+          condition_text: condition,
+          in_service_event,
+          current_diagnosis,
+          nexus_letter,
+          severity
+        });
+
         const res = await fetch("/analyze", {
           method: "POST",
           headers: {
@@ -302,6 +335,14 @@ if (!condition.trim()) {
         }
 
         const r = data.result || {};
+
+        trackEvent("result_generated", {
+          page: "dashboard",
+          condition: r.condition || "",
+          claim_type: r.claim_type || "",
+          estimated_rating: r.estimated_rating || "",
+          confidence: r.confidence || ""
+        });
         localStorage.setItem("lastResult", JSON.stringify(r));
 
         const el = document.getElementById("resultCard");
@@ -395,6 +436,9 @@ if (!condition.trim()) {
     }
 
     document.getElementById("analyzeBtn").addEventListener("click", runAnalyze);
+
+    trackEvent("page_view", { page: "dashboard" });
+
     
     document.getElementById("logoutBtn").addEventListener("click", logout);
   

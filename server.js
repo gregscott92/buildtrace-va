@@ -5116,6 +5116,28 @@ app.post("/analyze", async (req, res) => {
   }
 });
 
+
+app.post("/track", (req, res) => {
+  try {
+    const payload = {
+      event: req.body?.event || "unknown",
+      data: req.body?.data || {},
+      time: new Date().toISOString(),
+      ip:
+        req.headers["x-forwarded-for"] ||
+        req.socket?.remoteAddress ||
+        "",
+      ua: req.headers["user-agent"] || ""
+    };
+
+    console.log("TRACK EVENT:", JSON.stringify(payload));
+    return res.json({ success: true });
+  } catch (err) {
+    console.log("TRACK ERROR:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
 });

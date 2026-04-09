@@ -29,6 +29,25 @@
   </div>
 
   <script>
+
+function trackEvent(eventName, data = {}) {
+  try {
+    fetch("/track", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        event: eventName,
+        data
+      })
+    });
+  } catch (err) {
+    console.log("track failed", err);
+  }
+}
+
+
     function getToken() {
       return (
         localStorage.getItem("token") ||
@@ -38,7 +57,9 @@
       );
     }
 
-    async function loadClaimsPage() {
+    trackEvent("page_view", { page: "saved_claims" });
+
+async function loadClaimsPage() {
       const token = getToken();
       if (!token) {
         document.getElementById("claimsCard").innerHTML = "<div>Save a claim from the analyzer and it will show up here.</div>";

@@ -63,6 +63,25 @@
   </div>
 
   <script>
+
+function trackEvent(eventName, data = {}) {
+  try {
+    fetch("/track", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        event: eventName,
+        data
+      })
+    });
+  } catch (err) {
+    console.log("track failed", err);
+  }
+}
+
+
     function getToken() {
       return localStorage.getItem("token") || "";
     }
@@ -96,6 +115,12 @@
       btn.disabled = true;
 
       try {
+        trackEvent("calculator_run", {
+          page: "va_calculator",
+          ratings: document.getElementById("vaRatings")?.value || "",
+          left: document.getElementById("vaLeft")?.value || "",
+          right: document.getElementById("vaRight")?.value || ""
+        });
         const res = await fetch("/va/calc", {
           method: "POST",
           headers: {
@@ -134,6 +159,7 @@
     }
 
     document.getElementById("vaCalcBtn").addEventListener("click", runVACalc);
+trackEvent("page_view", { page: "va_calculator" });
   </script>
 </body>
 </html>
