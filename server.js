@@ -771,13 +771,22 @@ app.post("/logout", (req, res) => {
   return res.json({ success: true });
 });
 
-// everything except login/health is protected
+// public entry routes; auth only required where explicitly needed later
 app.use((req, res, next) => {
-if (
-  req.path.startsWith("/login") ||
-  req.path.startsWith("/signup") ||
-  req.path === "/health"
-) {
+  if (
+    req.path === "/" ||
+    req.path === "/dashboard" ||
+    req.path === "/analyze" ||
+    req.path === "/lead" ||
+    req.path === "/va-calculator.html" ||
+    req.path === "/saved-claims.html" ||
+    req.path.startsWith("/login") ||
+    req.path.startsWith("/signup") ||
+    req.path === "/health" ||
+    req.path.startsWith("/public") ||
+    req.path.endsWith(".css") ||
+    req.path.endsWith(".js")
+  ) {
     return next();
   }
 

@@ -257,10 +257,6 @@
         clearError();
 
         const token = getToken();
-        if (!token) {
-          window.location.href = "/login";
-          return;
-        }
 
         let condition = document.getElementById("serviceContext")?.value || "";
 if (!condition.trim()) {
@@ -279,8 +275,7 @@ if (!condition.trim()) {
         const res = await fetch("/analyze", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
+            "Content-Type": "application/json"
           },
           body: JSON.stringify({
             condition,
@@ -295,8 +290,9 @@ if (!condition.trim()) {
 
         if (!res.ok || !data.success) {
           if (res.status === 401) {
-            localStorage.removeItem("token");
-            window.location.href = "/login";
+            showError("This feature is temporarily unavailable.");
+            btn.disabled = false;
+            btn.innerText = oldText;
             return;
           }
           showError(data.error || "Need more info. Try checking diagnosis or adding more detail.");
@@ -399,7 +395,14 @@ if (!condition.trim()) {
     }
 
     document.getElementById("analyzeBtn").addEventListener("click", runAnalyze);
+    
     document.getElementById("logoutBtn").addEventListener("click", logout);
+  
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn && !getToken()) {
+      logoutBtn.style.display = "none";
+    }
+
   </script>
 </body>
 </html>

@@ -41,7 +41,7 @@
     async function loadClaimsPage() {
       const token = getToken();
       if (!token) {
-        document.getElementById("claimsCard").innerHTML = "<div>No login token found in browser storage.</div>";
+        document.getElementById("claimsCard").innerHTML = "<div>Save a claim from the analyzer and it will show up here.</div>";
         return;
       }
 
