@@ -4892,6 +4892,79 @@ app.post("/lead", async (req, res) => {
 });
 
 
+function getClaimSources(condition, claimType) {
+  const sources = [
+    {
+      label: "General rating rules",
+      citation: "38 C.F.R. §§ 4.1, 4.2, 4.3, 4.6, 4.7",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4/subpart-A"
+    }
+  ];
+
+  const c = String(condition || "").toLowerCase();
+  const ct = String(claimType || "").toLowerCase();
+
+  if (c.includes("back") || c.includes("lumbar") || c.includes("spine") || c.includes("knee") || c.includes("shoulder")) {
+    sources.push({
+      label: "Musculoskeletal ratings",
+      citation: "38 C.F.R. § 4.71a",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4/subpart-B/subject-group-ECFRd3005f7d828ea7b/section-4.71a"
+    });
+    sources.push({
+      label: "Functional loss / joints",
+      citation: "38 C.F.R. §§ 4.40, 4.45, 4.46, 4.59",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+  }
+
+  if (c.includes("radiculopathy") || c.includes("sciatica") || c.includes("numbness") || c.includes("tingling") || c.includes("nerve")) {
+    sources.push({
+      label: "Neurological ratings",
+      citation: "38 C.F.R. § 4.124a",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4/subpart-B/subject-group-ECFRab3ca55f4548afe/section-4.124a"
+    });
+  }
+
+  if (c.includes("mental health") || c.includes("ptsd") || c.includes("anxiety") || c.includes("depression") || c.includes("panic")) {
+    sources.push({
+      label: "Mental disorders",
+      citation: "38 C.F.R. § 4.130",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+  }
+
+  if (c.includes("sleep apnea") || c.includes("osa") || c.includes("cpap")) {
+    sources.push({
+      label: "Respiratory ratings",
+      citation: "38 C.F.R. § 4.97",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+  }
+
+  if (c.includes("tinnitus") || c.includes("hearing")) {
+    sources.push({
+      label: "Hearing impairment",
+      citation: "38 C.F.R. § 4.85",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+    sources.push({
+      label: "Ear ratings",
+      citation: "38 C.F.R. § 4.87",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+  }
+
+  if (c.includes("secondary") || ct.includes("secondary") || ct.includes("aggravation")) {
+    sources.push({
+      label: "Aggravation / analogous / general rules",
+      citation: "38 C.F.R. §§ 4.20, 4.21, 4.22",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4/subpart-A"
+    });
+  }
+
+  return sources;
+}
+
 function analyzeClaim(data) {
   const rawCondition = String(data.condition || "").trim();
   const text = rawCondition.toLowerCase();
@@ -5081,7 +5154,8 @@ function analyzeClaim(data) {
     biggest_lever,
     missing,
     next_steps,
-    cp_advice
+    cp_advice,
+    sources: getClaimSources(condition, claim_type)
   };
 }
 

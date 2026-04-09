@@ -392,6 +392,13 @@ if (!condition.trim()) {
             </div>`
           : "";
 
+        const sourcesHtml = (r.sources || []).length
+          ? `<div class="summary">
+              <span class="label">Sources:</span>
+              <ul>${(r.sources || []).map(src => `<li><strong>${src.label}:</strong> ${src.citation} <br><a href="${src.url}" target="_blank" rel="noopener noreferrer" style="color:#93c5fd;">Open source</a></li>`).join("")}</ul>
+            </div>`
+          : "";
+
         el.innerHTML = `
           <h2 class="section-title">Claim Result</h2>
 
@@ -423,10 +430,16 @@ if (!condition.trim()) {
 
           ${missingHtml}
           ${nextStepsHtml}
+          ${sourcesHtml}
 
           <div class="summary">
             <span class="label">C&P Advice:</span><br>
             ${r.cp_advice || ""}
+          </div>
+
+          <div class="summary">
+            <span class="label">Authority note:</span><br>
+            Estimated using the cited 38 C.F.R. Part 4 rating framework. Final VA decisions depend on the full record, exam findings, and adjudication.
           </div>
 
           <div class="mini-card">
