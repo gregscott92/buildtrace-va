@@ -4969,9 +4969,9 @@ function analyzeClaim(data) {
   const rawCondition = String(data.condition || "").trim();
   const text = rawCondition.toLowerCase();
 
-  const explicitServiceEvent = !!data.in_service_event;
-  const explicitDiagnosis = !!data.current_diagnosis;
-  const explicitNexus = !!data.nexus_letter;
+  const explicitServiceEvent = !!data.explicitServiceEvent;
+  const explicitDiagnosis = !!data.explicitDiagnosis;
+  const explicitNexus = !!data.explicitNexus;
   const selectedSeverity = data.severity || "moderate";
 
   function hasAny(words) {
@@ -5150,29 +5150,29 @@ function analyzeClaim(data) {
     confidence,
     why: whyParts.join(" "),
     claim_strength: (function() {
-      if (!current_diagnosis) return "Weak (High Risk of Denial)";
-      if (current_diagnosis && !nexus_letter) return "Moderate (Borderline Approval)";
-      if (current_diagnosis && nexus_letter) return "Strong (Likely Approval)";
+      if (!explicitDiagnosis) return "Weak (High Risk of Denial)";
+      if (explicitDiagnosis && !explicitNexus) return "Moderate (Borderline Approval)";
+      if (explicitDiagnosis && explicitNexus) return "Strong (Likely Approval)";
       return "Moderate";
     })(),
 
     decision_outlook: (function() {
-      if (!current_diagnosis) return "This claim would likely be denied due to lack of a confirmed diagnosis.";
-      if (!nexus_letter) return "This claim may be delayed or rated lower due to missing nexus evidence.";
+      if (!explicitDiagnosis) return "This claim would likely be denied due to lack of a confirmed diagnosis.";
+      if (!explicitNexus) return "This claim may be delayed or rated lower due to missing nexus evidence.";
       return "This claim is positioned well for approval if documentation is consistent.";
     })(),
 
     top_issues: (function() {
       const issues = [];
-      if (!current_diagnosis) issues.push("No confirmed current diagnosis (required for approval)");
-      if (!in_service_event) issues.push("No clear in-service event or documentation");
-      if (!nexus_letter) issues.push("No medical nexus linking condition to service");
+      if (!explicitDiagnosis) issues.push("No confirmed current diagnosis (required for approval)");
+      if (!explicitServiceEvent) issues.push("No clear in-service event or documentation");
+      if (!explicitNexus) issues.push("No medical nexus linking condition to service");
       return issues.slice(0,3);
     })(),
 
     fastest_improvement: (function() {
-      if (!current_diagnosis) return "Get a confirmed medical diagnosis documented in your records.";
-      if (!nexus_letter) return "Obtain a basic medical opinion linking your condition to service.";
+      if (!explicitDiagnosis) return "Get a confirmed medical diagnosis documented in your records.";
+      if (!explicitNexus) return "Obtain a basic medical opinion linking your condition to service.";
       return "Strengthen documentation of severity and functional impact.";
     })(),
     helping_factors,
@@ -5197,9 +5197,9 @@ app.post("/analyze", async (req, res) => {
 
     const result = analyzeClaim({
       condition,
-      in_service_event: !!body.in_service_event,
-      current_diagnosis: !!body.current_diagnosis,
-      nexus_letter: !!body.nexus_letter,
+      explicitServiceEvent: !!body.in_service_event,
+      explicitDiagnosis: !!body.current_diagnosis,
+      explicitNexus: !!body.nexus_letter,
       severity: body.severity || "moderate"
     });
 
