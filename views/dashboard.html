@@ -448,6 +448,27 @@ if (!condition.trim()) {
           </div>
 
           ${missingHtml}
+
+          <div class="summary">
+            <span class="label">Claim Strength:</span><br>
+            ${r.claim_strength || ""}
+          </div>
+
+          <div class="summary">
+            <span class="label">If You Filed Today:</span><br>
+            ${r.decision_outlook || ""}
+          </div>
+
+          <div class="summary">
+            <span class="label">Top Issues:</span>
+            <ul>${(r.top_issues || []).map(i => `<li>${i}</li>`).join("")}</ul>
+          </div>
+
+          <div class="summary">
+            <span class="label">Fastest Way to Improve:</span><br>
+            ${r.fastest_improvement || ""}
+          </div>
+    
           ${nextStepsHtml}
           ${sourcesHtml}
 

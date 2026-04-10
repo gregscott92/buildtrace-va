@@ -5149,6 +5149,32 @@ function analyzeClaim(data) {
     estimated_rating,
     confidence,
     why: whyParts.join(" "),
+    claim_strength: (function() {
+      if (!current_diagnosis) return "Weak (High Risk of Denial)";
+      if (current_diagnosis && !nexus_letter) return "Moderate (Borderline Approval)";
+      if (current_diagnosis && nexus_letter) return "Strong (Likely Approval)";
+      return "Moderate";
+    })(),
+
+    decision_outlook: (function() {
+      if (!current_diagnosis) return "This claim would likely be denied due to lack of a confirmed diagnosis.";
+      if (!nexus_letter) return "This claim may be delayed or rated lower due to missing nexus evidence.";
+      return "This claim is positioned well for approval if documentation is consistent.";
+    })(),
+
+    top_issues: (function() {
+      const issues = [];
+      if (!current_diagnosis) issues.push("No confirmed current diagnosis (required for approval)");
+      if (!in_service_event) issues.push("No clear in-service event or documentation");
+      if (!nexus_letter) issues.push("No medical nexus linking condition to service");
+      return issues.slice(0,3);
+    })(),
+
+    fastest_improvement: (function() {
+      if (!current_diagnosis) return "Get a confirmed medical diagnosis documented in your records.";
+      if (!nexus_letter) return "Obtain a basic medical opinion linking your condition to service.";
+      return "Strengthen documentation of severity and functional impact.";
+    })(),
     helping_factors,
     hurting_factors,
     biggest_lever,
