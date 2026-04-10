@@ -317,6 +317,12 @@ if (!condition.trim()) {
         const nexus_letter = document.getElementById("nexusLetter")?.checked || false;
         const severity = document.getElementById("severity")?.value || "moderate";
 
+        if (!condition.trim() && !in_service_event && !current_diagnosis && !nexus_letter) {
+          showError("I’m still improving this and want to make it genuinely useful. Add a few details about your claim and I’ll give you a better estimate. Try it again and let me know how I did.");
+          document.getElementById("serviceContext")?.focus();
+          return;
+        }
+
         const btn = document.getElementById("analyzeBtn");
         const oldText = btn.innerText;
         btn.disabled = true;
