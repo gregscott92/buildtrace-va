@@ -419,72 +419,63 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
             </div>`
           : "";
 
-        el.innerHTML = `
-          <h2 class="section-title">Claim Result</h2>
+                el.innerHTML = `
+          <h2 class="section-title">Your Claim Estimate</h2>
 
-          <div class="result-row"><span class="label">Condition:</span> ${r.condition || "Unknown"}</div>
-          <div class="result-row"><span class="label">Claim Type:</span> ${r.claim_type || "Unclear"}</div>
-          <div class="result-row"><span class="label">Service Connection:</span> ${r.service_connection || "Unknown"}</div>
+          <div class="result-row"><span class="label">Condition:</span> ${r.condition || "General condition"}</div>
+          <div class="result-row"><span class="label">Claim Strength:</span> ${r.claim_strength || r.service_connection || "Estimated"}</div>
           <div class="result-row"><span class="label">Estimated Rating:</span> ${r.estimated_rating || "Unknown"}</div>
           <div class="result-row"><span class="label">Confidence:</span> ${r.confidence || "Unknown"}</div>
 
           <div class="summary">
-            <span class="label">Why:</span><br>
-            ${r.why || ""}
+            <span class="label">What this means:</span><br>
+            ${r.decision_outlook || r.why || "This is a rough estimate based on the details you entered."}
           </div>
 
           <div class="summary">
-            <span class="label">Biggest Lever:</span><br>
-            ${r.biggest_lever || ""}
+            <span class="label">Why this looks like your strongest path:</span><br>
+            ${r.why || "The estimate is based on your condition description, likely evidence gaps, and common VA rating patterns."}
           </div>
 
           <div class="summary">
-            <span class="label">What Helps This Claim:</span>
-            <ul>${(r.helping_factors || []).map(item => `<li>${item}</li>`).join("")}</ul>
+            <span class="label">What is probably missing:</span>
+            <ul>${((r.top_issues && r.top_issues.length ? r.top_issues : r.missing) || ["Diagnosis, service connection, or nexus evidence may still be unclear."]).map(item => `<li>${item}</li>`).join("")}</ul>
           </div>
 
           <div class="summary">
-            <span class="label">What Hurts This Claim:</span>
-            <ul>${(r.hurting_factors || []).map(item => `<li>${item}</li>`).join("")}</ul>
-          </div>
-
-          ${missingHtml}
-
-          <div class="summary">
-            <span class="label">Claim Strength:</span><br>
-            ${r.claim_strength || ""}
+            <span class="label">What to do next:</span>
+            <ul>${(r.next_steps || ["Gather your records, confirm your diagnosis, and make sure your service connection story is clear."]).map(step => `<li>${step}</li>`).join("")}</ul>
           </div>
 
           <div class="summary">
-            <span class="label">If You Filed Today:</span><br>
-            ${r.decision_outlook || ""}
+            <span class="label">Fastest way to improve this claim:</span><br>
+            ${r.fastest_improvement || r.biggest_lever || "The biggest improvement usually comes from closing the most important evidence gap first."}
           </div>
 
-          <div class="summary">
-            <span class="label">Top Issues:</span>
-            <ul>${(r.top_issues || []).map(i => `<li>${i}</li>`).join("")}</ul>
+          <div class="mini-card" style="margin-top:20px; background:#081d4f; border:1px solid rgba(255,255,255,0.08);">
+            <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Want a more accurate answer?</div>
+            <div class="muted" style="margin-bottom:12px;">
+              The free version gives you a fast estimate. The full version can use your actual evidence and claim details for a tighter read.
+            </div>
+
+            <ul style="margin-top:8px; margin-bottom:14px; padding-left:20px;">
+              <li>Confirm diagnosis / nexus / service event directly</li>
+              <li>Upload your records and supporting pages</li>
+              <li>Get a more precise claim-strength breakdown</li>
+            </ul>
+
+            <button
+              type="button"
+              class="btn-access"
+              style="margin-top:6px;"
+              onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=Request%20Full%20Access%20to%20VA%20Claim%20Check'"
+            >
+              Unlock Full Analysis
+            </button>
           </div>
 
-          <div class="summary">
-            <span class="label">Fastest Way to Improve:</span><br>
-            ${r.fastest_improvement || ""}
-          </div>
-    
-          ${nextStepsHtml}
-          ${sourcesHtml}
-
-          <div class="summary">
-            <span class="label">C&P Advice:</span><br>
-            ${r.cp_advice || ""}
-          </div>
-
-          <div class="summary">
-            <span class="label">Authority note:</span><br>
-            Estimated using the cited 38 C.F.R. Part 4 rating framework. Final VA decisions depend on the full record, exam findings, and adjudication.
-          </div>
-
-          <div class="mini-card">
-            <div style="font-weight:700; margin-bottom:6px;">Save this claim</div>
+          <div class="mini-card" style="margin-top:18px;">
+            <div style="font-weight:700; margin-bottom:6px;">Save this estimate</div>
             <div class="muted" style="margin-bottom:10px;">Get this result and next steps emailed to you.</div>
 
             <input id="userEmail" type="email" placeholder="Enter email" />
