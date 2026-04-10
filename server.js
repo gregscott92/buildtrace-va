@@ -5195,11 +5195,15 @@ app.post("/analyze", async (req, res) => {
       condition = "General condition";
     }
 
+    const explicitServiceEvent = !!body.in_service_event;
+    const explicitDiagnosis = !!body.current_diagnosis;
+    const explicitNexus = !!body.nexus_letter;
+
     const result = analyzeClaim({
       condition,
-      explicitServiceEvent: !!body.in_service_event,
-      explicitDiagnosis: !!body.current_diagnosis,
-      explicitNexus: !!body.nexus_letter,
+      explicitServiceEvent,
+      explicitDiagnosis,
+      explicitNexus,
       severity: body.severity || "moderate"
     });
 
