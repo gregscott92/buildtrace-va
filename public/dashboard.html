@@ -309,13 +309,21 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
         const token = getToken();
 
         let condition = document.getElementById("serviceContext")?.value || "";
-if (!condition.trim()) {
-  condition = "General condition";
-}
+
         const in_service_event = document.getElementById("inServiceEvent")?.checked || false;
         const current_diagnosis = document.getElementById("currentDiagnosis")?.checked || false;
         const nexus_letter = document.getElementById("nexusLetter")?.checked || false;
         const severity = document.getElementById("severity")?.value || "moderate";
+
+        if (!condition.trim() && !in_service_event && !current_diagnosis && !nexus_letter) {
+          showError("I’m still improving this and want to make it genuinely useful. Add a few details about your claim and I’ll give you a better estimate. Try it again and let me know how I did.");
+          document.getElementById("serviceContext")?.focus();
+          return;
+        }
+
+        if (!condition.trim()) {
+          condition = "General condition";
+        }
 
         if (!condition.trim() && !in_service_event && !current_diagnosis && !nexus_letter) {
           showError("I’m still improving this and want to make it genuinely useful. Add a few details about your claim and I’ll give you a better estimate. Try it again and let me know how I did.");
