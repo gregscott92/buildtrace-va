@@ -143,12 +143,22 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
     </div>
     <div class="card">
       <div class="section-title">Describe the claim</div>
+      <div class="muted" style="margin-bottom:12px;">
+        Describe your condition and I’ll estimate how strong the claim looks, what’s missing, and what to do next.
+      </div>
       <textarea id="serviceContext" placeholder="Describe the condition, symptoms, when it started, treatment, severity, flare-ups, and work/life impact..."></textarea>
+      <div class="field-note">
+        Example: “Lower back pain started during active duty after lifting equipment. Still treated today. Flare-ups limit bending and missed work.”
+      </div>
 
       <div class="actions">
-        <button id="analyzeBtn" class="btn-analyze" type="button">Analyze Claim</button>
+        <button id="analyzeBtn" class="btn-analyze" type="button">Check My Claim</button>
         <button class="btn-saved" type="button" onclick="window.location.href='/saved-claims.html'">View Saved Claims</button>
         <button class="btn-upload" type="button" onclick="window.location.href='/va-calculator.html'">Open VA Calculator</button>
+      </div>
+
+      <div class="field-note">
+        Built to reflect how VA claims are commonly evaluated based on rating criteria, evidence strength, and missing documentation.
       </div>
 
       <div id="errorCard" class="error hidden"></div>
