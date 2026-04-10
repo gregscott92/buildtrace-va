@@ -118,9 +118,6 @@
     ul { margin-top: 8px; padding-left: 22px; }
   </style>
 <script>
-let current_diagnosis = false;
-let in_service_event = false;
-let nexus_letter = false;
 
 !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once group identify_group reset isFeatureEnabled onFeatureFlags reloadFeatureFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
 posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
@@ -229,7 +226,6 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
       }
     }
 
-
     function logout() {
       localStorage.removeItem("token");
       window.location.href = "/login";
@@ -313,18 +309,19 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
         const token = getToken();
 
         let condition = document.getElementById("serviceContext")?.value || "";
-if (!condition.trim()) {
-  condition = "General condition";
-}
-        in_service_event = document.getElementById("inServiceEvent")?.checked || false;
-        current_diagnosis = document.getElementById("currentDiagnosis")?.checked || false;
-        nexus_letter = document.getElementById("nexusLetter")?.checked || false;
+        const inServiceEventChecked = document.getElementById("inServiceEvent")?.checked || false;
+        const currentDiagnosisChecked = document.getElementById("currentDiagnosis")?.checked || false;
+        const nexusLetterChecked = document.getElementById("nexusLetter")?.checked || false;
         const severity = document.getElementById("severity")?.value || "moderate";
 
-        if (!condition.trim() && !in_service_event && !current_diagnosis && !nexus_letter) {
+        if (!condition.trim() && !inServiceEventChecked && !currentDiagnosisChecked && !nexusLetterChecked) {
           showError("I’m still improving this and want to make it genuinely useful. Add a few details about your claim and I’ll give you a better estimate. Try it again and let me know how I did.");
           document.getElementById("serviceContext")?.focus();
           return;
+        }
+
+        if (!condition.trim()) {
+          condition = "General condition";
         }
 
         const btn = document.getElementById("analyzeBtn");
@@ -335,17 +332,17 @@ if (!condition.trim()) {
         trackEvent("analyze_clicked", {
           page: "dashboard",
           condition_text: condition,
-          in_service_event,
-          current_diagnosis,
-          nexus_letter,
+          in_service_event: inServiceEventChecked,
+          current_diagnosis: currentDiagnosisChecked,
+          nexus_letter: nexusLetterChecked,
           severity
         });
 
         posthog.capture("analyze_clicked", {
           condition_text: condition,
-          in_service_event,
-          current_diagnosis,
-          nexus_letter,
+          in_service_event: inServiceEventChecked,
+          current_diagnosis: currentDiagnosisChecked,
+          nexus_letter: nexusLetterChecked,
           severity
         });
 
@@ -356,9 +353,9 @@ if (!condition.trim()) {
           },
           body: JSON.stringify({
             condition,
-            in_service_event,
-            current_diagnosis,
-            nexus_letter,
+            in_service_event: inServiceEventChecked,
+            current_diagnosis: currentDiagnosisChecked,
+            nexus_letter: nexusLetterChecked,
             severity
           })
         });
