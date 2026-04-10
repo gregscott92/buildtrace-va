@@ -771,13 +771,22 @@ app.post("/logout", (req, res) => {
   return res.json({ success: true });
 });
 
-// everything except login/health is protected
+// public entry routes; auth only required where explicitly needed later
 app.use((req, res, next) => {
-if (
-  req.path.startsWith("/login") ||
-  req.path.startsWith("/signup") ||
-  req.path === "/health"
-) {
+  if (
+    req.path === "/" ||
+    req.path === "/dashboard" ||
+    req.path === "/analyze" ||
+    req.path === "/lead" ||
+    req.path === "/va-calculator.html" ||
+    req.path === "/saved-claims.html" ||
+    req.path.startsWith("/login") ||
+    req.path.startsWith("/signup") ||
+    req.path === "/health" ||
+    req.path.startsWith("/public") ||
+    req.path.endsWith(".css") ||
+    req.path.endsWith(".js")
+  ) {
     return next();
   }
 
@@ -3864,98 +3873,6 @@ if (ENABLE_LOCAL_CRON) {
 // ============================
 // VA ANALYZE ROUTE (FORCED)
 // ============================
-app.post("/analyze", async (req, res) => {
-  try {
-    const { input } = req.body || {};
-
-    if (!input) {
-      return res.status(400).json({ error: "Missing input" });
-    }
-
-    const raw = String(input || "").trim();
-
-    if (!raw) {
-      return res.status(400).json({ error: "Missing input" });
-    }
-
-    const resultText = analyzeCfr38(raw);
-
-    function readSection(label) {
-      const source = String(resultText || "");
-      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(
-        "^" + escaped + ":\\s*([\\s\\S]*?)(?=\\n(?:Condition|Diagnostic Code|Estimated VA Rating|Confidence|Reasoning|Evidence Still Needed|Next Steps|Important):|$)",
-        "mi"
-      );
-      const match = source.match(regex);
-      if (!match || !match[1]) return "N/A";
-      return String(match[1]).trim() || "N/A";
-    }
-
-    const result = analyzeCfr38(input);
-
-      const structured = {
-      condition: readSection("Condition"),
-      diagnosticCode: readSection("Diagnostic Code"),
-      estimatedRating: readSection("Estimated VA Rating"),
-      confidence: readSection("Confidence"),
-      reasoning: readSection("Reasoning"),
-      evidenceNeeded: readSection("Evidence Still Needed"),
-      nextSteps: readSection("Next Steps"),
-      important: readSection("Important")
-    };
-
-    try {
-      const payload = {
-        user_id: req.apiUser.id,
-        input_text: raw,
-        result_text: resultText || "",
-        extracted_text: "",
-        detected_condition:
-          structured.condition !== "N/A" ? structured.condition : null,
-        estimated_rating:
-          structured.estimatedRating && structured.estimatedRating !== "N/A"
-            ? parseInt(String(structured.estimatedRating).replace(/[^0-9]/g, ""), 10)
-            : null,
-        confidence_label:
-          structured.confidence !== "N/A" ? structured.confidence : null,
-        source_type: "text_only",
-        export_summary: resultText || ""
-      };
-
-      const { data: insertData, error: insertError } =
-        await supabaseAdmin.from("va_claims").insert(payload).select();
-
-      if (insertError) {
-        console.log("INSERT ERROR:", insertError);
-      } else {
-        console.log("INSERT SUCCESS:", insertData);
-      }
-    } catch (saveErr) {
-      console.log("SAVE CLAIM ERROR:", saveErr);
-    }
-
-    return res.json({
-      success: true,
-      likelihood:
-        structured.estimatedRating && structured.estimatedRating !== "N/A"
-          ? structured.estimatedRating
-          : "See analysis",
-      summary: resultText,
-      parsed: structured,
-      disclaimer:
-        "This tool provides an estimate based on submitted information and does not guarantee a VA decision or rating. Final determinations are made by the VA after full review."
-    });
-  } catch (err) {
-    console.log("VA ANALYZE ERROR:", err);
-    return res.status(500).json({
-      error: "VA analysis failed",
-      details: err.message
-    });
-  }
-});
-
-
 // =============================
 // GET VA CLAIMS
 // =============================
@@ -4974,6 +4891,352 @@ app.post("/lead", async (req, res) => {
   }
 });
 
+
+function getClaimSources(condition, claimType) {
+  const sources = [
+    {
+      label: "General rating rules",
+      citation: "38 C.F.R. §§ 4.1, 4.2, 4.3, 4.6, 4.7",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4/subpart-A"
+    }
+  ];
+
+  const c = String(condition || "").toLowerCase();
+  const ct = String(claimType || "").toLowerCase();
+
+  if (c.includes("back") || c.includes("lumbar") || c.includes("spine") || c.includes("knee") || c.includes("shoulder")) {
+    sources.push({
+      label: "Musculoskeletal ratings",
+      citation: "38 C.F.R. § 4.71a",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4/subpart-B/subject-group-ECFRd3005f7d828ea7b/section-4.71a"
+    });
+    sources.push({
+      label: "Functional loss / joints",
+      citation: "38 C.F.R. §§ 4.40, 4.45, 4.46, 4.59",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+  }
+
+  if (c.includes("radiculopathy") || c.includes("sciatica") || c.includes("numbness") || c.includes("tingling") || c.includes("nerve")) {
+    sources.push({
+      label: "Neurological ratings",
+      citation: "38 C.F.R. § 4.124a",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4/subpart-B/subject-group-ECFRab3ca55f4548afe/section-4.124a"
+    });
+  }
+
+  if (c.includes("mental health") || c.includes("ptsd") || c.includes("anxiety") || c.includes("depression") || c.includes("panic")) {
+    sources.push({
+      label: "Mental disorders",
+      citation: "38 C.F.R. § 4.130",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+  }
+
+  if (c.includes("sleep apnea") || c.includes("osa") || c.includes("cpap")) {
+    sources.push({
+      label: "Respiratory ratings",
+      citation: "38 C.F.R. § 4.97",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+  }
+
+  if (c.includes("tinnitus") || c.includes("hearing")) {
+    sources.push({
+      label: "Hearing impairment",
+      citation: "38 C.F.R. § 4.85",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+    sources.push({
+      label: "Ear ratings",
+      citation: "38 C.F.R. § 4.87",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4"
+    });
+  }
+
+  if (c.includes("secondary") || ct.includes("secondary") || ct.includes("aggravation")) {
+    sources.push({
+      label: "Aggravation / analogous / general rules",
+      citation: "38 C.F.R. §§ 4.20, 4.21, 4.22",
+      url: "https://www.ecfr.gov/current/title-38/chapter-I/part-4/subpart-A"
+    });
+  }
+
+  return sources;
+}
+
+function analyzeClaim(data) {
+  const rawCondition = String(data.condition || "").trim();
+  const text = rawCondition.toLowerCase();
+
+  const explicitServiceEvent = !!data.in_service_event;
+  const explicitDiagnosis = !!data.current_diagnosis;
+  const explicitNexus = !!data.nexus_letter;
+  const selectedSeverity = data.severity || "moderate";
+
+  function hasAny(words) {
+    return words.some(word => text.includes(word));
+  }
+
+  let condition = "General Condition";
+  if (hasAny(["lower back", "back pain", "lumbar", "spine", "radiculopathy", "sciatica"])) {
+    condition = "Lumbar / Back Condition";
+  } else if (hasAny(["migraine", "migraines", "headache", "headaches", "prostrating"])) {
+    condition = "Migraines / Headaches";
+  } else if (hasAny(["ptsd", "anxiety", "depression", "panic", "mental health", "insomnia", "nightmares"])) {
+    condition = "Mental Health Condition";
+  } else if (hasAny(["knee", "knees"])) {
+    condition = "Knee Condition";
+  } else if (hasAny(["shoulder"])) {
+    condition = "Shoulder Condition";
+  } else if (hasAny(["sleep apnea", "osa", "cpap"])) {
+    condition = "Sleep Apnea";
+  } else if (hasAny(["tinnitus", "hearing loss", "ringing in ears"])) {
+    condition = "Tinnitus / Hearing Loss";
+  } else if (hasAny(["gerd", "reflux", "acid reflux", "stomach", "gi", "ibs"])) {
+    condition = "GI / GERD Condition";
+  }
+
+  const textServiceEvent = hasAny([
+    "in service", "while in service", "active duty", "deployment", "deployed",
+    "training", "field exercise", "combat", "mos", "ruck", "lifted", "injury",
+    "hurt", "service treatment record", "line of duty", "during service"
+  ]);
+
+  const textDiagnosis = hasAny([
+    "diagnosed", "diagnosis", "doctor", "provider", "pcp", "orthopedic",
+    "mri", "x-ray", "xray", "ct scan", "medical record", "treatment", "therapy", "cpap"
+  ]);
+
+  const textNexus = hasAny([
+    "nexus", "medical opinion", "linked to", "secondary to", "caused by",
+    "due to", "result of", "aggravated by"
+  ]);
+
+  let claim_type = "Unclear";
+  if (hasAny(["secondary to", "due to", "caused by", "result of", "aggravated by"])) {
+    claim_type = "Secondary / Aggravation Theory";
+  } else if (explicitServiceEvent || textServiceEvent) {
+    claim_type = "Likely Direct";
+  }
+
+  const severeSignals = hasAny([
+    "severe", "daily", "constant", "flare", "flare-up", "flare up",
+    "miss work", "can't work", "cannot work", "prostrating", "panic attacks",
+    "suicidal", "radiculopathy", "numbness", "tingling", "limited motion",
+    "can't bend", "cannot bend", "cpap", "bed rest"
+  ]);
+
+  const moderateSignals = hasAny([
+    "moderate", "weekly", "monthly", "recurring", "pain", "stiffness",
+    "spasms", "anxiety", "sleep issues", "headaches", "reflux"
+  ]);
+
+  const hasServiceEvent = explicitServiceEvent || textServiceEvent;
+  const hasDiagnosis = explicitDiagnosis || textDiagnosis;
+  const hasNexus = explicitNexus || textNexus;
+
+  let severity = selectedSeverity;
+  if (severeSignals) severity = "severe";
+  else if (moderateSignals && severity !== "severe") severity = "moderate";
+
+  let service_connection = "Weak";
+  let confidence = "Low";
+
+  if (hasServiceEvent && hasDiagnosis && hasNexus) {
+    service_connection = "Strong";
+    confidence = "High";
+  } else if (hasServiceEvent && hasDiagnosis) {
+    service_connection = "Possible";
+    confidence = "Medium";
+  } else if (hasDiagnosis || hasServiceEvent) {
+    service_connection = "Weak to Possible";
+    confidence = "Low";
+  }
+
+  let estimated_rating = "0–10%";
+
+  if (condition === "Lumbar / Back Condition") {
+    const backSevere = hasAny(["radiculopathy", "numbness", "tingling", "can't bend", "cannot bend", "limited motion"]);
+    if (severity === "severe" || backSevere) estimated_rating = "20–40%";
+    else if (severity === "moderate") estimated_rating = "10–20%";
+    else estimated_rating = "0–10%";
+  } else if (condition === "Migraines / Headaches") {
+    const migraineSevere = hasAny(["prostrating", "lie down", "dark room", "vomit", "nausea", "miss work"]);
+    if (severity === "severe" || migraineSevere) estimated_rating = "30–50%";
+    else if (severity === "moderate") estimated_rating = "10–30%";
+    else estimated_rating = "0–10%";
+  } else if (condition === "Mental Health Condition") {
+    const mhSevere = hasAny(["panic attacks", "isolation", "can't work", "cannot work", "suicidal", "nightmares", "hypervigilance"]);
+    if (severity === "severe" || mhSevere) estimated_rating = "50–70%";
+    else if (severity === "moderate") estimated_rating = "30–50%";
+    else estimated_rating = "0–10%";
+  } else if (condition === "Sleep Apnea") {
+    estimated_rating = text.includes("cpap") ? "50%" : "0–30%";
+  } else if (condition === "Tinnitus / Hearing Loss") {
+    estimated_rating = "10%";
+  } else {
+    if (severity === "severe") estimated_rating = "30–50%";
+    else if (severity === "moderate") estimated_rating = "10–30%";
+    else estimated_rating = "0–10%";
+  }
+
+  const helping_factors = [];
+  const hurting_factors = [];
+  const missing = [];
+  const next_steps = [];
+
+  if (hasServiceEvent) helping_factors.push("Narrative suggests some service-related onset or event support");
+  else {
+    hurting_factors.push("Narrative does not clearly establish when or how this began in service");
+    missing.push("Clear in-service event, onset, or service evidence");
+  }
+
+  if (hasDiagnosis) helping_factors.push("Narrative suggests diagnosis and/or current treatment support");
+  else {
+    hurting_factors.push("No clear diagnosis or treatment evidence is coming through");
+    missing.push("Current diagnosis from a medical provider");
+  }
+
+  if (hasNexus) helping_factors.push("Narrative suggests a nexus or secondary-link theory");
+  else {
+    hurting_factors.push("No clear nexus or medical link is coming through");
+    missing.push("Nexus letter or medical opinion linking the condition");
+  }
+
+  if (!hasServiceEvent) {
+    next_steps.push("Gather service treatment records, incident records, buddy statements, or a personal statement showing when this started");
+  }
+  if (!hasDiagnosis) {
+    next_steps.push("Get a current diagnosis and make sure it is clearly documented in your medical records");
+  }
+  if (!hasNexus) {
+    next_steps.push("Get a nexus letter connecting the condition to service or to a service-connected condition");
+  }
+
+  if (condition === "Lumbar / Back Condition") {
+    next_steps.push("Document range-of-motion limits, flare-ups, numbness, tingling, radiculopathy, and how bending/lifting affect daily life");
+  } else if (condition === "Migraines / Headaches") {
+    next_steps.push("Track frequency, duration, prostrating attacks, nausea, light sensitivity, and missed work");
+  } else if (condition === "Mental Health Condition") {
+    next_steps.push("Document work impairment, social isolation, panic, sleep problems, concentration issues, and treatment history");
+  } else if (condition === "Sleep Apnea") {
+    next_steps.push("Document sleep study results, diagnosis, and CPAP prescription if applicable");
+  }
+
+  next_steps.push("Prepare for the C&P exam and describe your worst days, frequency, flare-ups, and work/life impact without minimizing symptoms");
+
+  const biggest_lever = !hasNexus
+    ? "A nexus letter is the biggest thing that could strengthen this claim."
+    : !hasDiagnosis
+    ? "A clear current diagnosis is the biggest missing piece."
+    : "Strong detail about severity, flare-ups, and functional loss will most affect the outcome.";
+
+  const whyParts = [
+    hasServiceEvent ? "There are signs of service-connection support." : "Service-connection support looks limited.",
+    hasDiagnosis ? "There are signs of current diagnosis or treatment." : "Diagnosis support looks weak.",
+    hasNexus ? "There are signs of a nexus or secondary theory." : "Nexus support looks weak.",
+    `The narrative suggests ${severity} severity.`,
+    `This looks most like a ${claim_type.toLowerCase()} claim.`
+  ];
+
+  const cp_advice = "At the C&P exam, explain your worst days, how often symptoms happen, what they stop you from doing, and do not minimize pain, flare-ups, or functional loss.";
+
+  return {
+    condition,
+    claim_type,
+    service_connection,
+    estimated_rating,
+    confidence,
+    why: whyParts.join(" "),
+    claim_strength: (function() {
+      if (!current_diagnosis) return "Weak (High Risk of Denial)";
+      if (current_diagnosis && !nexus_letter) return "Moderate (Borderline Approval)";
+      if (current_diagnosis && nexus_letter) return "Strong (Likely Approval)";
+      return "Moderate";
+    })(),
+
+    decision_outlook: (function() {
+      if (!current_diagnosis) return "This claim would likely be denied due to lack of a confirmed diagnosis.";
+      if (!nexus_letter) return "This claim may be delayed or rated lower due to missing nexus evidence.";
+      return "This claim is positioned well for approval if documentation is consistent.";
+    })(),
+
+    top_issues: (function() {
+      const issues = [];
+      if (!current_diagnosis) issues.push("No confirmed current diagnosis (required for approval)");
+      if (!in_service_event) issues.push("No clear in-service event or documentation");
+      if (!nexus_letter) issues.push("No medical nexus linking condition to service");
+      return issues.slice(0,3);
+    })(),
+
+    fastest_improvement: (function() {
+      if (!current_diagnosis) return "Get a confirmed medical diagnosis documented in your records.";
+      if (!nexus_letter) return "Obtain a basic medical opinion linking your condition to service.";
+      return "Strengthen documentation of severity and functional impact.";
+    })(),
+    helping_factors,
+    hurting_factors,
+    biggest_lever,
+    missing,
+    next_steps,
+    cp_advice,
+    sources: getClaimSources(condition, claim_type)
+  };
+}
+
+
+app.post("/analyze", async (req, res) => {
+  try {
+    const body = req.body || {};
+
+    let condition = String(body.condition || "").trim();
+    if (!condition) {
+      condition = "General condition";
+    }
+
+    const result = analyzeClaim({
+      condition,
+      in_service_event: !!body.in_service_event,
+      current_diagnosis: !!body.current_diagnosis,
+      nexus_letter: !!body.nexus_letter,
+      severity: body.severity || "moderate"
+    });
+
+    return res.json({
+      success: true,
+      result
+    });
+  } catch (err) {
+    console.log("ANALYZE ROUTE ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Analyze failed"
+    });
+  }
+});
+
+
+app.post("/track", (req, res) => {
+  try {
+    const payload = {
+      event: req.body?.event || "unknown",
+      data: req.body?.data || {},
+      time: new Date().toISOString(),
+      ip:
+        req.headers["x-forwarded-for"] ||
+        req.socket?.remoteAddress ||
+        "",
+      ua: req.headers["user-agent"] || ""
+    };
+
+    console.log("TRACK EVENT:", JSON.stringify(payload));
+    return res.json({ success: true });
+  } catch (err) {
+    console.log("TRACK ERROR:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
