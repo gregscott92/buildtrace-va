@@ -3,197 +3,94 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VA Claim Check</title>
+  <title>VA Claim Analyzer</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #041b4d;
-      color: #ffffff;
-    }
-    .wrap {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 20px 16px 40px;
-    }
-    .card {
-      background: #0a2566;
-      border-radius: 20px;
-      padding: 18px;
-      margin-top: 18px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
-    }
-    .section-title {
-      font-size: 18px;
-      font-weight: 800;
-      margin: 0 0 14px;
-    }
-    .muted {
-      color: #cbd5e1;
-      font-size: 14px;
-      line-height: 1.45;
-    }
-    textarea {
-      width: 100%;
-      min-height: 150px;
-      border: none;
-      border-radius: 16px;
-      padding: 16px;
-      font-size: 18px;
-      line-height: 1.4;
-      resize: vertical;
-      background: #f2f4f8;
-      color: #111827;
-    }
-    .actions {
-      display: grid;
-      gap: 14px;
-      margin-top: 16px;
-    }
-    button {
-      width: 100%;
-      border: none;
-      border-radius: 18px;
-      padding: 20px 18px;
-      font-size: 20px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-    .btn-upload { background: #2563eb; color: #ffffff; }
-    .btn-clear { background: #475569; color: #ffffff; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #041b4d; color: #ffffff; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 24px 18px 40px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: 28px; font-weight: 800; }
+    .logout-btn { border: none; border-radius: 14px; padding: 12px 16px; font-size: 16px; font-weight: 800; cursor: pointer; background: #ef4444; color: white; width: auto; }
+    .card { background: #0a2566; border-radius: 18px; padding: 18px; margin-top: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+    .notice { background: rgba(255, 193, 7, 0.12); border: 1px solid rgba(255, 193, 7, 0.35); color: #ffe082; border-radius: 14px; padding: 14px; line-height: 1.5; font-size: 14px; margin-top: 12px; }
+    textarea { width: 100%; min-height: 180px; border: none; border-radius: 16px; padding: 16px; font-size: 18px; line-height: 1.4; resize: vertical; background: #f2f4f8; color: #111827; }
+    .actions { display: grid; gap: 14px; margin-top: 16px; }
+    button { width: 100%; border: none; border-radius: 18px; padding: 20px 18px; font-size: 20px; font-weight: 800; cursor: pointer; }
     .btn-analyze { background: #18a84a; color: #ffffff; }
+    .btn-upload { background: #2563eb; color: #ffffff; }
     .btn-saved { background: #ebedf0; color: #111111; }
+    .btn-clear { background: #475569; color: #ffffff; }
     .btn-access { background: #f59e0b; color: #111111; }
     .btn-report { background: #ef4444; color: #ffffff; }
-    .field-note { margin-top: 10px; color: #cbd5e1; font-size: 14px; }
+    .section-title { margin: 0 0 14px; font-size: 18px; font-weight: 800; }
+    .result-grid { display: grid; gap: 10px; margin-bottom: 14px; }
+    .result-row { font-size: 18px; line-height: 1.4; }
+    .label { font-weight: 800; }
+    .summary { white-space: pre-wrap; line-height: 1.5; font-size: 17px; }
     .hidden { display: none; }
-    .result-row {
-      font-size: 18px;
-      line-height: 1.45;
-      margin-bottom: 10px;
-    }
-    .label {
-      font-weight: 800;
-    }
-    .summary {
-      margin-top: 14px;
-      font-size: 16px;
-      line-height: 1.55;
-    }
-    .error {
-      background: #7f1d1d;
-      color: #fee2e2;
-      border-radius: 14px;
-      padding: 12px 14px;
-      margin-top: 14px;
-      line-height: 1.4;
-    }
-    input[type="email"], select {
-      width: 100%;
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      font-size: 16px;
-      background: #f2f4f8;
-      color: #111827;
-    }
-    .mini-card {
-      margin-top: 20px;
-      padding: 16px;
-      background: #0b1f4a;
-      border-radius: 14px;
-    }
-    .pulse-result {
-      animation: pulseGlow 1s ease-in-out 3;
-      border: 2px solid #22c55e;
-    }
-    @keyframes pulseGlow {
-      0% { box-shadow: 0 0 0 rgba(34,197,94,0); }
-      50% { box-shadow: 0 0 24px rgba(34,197,94,0.75); }
-      100% { box-shadow: 0 0 0 rgba(34,197,94,0); }
-    }
-    .top-space { margin-top: 10px; }
-    .check-row { display:block; margin-bottom:12px; font-size:16px; }
-    ul { margin-top: 8px; padding-left: 22px; }
+    .error { background: #7f1d1d; color: #fee2e2; border-radius: 14px; padding: 12px 14px; margin-top: 14px; line-height: 1.4; }
+    .file-note { margin-top: 10px; color: #cbd5e1; font-size: 14px; line-height: 1.5; }
+    .pages-list { margin-top: 12px; display: grid; gap: 8px; }
+    .page-chip { background: #082059; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 10px 12px; color: #e2e8f0; font-size: 14px; word-break: break-word; }
+    .pulse-result { animation: pulseGlow 1s ease-in-out 3; border: 2px solid #22c55e !important; }
+    @keyframes pulseGlow { 0%{box-shadow:0 0 0 rgba(34,197,94,0)} 50%{box-shadow:0 0 24px rgba(34,197,94,0.75)} 100%{box-shadow:0 0 0 rgba(34,197,94,0)} }
   </style>
-<script>
-!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once group identify_group reset isFeatureEnabled onFeatureFlags reloadFeatureFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
-  api_host: 'https://us.i.posthog.com',
-  autocapture: true,
-  capture_pageview: true,
-  disable_session_recording: false
-});
-</script>
 </head>
 <body>
   <div class="wrap">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;">
-      <div style="font-size:28px;font-weight:800;">VA Claim Check</div>
-      <div class="muted" style="margin-top:4px;">
-        Estimate your rating. See what’s missing before you file.
-      </div>
-      <button id="logoutBtn" type="button" style="width:auto;padding:12px 16px;border:none;border-radius:12px;background:#ef4444;color:#fff;font-weight:800;cursor:pointer;">Log Out</button>
+    <div class="topbar">
+      <h1>VA Claim Analyzer</h1>
+      <button class="logout-btn" type="button" onclick="logout()">Log Out</button>
     </div>
 
-    <div class="card" id="disclaimerCard">
-      <div class="section-title">Disclaimer</div>
-      <div class="muted">
-        This is an estimate and guidance tool only. Final VA decisions depend on your records,
-        exams, service connection evidence, and adjudication.
-      </div>
+    <div class="notice">
+      This tool provides an estimate only. Final VA decisions depend on the medical record, exams, and adjudication.
     </div>
+
     <div class="card">
-      <div class="section-title">Describe the claim</div>
-      <div class="muted" style="margin-bottom:12px;">
-        Describe your condition and I’ll estimate how strong the claim looks, what’s missing, and what to do next.
-      </div>
-      <textarea id="serviceContext" placeholder="Describe the condition, symptoms, when it started, treatment, severity, flare-ups, and work/life impact..."></textarea>
-      <div class="field-note">
-        Example: “Lower back pain started during active duty after lifting equipment. Still treated today. Flare-ups limit bending and missed work.”
-      </div>
+      <textarea id="context" placeholder="Describe your condition, symptoms, service connection, treatment history, flare-ups, range-of-motion findings, and work or daily impact..."></textarea>
 
       <div class="actions">
-        <button id="analyzeBtn" class="btn-analyze" type="button">Check My Claim</button>
+        <button id="uploadBtn" class="btn-upload" type="button">Upload Image Pages</button>
+        <button id="clearBtn" class="btn-clear" type="button">Clear Uploaded Pages</button>
+        <button id="analyzeBtn" class="btn-analyze" type="button">Analyze Claim</button>
         <button class="btn-saved" type="button" onclick="window.location.href='/saved-claims.html'">View Saved Claims</button>
         <button class="btn-upload" type="button" onclick="window.location.href='/va-calculator.html'">Open VA Calculator</button>
       </div>
 
-      <div class="field-note">
-        Built to reflect how VA claims are commonly evaluated based on rating criteria, evidence strength, and missing documentation.
-      </div>
-
+      <input id="imageInput" type="file" accept="image/*" multiple class="hidden" />
+      <div id="fileNote" class="file-note hidden"></div>
+      <div id="pagesList" class="pages-list hidden"></div>
       <div id="errorCard" class="error hidden"></div>
     </div>
 
-    <div class="card">
-      <div class="section-title">Quick Claim Inputs</div>
+    
+      <div class="card" style="margin-top:18px;">
+        <div class="section-title">Quick Claim Inputs</div>
 
-      <label class="check-row">
-        <input id="inServiceEvent" type="checkbox" />
-        In-service event / injury / onset documented
-      </label>
+        <label style="display:block;margin-bottom:10px;">
+          <input id="inServiceEvent" type="checkbox" />
+          In-service event / injury / onset documented
+        </label>
 
-      <label class="check-row">
-        <input id="currentDiagnosis" type="checkbox" />
-        Current diagnosis exists
-      </label>
+        <label style="display:block;margin-bottom:10px;">
+          <input id="currentDiagnosis" type="checkbox" />
+          Current diagnosis exists
+        </label>
 
-      <label class="check-row">
-        <input id="nexusLetter" type="checkbox" />
-        Nexus letter / medical opinion exists
-      </label>
+        <label style="display:block;margin-bottom:14px;">
+          <input id="nexusLetter" type="checkbox" />
+          Nexus letter / medical opinion exists
+        </label>
 
-      <div class="top-space">
-        <div class="section-title" style="font-size:16px; margin-bottom:8px;">Severity</div>
-        <select id="severity">
+        <label style="display:block;font-weight:700;margin-bottom:8px;">Severity</label>
+        <select id="severity" style="padding:12px;width:100%;border-radius:10px;border:none;font-size:16px;background:#f2f4f8;color:#111827;">
           <option value="mild">Mild</option>
           <option value="moderate" selected>Moderate</option>
           <option value="severe">Severe</option>
         </select>
       </div>
-    </div>
+
 
     <div id="resultCard" class="card hidden"></div>
 
@@ -203,36 +100,18 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
         <button class="btn-report" type="button" onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=BuildTrace%20VA%20Issue%20or%20Suggested%20Fix'">Report Issue / Suggest Fix</button>
       </div>
     </div>
-
   </div>
 
   <script>
+    let selectedImages = [];
 
-    async function trackEvent(eventName, data = {}) {
-      try {
-        await fetch("/track", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            event: eventName,
-            data
-          })
-        });
-      } catch (err) {
-        console.log("track failed", err);
-      }
+    function getToken() {
+      return localStorage.getItem("token") || "";
     }
-
 
     function logout() {
       localStorage.removeItem("token");
       window.location.href = "/login";
-    }
-
-    function getToken() {
-      return localStorage.getItem("token") || "";
     }
 
     function showError(message) {
@@ -247,6 +126,187 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
       el.classList.add("hidden");
     }
 
+    function setButtonState(id, text, disabled) {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.innerText = text;
+      btn.disabled = disabled;
+    }
+
+    function renderSelectedPages() {
+      const fileNote = document.getElementById("fileNote");
+      const pagesList = document.getElementById("pagesList");
+
+      if (!selectedImages.length) {
+        fileNote.classList.add("hidden");
+        pagesList.classList.add("hidden");
+        pagesList.innerHTML = "";
+        return;
+      }
+
+      fileNote.classList.remove("hidden");
+      pagesList.classList.remove("hidden");
+      fileNote.textContent = selectedImages.length + " page(s) attached";
+
+      pagesList.innerHTML = selectedImages.map((img, idx) => `
+        <div class="page-chip">Page ${idx + 1}: ${img.name || "image"}</div>
+      `).join("");
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || "");
+          const base64 = result.includes(",") ? result.split(",")[1] : result;
+          resolve({ name: file.name, base64 });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleUpload(ev) {
+      clearError();
+      const files = Array.from(ev.target.files || []);
+      if (!files.length) return;
+
+      try {
+        const converted = await Promise.all(files.map(fileToBase64));
+        selectedImages = selectedImages.concat(converted);
+        renderSelectedPages();
+      } catch (err) {
+        showError("Failed to read image files");
+      }
+
+      ev.target.value = "";
+    }
+
+    async function analyze() {
+      clearError();
+
+      const token = getToken();
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const serviceContext = String(document.getElementById("context").value || "").trim();
+
+      if (!serviceContext && !selectedImages.length) {
+        showError("Add claim details or upload image pages first");
+        return;
+      }
+
+      setButtonState("analyzeBtn", "Analyzing...", true);
+
+      try {
+        const res = await fetch("/va/analyze-base64", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          body: JSON.stringify({
+            issue: "",
+            serviceContext,
+            imageBase64: "",
+            imageBase64List: selectedImages.map(x => x.base64)
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (res.status === 401) {
+            localStorage.removeItem("token");
+            window.location.href = "/login";
+            return;
+          }
+          showError(data.error || "Failed to analyze claim");
+          return;
+        }
+
+        const structured = data.structured || {};
+
+        localStorage.setItem("lastResult", JSON.stringify({
+          condition: structured.condition || "N/A",
+          estimated_rating: structured.estimatedRating || "N/A",
+          confidence: structured.confidence || "N/A",
+          reasoning: structured.reasoning || "",
+          next_steps: structured.nextSteps || "",
+          important: structured.important || "",
+          disclaimer: data.disclaimer || ""
+        }));
+
+        const resultCard = document.getElementById("resultCard");
+
+        resultCard.classList.remove("hidden");
+        resultCard.style.display = "block";
+        resultCard.classList.add("pulse-result");
+
+        
+        const reasoningHtml = structured.reasoning && structured.reasoning !== "N/A"
+          ? `<div style="margin-top:12px;"><strong>Why:</strong><br>${structured.reasoning}</div>`
+          : "";
+
+        const nextStepsHtml = structured.nextSteps && structured.nextSteps !== "N/A"
+          ? `<div style="margin-top:12px;"><strong>Next Steps:</strong><br>${structured.nextSteps}</div>`
+          : "";
+
+        resultCard.innerHTML = `
+          <div style="font-size:20px;font-weight:700;margin-bottom:12px;">Claim Result</div>
+
+          <div style="margin-bottom:8px;"><strong>Condition:</strong> ${structured.condition || "Unknown"}</div>
+          <div style="margin-bottom:8px;"><strong>Estimated Rating:</strong> ${structured.estimatedRating || "Not enough detail yet"}</div>
+          <div style="margin-bottom:8px;"><strong>Confidence:</strong> ${structured.confidence || "Low"}</div>
+
+          ${reasoningHtml}
+          ${nextStepsHtml}
+        `;
+
+        resultCard.innerHTML += `
+          <div style="margin-top:20px;padding:16px;background:#0b1f4a;border-radius:14px;">
+            <div style="font-weight:700;margin-bottom:6px;">Save this claim</div>
+            <div style="font-size:14px;color:#cbd5e1;margin-bottom:10px;">Enter your email to save and revisit this result.</div>
+
+            <input id="userEmail" type="email" placeholder="Enter email"
+              style="padding:12px;width:100%;border-radius:10px;border:none;" />
+
+            <button onclick="saveLead()"
+              style="margin-top:10px;width:100%;padding:14px;background:#22c55e;color:white;border:none;border-radius:10px;font-weight:700;">
+              Save My Claim
+            </button>
+
+            <div id="leadStatus" style="margin-top:10px;color:#cbd5e1;"></div>
+          </div>
+        `;
+
+
+        resultCard.scrollIntoView({ behavior: "smooth", block: "center" });
+        resultCard.style.boxShadow = "0 0 20px #00ff99";
+
+        setTimeout(() => {
+          resultCard.classList.remove("pulse-result");
+          resultCard.style.boxShadow = "none";
+        }, 2500);
+      } catch (err) {
+        showError(err.message || "VA analysis failed");
+      } finally {
+        setButtonState("analyzeBtn", "Analyze Claim", false);
+      }
+    }
+
+    document.getElementById("uploadBtn").addEventListener("click", () => {
+      document.getElementById("imageInput").click();
+    });
+    document.getElementById("imageInput").addEventListener("change", handleUpload);
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      selectedImages = [];
+      renderSelectedPages();
+    });
+    document.getElementById("analyzeBtn").addEventListener("click", analyze);
+  
     async function saveLead() {
       const emailEl = document.getElementById("userEmail");
       const statusEl = document.getElementById("leadStatus");
@@ -264,15 +324,6 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
       statusEl.textContent = "";
 
       try {
-        trackEvent("lead_submitted", {
-          page: "dashboard",
-          email
-        });
-
-        posthog.capture("lead_submitted", {
-          email: email
-        });
-
         const res = await fetch("/lead", {
           method: "POST",
           headers: {
@@ -302,242 +353,86 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
       }
     }
 
-    async function runAnalyze() {
-      try {
-        clearError();
 
-        const token = getToken();
-
-        let condition = document.getElementById("serviceContext")?.value || "";
-
-        const in_service_event = document.getElementById("inServiceEvent")?.checked || false;
-        const current_diagnosis = document.getElementById("currentDiagnosis")?.checked || false;
-        const nexus_letter = document.getElementById("nexusLetter")?.checked || false;
-        const severity = document.getElementById("severity")?.value || "moderate";
-
-        if (!condition.trim() && !in_service_event && !current_diagnosis && !nexus_letter) {
-          showError("I’m still improving this and want to make it genuinely useful. Add a few details about your claim and I’ll give you a better estimate. Try it again and let me know how I did.");
-          document.getElementById("serviceContext")?.focus();
-          return;
-        }
-
-        if (!condition.trim()) {
-          condition = "General condition";
-        }
-
-        if (!condition.trim() && !in_service_event && !current_diagnosis && !nexus_letter) {
-          showError("I’m still improving this and want to make it genuinely useful. Add a few details about your claim and I’ll give you a better estimate. Try it again and let me know how I did.");
-          document.getElementById("serviceContext")?.focus();
-          return;
-        }
-
-        const btn = document.getElementById("analyzeBtn");
-        const oldText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = "Analyzing...";
-
-        trackEvent("analyze_clicked", {
-          page: "dashboard",
-          condition_text: condition,
-          in_service_event,
-          current_diagnosis,
-          nexus_letter,
-          severity
-        });
-
-        posthog.capture("analyze_clicked", {
-          condition_text: condition,
-          in_service_event,
-          current_diagnosis,
-          nexus_letter,
-          severity
-        });
-
-        const res = await fetch("/analyze", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            condition,
-            in_service_event,
-            current_diagnosis,
-            nexus_letter,
-            severity
-          })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-          if (res.status === 401) {
-            showError("This feature is temporarily unavailable.");
-            btn.disabled = false;
-            btn.innerText = oldText;
-            return;
-          }
-          showError(data.error || "Need more info. Try checking diagnosis or adding more detail.");
-          btn.disabled = false;
-          btn.innerText = oldText;
-          return;
-        }
-
-        const r = data.result || {};
-
-        posthog.capture("result_generated", {
-          condition: r.condition || "",
-          claim_type: r.claim_type || "",
-          service_connection: r.service_connection || "",
-          estimated_rating: r.estimated_rating || "",
-          confidence: r.confidence || ""
-        });
-
-        trackEvent("result_generated", {
-          page: "dashboard",
-          condition: r.condition || "",
-          claim_type: r.claim_type || "",
-          estimated_rating: r.estimated_rating || "",
-          confidence: r.confidence || ""
-        });
-        localStorage.setItem("lastResult", JSON.stringify(r));
-
-        const el = document.getElementById("resultCard");
-        el.classList.remove("hidden");
-        el.classList.add("pulse-result");
-
-        const missingHtml = (r.missing || []).length
-          ? `<div class="summary">
-              <span class="label">What’s Missing:</span>
-              <ul>${(r.missing || []).map(item => `<li>${item}</li>`).join("")}</ul>
-            </div>`
-          : "";
-
-        const nextStepsHtml = (r.next_steps || []).length
-          ? `<div class="summary">
-              <span class="label">Next Steps:</span>
-              <ul>${(r.next_steps || []).map(step => `<li>${step}</li>`).join("")}</ul>
-            </div>`
-          : "";
-
-        const sourcesHtml = (r.sources || []).length
-          ? `<div class="summary">
-              <span class="label">Sources:</span>
-              <ul>${(r.sources || []).map(src => `<li><strong>${src.label}:</strong> ${src.citation} <br><a href="${src.url}" target="_blank" rel="noopener noreferrer" style="color:#93c5fd;">Open source</a></li>`).join("")}</ul>
-            </div>`
-          : "";
-
-        el.innerHTML = `
-          <h2 class="section-title">Claim Result</h2>
-
-          <div class="result-row"><span class="label">Condition:</span> ${r.condition || "Unknown"}</div>
-          <div class="result-row"><span class="label">Claim Type:</span> ${r.claim_type || "Unclear"}</div>
-          <div class="result-row"><span class="label">Service Connection:</span> ${r.service_connection || "Unknown"}</div>
-          <div class="result-row"><span class="label">Estimated Rating:</span> ${r.estimated_rating || "Unknown"}</div>
-          <div class="result-row"><span class="label">Confidence:</span> ${r.confidence || "Unknown"}</div>
-
-          <div class="summary">
-            <span class="label">Why:</span><br>
-            ${r.why || ""}
-          </div>
-
-          <div class="summary">
-            <span class="label">Biggest Lever:</span><br>
-            ${r.biggest_lever || ""}
-          </div>
-
-          <div class="summary">
-            <span class="label">What Helps This Claim:</span>
-            <ul>${(r.helping_factors || []).map(item => `<li>${item}</li>`).join("")}</ul>
-          </div>
-
-          <div class="summary">
-            <span class="label">What Hurts This Claim:</span>
-            <ul>${(r.hurting_factors || []).map(item => `<li>${item}</li>`).join("")}</ul>
-          </div>
-
-          ${missingHtml}
-
-          <div class="summary">
-            <span class="label">Claim Strength:</span><br>
-            ${r.claim_strength || ""}
-          </div>
-
-          <div class="summary">
-            <span class="label">If You Filed Today:</span><br>
-            ${r.decision_outlook || ""}
-          </div>
-
-          <div class="summary">
-            <span class="label">Top Issues:</span>
-            <ul>${(r.top_issues || []).map(i => `<li>${i}</li>`).join("")}</ul>
-          </div>
-
-          <div class="summary">
-            <span class="label">Fastest Way to Improve:</span><br>
-            ${r.fastest_improvement || ""}
-          </div>
-    
-          ${nextStepsHtml}
-          ${sourcesHtml}
-
-          <div class="summary">
-            <span class="label">C&P Advice:</span><br>
-            ${r.cp_advice || ""}
-          </div>
-
-          <div class="summary">
-            <span class="label">Authority note:</span><br>
-            Estimated using the cited 38 C.F.R. Part 4 rating framework. Final VA decisions depend on the full record, exam findings, and adjudication.
-          </div>
-
-          <div class="mini-card">
-            <div style="font-weight:700; margin-bottom:6px;">Save this claim</div>
-            <div class="muted" style="margin-bottom:10px;">Get this result and next steps emailed to you.</div>
-
-            <input id="userEmail" type="email" placeholder="Enter email" />
-
-            <button
-              id="saveLeadBtn"
-              onclick="saveLead()"
-              style="margin-top:10px; width:100%; padding:14px; background:#22c55e; color:white; border:none; border-radius:10px; font-size:16px; font-weight:700;"
-            >
-              Save My Claim
-            </button>
-
-            <div id="leadStatus" class="muted" style="margin-top:10px;"></div>
-          </div>
-        `;
-
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-
-        setTimeout(() => {
-          el.classList.remove("pulse-result");
-        }, 2500);
-
-        btn.disabled = false;
-        btn.innerText = oldText;
-      } catch (err) {
-        console.log(err);
-        showError("Something broke");
-        const btn = document.getElementById("analyzeBtn");
-        btn.disabled = false;
-        btn.innerText = "Analyze Claim";
-      }
-    }
-
-    document.getElementById("analyzeBtn").addEventListener("click", runAnalyze);
-    posthog.capture("dashboard_view");
-
-    trackEvent("page_view", { page: "dashboard" });
-
-    
-    document.getElementById("logoutBtn").addEventListener("click", logout);
-  
-    const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn && !getToken()) {
-      logoutBtn.style.display = "none";
-    }
-
-  </script>
+</script>
 </body>
 </html>
+
+
+
+async function runAnalyze() {
+  try {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const condition = document.getElementById("serviceContext")?.value || "Claim";
+    const in_service_event = document.getElementById("inServiceEvent")?.checked || false;
+    const current_diagnosis = document.getElementById("currentDiagnosis")?.checked || false;
+    const nexus_letter = document.getElementById("nexusLetter")?.checked || false;
+    const severity = document.getElementById("severity")?.value || "moderate";
+
+    const res = await fetch("/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify({
+        condition,
+        in_service_event,
+        current_diagnosis,
+        nexus_letter,
+        severity
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        return;
+      }
+      alert(data.error || "Analyze failed");
+      return;
+    }
+
+    const r = data.result || {};
+    const el = document.getElementById("resultCard");
+
+    el.classList.remove("hidden");
+
+    el.innerHTML = `
+      <h2 class="section-title">Claim Result</h2>
+
+      <div><b>Condition:</b> ${r.condition}</div>
+      <div><b>Service Connection:</b> ${r.service_connection}</div>
+      <div><b>Estimated Rating:</b> ${r.estimated_rating}</div>
+      <div><b>Confidence:</b> ${r.confidence}</div>
+
+      <div style="margin-top:12px;">
+        <b>Why:</b><br>${r.why}
+      </div>
+
+      <div style="margin-top:12px;">
+        <b>Biggest Lever:</b><br>${r.biggest_lever}
+      </div>
+
+      <div style="margin-top:12px;">
+        <b>Next Steps:</b>
+        <ul>
+          ${(r.next_steps || []).map(s => `<li>${s}</li>`).join("")}
+        </ul>
+      </div>
+    `;
+
+  } catch (err) {
+    console.log(err);
+    alert("Something broke");
+  }
+}
