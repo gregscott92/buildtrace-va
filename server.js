@@ -96,7 +96,7 @@ app.use((req, res, next) => {
 // ROUTES (SAFE TO USE app NOW)
 // ----------------------------
 app.get("/", (req, res) => {
-  return res.redirect("/signup");
+  return res.redirect("/dashboard");
 });
 app.get("/va", (req, res) => {
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
