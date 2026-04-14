@@ -34,6 +34,11 @@
       font-size: 14px;
       line-height: 1.45;
     }
+    .helper-copy {
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.45;
+    }
     textarea {
       width: 100%;
       min-height: 150px;
@@ -126,7 +131,14 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
   capture_pageview: true,
   disable_session_recording: false
 });
+
+function toggleOptional() {
+  const el = document.getElementById("optionalSection");
+  if (!el) return;
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
 </script>
+
 </head>
 <body>
   <div class="wrap">
@@ -146,30 +158,30 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
       </div>
     </div>
     <div class="card">
-      <div class="section-title">Describe the claim</div>
-      <div class="muted" style="margin-bottom:12px;">
-        Describe your condition and I’ll estimate how strong the claim looks, what’s missing, and what to do next.
+      <div class="section-title" style="font-size:30px; line-height:1.15; margin-bottom:10px;">Find Out Your VA Rating in 30 Seconds</div>
+      <div class="muted" style="font-size:16px; margin-bottom:14px;">
+        No login. Just describe your condition and get an estimate + what you're missing.
       </div>
-      <textarea id="serviceContext" placeholder="Describe the condition, symptoms, when it started, treatment, severity, flare-ups, and work/life impact..."></textarea>
-      <div class="field-note">
-        Example: “Lower back pain started during active duty after lifting equipment. Still treated today. Flare-ups limit bending and missed work.”
-      </div>
+
+      <textarea id="serviceContext" placeholder="Example: Back pain from military service. Started after lifting equipment. Still ongoing. Limits bending and work."></textarea>
 
       <div class="actions">
-        <button id="analyzeBtn" class="btn-analyze" type="button">Check My Claim</button>
-        <button class="btn-saved" type="button" onclick="window.location.href='/saved-claims.html'">View Saved Claims</button>
-        <button class="btn-upload" type="button" onclick="window.location.href='/va-calculator.html'">Open VA Calculator</button>
+        <button id="analyzeBtn" class="btn-analyze" type="button">Get My VA Rating</button>
       </div>
 
-      <div class="field-note">
-        Built to reflect how VA claims are commonly evaluated based on rating criteria, evidence strength, and missing documentation.
-      </div>
+      <div class="muted" style="margin-top:10px; font-size:14px;">Takes ~30 seconds. No account needed. No risk.</div>
 
       <div id="errorCard" class="error hidden"></div>
     </div>
 
     <div class="card">
-      <div class="section-title">Quick Claim Inputs</div>
+      
+<div style="margin-top:20px;">
+  <div onclick="toggleOptional()" style="cursor:pointer;font-weight:700;">
+    + Optional Details (improves accuracy)
+  </div>
+  <div id="optionalSection" style="display:none;margin-top:12px;">
+
 
       <label class="check-row">
         <input id="inServiceEvent" type="checkbox" />
@@ -200,12 +212,21 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
 
     <div class="card">
       <div class="actions" style="margin-top:0;">
-        <button class="btn-access" type="button" onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=Request%20Full%20Access%20to%20BuildTrace%20VA'">Request Full Access</button>
-        <button class="btn-report" type="button" onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=BuildTrace%20VA%20Issue%20or%20Suggested%20Fix'">Report Issue / Suggest Fix</button>
+        
+        
       </div>
     </div>
 
-  </div>
+  
+    <div class="card" id="secondaryToolsCard" style="opacity:0.92;">
+      <div class="section-title" style="font-size:16px;">Other Tools</div>
+      <div class="actions" style="margin-top:0;">
+        <button class="btn-saved" type="button" onclick="window.location.href='/saved-claims.html'" style="font-size:18px; padding:16px 18px;">View Saved Claims</button>
+        <button class="btn-upload" type="button" onclick="window.location.href='/va-calculator.html'" style="font-size:18px; padding:16px 18px;">Open VA Calculator</button>
+      </div>
+    </div>
+
+</div>
 
   <script>
 
@@ -453,9 +474,9 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
           </div>
 
           <div class="mini-card" style="margin-top:20px; background:#081d4f; border:1px solid rgba(255,255,255,0.08);">
-            <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Want a more accurate answer?</div>
+            <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Unlock My Full Claim Plan</div>
             <div class="muted" style="margin-bottom:12px;">
-              The free version gives you a fast estimate. The full version can use your actual evidence and claim details for a tighter read.
+              See exactly what you're missing and how to improve your claim.
             </div>
 
             <ul style="margin-top:8px; margin-bottom:14px; padding-left:20px;">
@@ -468,9 +489,9 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
               type="button"
               class="btn-access"
               style="margin-top:6px;"
-              onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=Request%20Full%20Access%20to%20VA%20Claim%20Check'"
+              onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=Request%20Premium%20Access%20to%20VA%20Claim%20Check'"
             >
-              Unlock Full Analysis
+              Unlock My Full Claim Plan
             </button>
           </div>
 
@@ -522,6 +543,13 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
       logoutBtn.style.display = "none";
     }
 
-  </script>
+  
+function toggleOptional() {
+  const el = document.getElementById("optionalSection");
+  if (!el) return;
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+</script>
+
 </body>
 </html>
