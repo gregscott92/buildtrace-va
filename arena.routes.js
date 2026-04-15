@@ -1,3 +1,4 @@
+const { analyzeCfr38 } = require("./lib/cfr38-engine");
 const express = require("express");
 const OpenAI = require("openai");
 
@@ -38,6 +39,28 @@ Return only the answer text.
     "";
 
   return text || null;
+}
+
+
+function isVAClaim(text) {
+  const t = (text || "").toLowerCase();
+
+  // HARD MATCH (military/service context required)
+  const hasService = t.includes("service") || t.includes("military");
+
+  // CONDITION KEYWORDS
+  const hasCondition = [
+    "migraine",
+    "ptsd",
+    "tinnitus",
+    "back pain",
+    "sleep apnea",
+    "anxiety",
+    "depression",
+    "injury"
+  ].some(k => t.includes(k));
+
+  return hasService && hasCondition;
 }
 
 module.exports = function createArenaRouter(supabase) {
@@ -108,7 +131,38 @@ module.exports = function createArenaRouter(supabase) {
       let aiAnswer = null;
 
       try {
-        const generated = await generateArenaAnswer(post);
+        let generated = null;
+
+if (isVAClaim((post.title || "") + " " + (post.body || ""))) {
+  console.log("VA CLAIM DETECTED");
+
+  try {
+    const analysis = await analyzeCfr38(post.body || "");
+    console.log("ANALYSIS RESULT:", analysis);
+
+    generated = [
+      `Likely VA Rating: ${analysis?.rating ?? "Unknown"}%`,
+      `Service Connection: ${analysis?.service_connection ?? "Unknown"}`,
+      "",
+      "Why:",
+      analysis?.reasoning ?? "No reasoning available",
+      "",
+      "What You're Missing:",
+      analysis?.missing ?? "Not specified",
+      "",
+      "Next Steps:",
+      analysis?.next_steps ?? "Consult a VSO or submit supporting evidence",
+    ].join("\n");
+
+  } catch (e) {
+    console.log("VA analyzer failed:", e.message);
+    generated = "VA analysis error.";
+  }
+
+} else {
+  console.log("FALLBACK AI USED");
+  generated = await generateArenaAnswer(post);
+}
 
         if (generated) {
           const { data: answer, error: answerError } = await supabase
