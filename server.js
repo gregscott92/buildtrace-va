@@ -5379,6 +5379,130 @@ app.post("/arena/bet", async (req, res) => {
   }
 });
 
+
+
+app.get("/arena/top-va", async (req, res) => {
+  try {
+    const { data: posts, error } = await supabase
+      .from("arena_posts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    const { data: answers, error: answersError } = await supabase
+      .from("arena_answers")
+      .select("*");
+
+    if (answersError) throw answersError;
+
+    const { data: bets, error: betsError } = await supabase
+      .from("arena_bets")
+      .select("*");
+
+    if (betsError) throw betsError;
+
+    const byPostAnswers = {};
+    for (const a of answers || []) {
+      if (!byPostAnswers[a.post_id]) byPostAnswers[a.post_id] = [];
+      byPostAnswers[a.post_id].push(a);
+    }
+
+    const byPostBets = {};
+    for (const b of bets || []) {
+      if (!byPostBets[b.post_id]) byPostBets[b.post_id] = [];
+      byPostBets[b.post_id].push(b);
+    }
+
+    function isVAPost(post) {
+      const t = ((post.title || "") + " " + (post.body || "")).toLowerCase();
+      const keywords = [
+        "va", "claim", "service", "deployment", "military", "ptsd",
+        "tinnitus", "migraines", "headaches", "back pain", "sleep apnea",
+        "anxiety", "depression", "disability", "rating", "dbq"
+      ];
+      return keywords.some(k => t.includes(k));
+    }
+
+    const scored = (posts || [])
+      .map((post) => {
+        const ans = byPostAnswers[post.id] || [];
+        const postBets = byPostBets[post.id] || [];
+        const ageHours = (Date.now() - new Date(post.created_at).getTime()) / 3600000;
+
+        let score = 0;
+        score += ans.length * 2;
+        score += (post.views || 0) * 0.2;
+        score += postBets.reduce((sum, b) => sum + (b.amount || 0), 0);
+        score += Math.max(0, 24 - ageHours);
+
+        return {
+          ...post,
+          answers: ans,
+          bets: postBets.length,
+          total_stake: postBets.reduce((sum, b) => sum + (b.amount || 0), 0),
+          score
+        };
+      })
+      // prefer posts with VA analysis
+      let filtered = (posts || [])
+        .map((post) => {
+          const ans = byPostAnswers[post.id] || [];
+          const postBets = byPostBets[post.id] || [];
+          const ageHours = (Date.now() - new Date(post.created_at).getTime()) / 3600000;
+
+          let score = 0;
+          score += ans.length * 2;
+          score += (post.views || 0) * 0.2;
+          score += postBets.reduce((sum, b) => sum + (b.amount || 0), 0);
+          score += Math.max(0, 24 - ageHours);
+
+          return {
+            ...post,
+            answers: ans,
+            bets: postBets.length,
+            total_stake: postBets.reduce((sum, b) => sum + (b.amount || 0), 0),
+            score
+          };
+        });
+
+      // first pass: strong VA analysis only
+      let strong = filtered.filter((post) => {
+        const a = (post.answers || [])[0];
+        const r = a?.reasoning || "";
+        return isVAPost(post) && (
+          r.includes("Diagnostic Code") ||
+          r.includes("Estimated VA Rating")
+        );
+      });
+
+      // fallback: any VA post
+      let fallback = filtered.filter(isVAPost);
+
+      let finalList = strong.length > 0 ? strong : fallback;
+
+      finalList.sort((a, b) => b.score - a.score);
+
+      return res.json({
+        success: true,
+        post: finalList[0] || null
+      });
+
+    scored.sort((a, b) => b.score - a.score);
+
+    return res.json({
+      success: true,
+      post: scored[0] || null
+    });
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
 });

@@ -197,7 +197,75 @@ function toggleOptional() {
     >
       Use VA Calculator Instead
     </button>
-      </div>
+      </div>\n\n<!-- FEATURED ARENA -->
+<div id="featuredArena" style="max-width:900px;margin:24px auto 10px;padding:20px;border:1px solid #ddd;border-radius:12px;background:#fff;color:#111;">
+  <div style="font-size:24px;font-weight:800;margin-bottom:8px;color:#111;">
+    See how real claims are being analyzed
+  </div>
+  <div style="font-size:14px;color:#444;margin-bottom:14px;">
+    Live example from Arena.
+  </div>
+
+  <div id="top-post-card" style="display:none;color:#111;">
+    <div id="top-post-title" style="font-size:20px;font-weight:700;margin-bottom:6px;color:#111;">Loading...</div>
+    <div id="top-post-body" style="font-size:15px;opacity:0.9;margin-bottom:12px;color:#222;"></div>
+
+    <div style="font-size:13px;opacity:0.7;margin-bottom:12px;color:#444;">
+      <span id="top-post-views">0</span> views ·
+      <span id="top-post-answers">0</span> answers ·
+      <span id="top-post-stake">0</span> stake
+    </div>
+
+    <div style="padding:12px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:#111;">Arena analysis</div>
+      <div id="top-post-answer" style="font-size:14px;line-height:1.5;white-space:pre-wrap;color:#222;"></div>
+    </div>
+
+    <button onclick="window.location.href='/arena'"
+      style="margin-top:15px;padding:10px 14px;border:none;border-radius:8px;background:#111;color:#fff;cursor:pointer;width:100%;">
+      See more in Arena
+    </button>
+  </div>
+
+  <div id="top-post-empty" style="display:none;opacity:0.7;color:#444;">No VA Arena posts yet.</div>
+</div>
+
+<script>
+async function loadTopArenaPost() {
+  try {
+    const res = await fetch('/arena/top-va');
+    const data = await res.json();
+
+    const card = document.getElementById('top-post-card');
+    const empty = document.getElementById('top-post-empty');
+
+    if (!data.success || !data.post) {
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+
+    const p = data.post;
+    const a = (p.answers || [])[0];
+
+    if (card) card.style.display = 'block';
+    if (empty) empty.style.display = 'none';
+
+    document.getElementById('top-post-title').textContent = p.title || '';
+    document.getElementById('top-post-body').textContent = p.body || '';
+    document.getElementById('top-post-views').textContent = String(p.views || 0);
+    document.getElementById('top-post-answers').textContent = String((p.answers || []).length);
+    document.getElementById('top-post-stake').textContent = String(p.total_stake || 0);
+    document.getElementById('top-post-answer').textContent = a ? (a.reasoning || '') : 'No analysis yet.';
+  } catch (e) {
+    console.log('Failed to load top VA arena post', e);
+    const empty = document.getElementById('top-post-empty');
+    if (empty) empty.style.display = 'block';
+  }
+}
+
+loadTopArenaPost();
+</script>
+<!-- END FEATURED ARENA -->\n
 
       <div id="errorCard" class="error hidden"></div>
     </div>
@@ -247,9 +315,9 @@ function toggleOptional() {
 
   
     <div class="card" id="secondaryToolsCard" style="opacity:0.92;">
-      <div class="section-title" style="font-size:16px;">Other Tools</div>
+      
       <div class="actions" style="margin-top:0;">
-        <!-- <button class="btn-saved" type="button" onclick="window.location.href='/saved-claims.html'" style="font-size:18px; padding:16px 18px;">View Saved Claims</button> -->
+        <!--  -->
         
       </div>
     </div>
@@ -600,70 +668,5 @@ function toggleOptional() {
 
 
 
-<!-- FEATURED ARENA -->
-<div id="featuredArena" style="max-width:900px;margin:40px auto;padding:20px;border:1px solid #ddd;border-radius:12px;background:#fff;color:#111;">
-  <div style="font-size:26px;font-weight:700;margin-bottom:10px;color:#111;">
-    Top Arena Post
-  </div>
 
-  <div id="top-post-card" style="display:none;color:#111;">
-    <div id="top-post-title" style="font-size:20px;font-weight:700;margin-bottom:8px;color:#111;">Loading...</div>
-    <div id="top-post-body" style="font-size:15px;opacity:0.9;margin-bottom:12px;color:#222;"></div>
-
-    <div style="font-size:13px;opacity:0.7;margin-bottom:12px;color:#444;">
-      <span id="top-post-views">0</span> views ·
-      <span id="top-post-answers">0</span> answers ·
-      score <span id="top-post-score">0</span>
-    </div>
-
-    <div style="padding:12px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa;">
-      <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:#111;">Top Answer</div>
-      <div id="top-post-answer" style="font-size:14px;line-height:1.45;white-space:pre-wrap;color:#222;"></div>
-    </div>
-
-    <button onclick="window.location.href='/arena'"
-      style="margin-top:15px;padding:10px 14px;border:none;border-radius:8px;background:#111;color:#fff;cursor:pointer;">
-      See more in Arena
-    </button>
-  </div>
-
-  <div id="top-post-empty" style="display:none;opacity:0.7;color:#444;">No Arena posts yet.</div>
-</div>
-
-<script>
-async function loadTopArenaPost() {
-  try {
-    const res = await fetch('/arena/top');
-    const data = await res.json();
-
-    const card = document.getElementById('top-post-card');
-    const empty = document.getElementById('top-post-empty');
-
-    if (!data.success || !data.post) {
-      if (empty) empty.style.display = 'block';
-      return;
-    }
-
-    const p = data.post;
-    const a = (p.answers || [])[0];
-
-    if (card) card.style.display = 'block';
-    if (empty) empty.style.display = 'none';
-
-    document.getElementById('top-post-title').textContent = p.title || '';
-    document.getElementById('top-post-body').textContent = p.body || '';
-    document.getElementById('top-post-views').textContent = String(p.views || 0);
-    document.getElementById('top-post-answers').textContent = String((p.answers || []).length);
-    document.getElementById('top-post-score').textContent = String(Math.round(p.score || 0));
-    document.getElementById('top-post-answer').textContent = a ? (a.reasoning || '') : 'No analysis yet.';
-  } catch (e) {
-    console.log('Failed to load top arena post', e);
-    const empty = document.getElementById('top-post-empty');
-    if (empty) empty.style.display = 'block';
-  }
-}
-
-loadTopArenaPost();
-</script>
-<!-- END FEATURED ARENA -->
 
