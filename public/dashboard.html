@@ -386,7 +386,7 @@ loadTopArenaPost();
       }
 
       btnEl.disabled = true;
-      btnEl.innerText = "Saving...";
+      btnEl.innerHTML = "Saving...";
       statusEl.textContent = "";
 
       try {
@@ -415,16 +415,16 @@ loadTopArenaPost();
         if (!res.ok || !data.success) {
           statusEl.textContent = data.error || "Failed to save lead.";
           btnEl.disabled = false;
-          btnEl.innerText = "Save My Claim";
+          btnEl.innerHTML = "Save My Claim";
           return;
         }
 
         statusEl.textContent = "Saved. We’ll send next steps.";
-        btnEl.innerText = "Saved";
+        btnEl.innerHTML = "Saved";
       } catch (err) {
         statusEl.textContent = err.message || "Failed to save lead.";
         btnEl.disabled = false;
-        btnEl.innerText = "Save My Claim";
+        btnEl.innerHTML = "Save My Claim";
       }
     }
 
@@ -453,7 +453,7 @@ loadTopArenaPost();
         const btn = document.getElementById("analyzeBtn");
         const oldText = btn.innerText;
         btn.disabled = true;
-        btn.innerText = "Analyzing...";
+        btn.innerHTML = "Analyzing...";
 
         trackEvent("analyze_clicked", {
           page: "dashboard",
@@ -492,12 +492,12 @@ loadTopArenaPost();
           if (res.status === 401) {
             showError("This feature is temporarily unavailable.");
             btn.disabled = false;
-            btn.innerText = oldText;
+            btn.innerHTML = oldText;
             return;
           }
           showError(data.error || "Need more info. Try checking diagnosis or adding more detail.");
           btn.disabled = false;
-          btn.innerText = oldText;
+          btn.innerHTML = oldText;
           return;
         }
 
@@ -625,13 +625,13 @@ loadTopArenaPost();
         }, 2500);
 
         btn.disabled = false;
-        btn.innerText = oldText;
+        btn.innerHTML = oldText;
       } catch (err) {
         console.log(err);
         showError("Something broke");
         const btn = document.getElementById("analyzeBtn");
         btn.disabled = false;
-        btn.innerText = "Analyze Claim";
+        btn.innerHTML = "Analyze Claim";
       }
     }
 
