@@ -1,18 +1,83 @@
 const express = require("express");
+const OpenAI = require("openai");
+
+const openai =
+  process.env.OPENAI_API_KEY
+    ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    : null;
+
+async function generateArenaAnswer(post) {
+  if (!openai) return null;
+
+  const title = String(post?.title || "").trim();
+  const body = String(post?.body || "").trim();
+
+  const prompt = `
+You are writing a helpful first response in a public discussion arena.
+
+Post title: ${title}
+Post body: ${body}
+
+Write a concise, useful response that:
+- directly addresses the situation
+- sounds human
+- avoids legal/medical certainty
+- gives practical next steps if helpful
+- stays under 120 words
+
+Return only the answer text.
+`.trim();
+
+  const response = await openai.responses.create({
+    model: "gpt-4.1-mini",
+    input: prompt,
+  });
+
+  const text =
+    response.output_text?.trim() ||
+    "";
+
+  return text || null;
+}
 
 module.exports = function createArenaRouter(supabase) {
   const router = express.Router();
 
   router.get("/posts", async (_req, res) => {
     try {
-      const { data, error } = await supabase
+      const { data: posts, error: postsError } = await supabase
         .from("arena_posts")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (postsError) throw postsError;
 
-      return res.json({ success: true, posts: data || [] });
+      const postIds = (posts || []).map((p) => p.id);
+
+      let answers = [];
+      if (postIds.length) {
+        const { data: answerRows, error: answersError } = await supabase
+          .from("arena_answers")
+          .select("*")
+          .in("post_id", postIds)
+          .order("created_at", { ascending: true });
+
+        if (answersError) throw answersError;
+        answers = answerRows || [];
+      }
+
+      const byPost = {};
+      for (const a of answers) {
+        if (!byPost[a.post_id]) byPost[a.post_id] = [];
+        byPost[a.post_id].push(a);
+      }
+
+      const merged = (posts || []).map((p) => ({
+        ...p,
+        answers: byPost[p.id] || [],
+      }));
+
+      return res.json({ success: true, posts: merged });
     } catch (err) {
       return res.status(400).json({
         success: false,
@@ -32,15 +97,43 @@ module.exports = function createArenaRouter(supabase) {
         });
       }
 
-      const { data, error } = await supabase
+      const { data: post, error: postError } = await supabase
         .from("arena_posts")
         .insert([{ title: String(title).trim(), body }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (postError) throw postError;
 
-      return res.json({ success: true, post: data });
+      let aiAnswer = null;
+
+      try {
+        const generated = await generateArenaAnswer(post);
+
+        if (generated) {
+          const { data: answer, error: answerError } = await supabase
+            .from("arena_answers")
+            .insert([{
+              post_id: post.id,
+              reasoning: generated,
+              used_ai: true,
+            }])
+            .select()
+            .single();
+
+          if (!answerError) {
+            aiAnswer = answer;
+          }
+        }
+      } catch (_err) {
+        // fail open: post still succeeds even if AI answer generation fails
+      }
+
+      return res.json({
+        success: true,
+        post,
+        ai_answer: aiAnswer,
+      });
     } catch (err) {
       return res.status(400).json({
         success: false,

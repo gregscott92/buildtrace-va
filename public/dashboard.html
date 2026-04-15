@@ -584,7 +584,7 @@ function toggleOptional() {
 <div style="max-width:900px; margin:30px auto; padding:20px; border:1px solid #ddd; border-radius:12px; background:#fff;">
   <div style="font-size:28px; font-weight:700; margin-bottom:10px;">Arena</div>
   <div style="font-size:16px; margin-bottom:16px; opacity:0.8;">
-    Post your situation, see what others think, and build a public knowledge layer.
+    Post your situation, get an AI first response, and build a public knowledge layer.
   </div>
 
   <div style="margin-bottom:16px;">
@@ -611,6 +611,15 @@ function toggleOptional() {
 </div>
 
 <script>
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function loadArena() {
   const container = document.getElementById("arena-posts");
   if (!container) return;
@@ -631,15 +640,31 @@ async function loadArena() {
       return;
     }
 
-    container.innerHTML = data.posts.map(p => `
-      <div style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
-        <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${p.title || ""}</div>
-        <div style="font-size:15px; margin-bottom:8px;">${p.body || ""}</div>
-        <div style="font-size:12px; opacity:0.6;">
-          ${p.created_at ? new Date(p.created_at).toLocaleString() : ""}
+    container.innerHTML = data.posts.map(p => {
+      const answers = Array.isArray(p.answers) ? p.answers : [];
+
+      const answersHtml = answers.length
+        ? answers.map(a => `
+            <div style="margin-top:10px; padding:10px; border-radius:8px; background:#fff; border:1px solid #e8e8e8;">
+              <div style="font-size:12px; font-weight:700; opacity:0.6; margin-bottom:4px;">
+                ${a.used_ai ? "AI answer" : "Answer"}
+              </div>
+              <div style="font-size:14px; line-height:1.45;">${escapeHtml(a.reasoning || "")}</div>
+            </div>
+          `).join("")
+        : '<div style="margin-top:10px; font-size:13px; opacity:0.6;">No answers yet.</div>';
+
+      return `
+        <div style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
+          <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${escapeHtml(p.title || "")}</div>
+          <div style="font-size:15px; margin-bottom:8px;">${escapeHtml(p.body || "")}</div>
+          <div style="font-size:12px; opacity:0.6;">
+            ${p.created_at ? new Date(p.created_at).toLocaleString() : ""}
+          </div>
+          ${answersHtml}
         </div>
-      </div>
-    `).join("");
+      `;
+    }).join("");
   } catch (err) {
     container.innerHTML = "Failed to load posts";
   }
@@ -676,7 +701,11 @@ async function createArenaPost() {
 
     if (titleEl) titleEl.value = "";
     if (bodyEl) bodyEl.value = "";
-    if (statusEl) statusEl.textContent = "Posted.";
+    if (statusEl) {
+      statusEl.textContent = data.ai_answer
+        ? "Posted. AI answer added."
+        : "Posted.";
+    }
 
     loadArena();
   } catch (err) {
