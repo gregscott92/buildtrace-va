@@ -8,39 +8,54 @@ const openai =
     : null;
 
 async function generateArenaAnswer(post) {
-  if (!openai) return null;
+  if (!openai) {
+    return null;
+  }
 
-  const title = String(post?.title || "").trim();
-  const body = String(post?.body || "").trim();
+  try {
 
-  const prompt = `
-You are writing a helpful first response in a public discussion arena.
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: [
+            "You are a VA disability claims evaluator.",
+            "",
+            "Return EXACT format:",
+            "",
+            "Likely VA Rating: <number or range>",
+            "Service Connection: <Strong | Moderate | Weak>",
+            "",
+            "Why:",
+            "<reasoning>",
+            "",
+            "What You're Missing:",
+            "<missing evidence>",
+            "",
+            "Next Steps:",
+            "<actions>",
+            "",
+            "Rules:",
+            "- Never return Unknown%",
+            "- Always give a best estimate",
+            "- Fill all sections"
+          ].join("\n")
+        },
+        {
+          role: "user",
+          content: post.body || ""
+        }
+      ]
+    });
 
-Post title: ${title}
-Post body: ${body}
+    const text = response?.choices?.[0]?.message?.content || "";
 
-Write a concise, useful response that:
-- directly addresses the situation
-- sounds human
-- avoids legal/medical certainty
-- gives practical next steps if helpful
-- stays under 120 words
-
-Return only the answer text.
-`.trim();
-
-  const response = await openai.responses.create({
-    model: "gpt-4.1-mini",
-    input: prompt,
-  });
-
-  const text =
-    response.output_text?.trim() ||
-    "";
-
-  return text || null;
+    return text || null;
+  } catch (err) {
+    return null;
+  }
 }
-
 
 function isVAClaim(text) {
   const t = (text || "").toLowerCase();
@@ -145,22 +160,8 @@ if (isVAClaim((post.title || "") + " " + (post.body || ""))) {
   try {
     const input = (post.title || "") + " " + (post.body || "");
 const analysis = await analyzeCfr38(input);
-    console.log("ANALYSIS RESULT:", analysis);
 
-    generated = [
-      `Likely VA Rating: ${analysis?.rating ?? "Unknown"}%`,
-      `Service Connection: ${analysis?.service_connection ?? "Unknown"}`,
-      "",
-      "Why:",
-      analysis?.reasoning ?? "No reasoning available",
-      "",
-      "What You're Missing:",
-      analysis?.missing ?? "Not specified",
-      "",
-      "Next Steps:",
-      analysis?.next_steps ?? "Consult a VSO or submit supporting evidence",
-    ].join("\n");
-
+generated = analysis || "VA analysis unavailable";
   } catch (e) {
     console.log("VA analyzer failed:", e.message);
     generated = "VA analysis error.";
