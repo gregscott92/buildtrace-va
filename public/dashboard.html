@@ -148,6 +148,15 @@ function toggleOptional() {
         Estimate your rating. See what’s missing before you file.
       </div>
       <button id="logoutBtn" type="button" style="width:auto;padding:12px 16px;border:none;border-radius:12px;background:#ef4444;color:#fff;font-weight:800;cursor:pointer;">Log Out</button>
+
+<p style="margin-top:8px; font-size:14px; opacity:0.9;">
+No login. No paperwork. Just type your condition.
+</p>
+
+<p style="font-size:12px; opacity:0.7;">
+Based on CFR 38 (VA rating criteria)
+</p>
+
     </div>
 
     <div class="card" id="disclaimerCard">
@@ -158,9 +167,9 @@ function toggleOptional() {
       </div>
     </div>
     <div class="card">
-      <div class="section-title" style="font-size:30px; line-height:1.15; margin-bottom:10px;">Get Your VA Disability Rating in 30 Seconds</div>
+      <div class="section-title" style="font-size:30px; line-height:1.15; margin-bottom:10px;">Find Out Your VA Rating Before You File</div>
       <div class="muted" style="font-size:16px; margin-bottom:14px;">
-        No login. No guesswork. Just calculate your estimated VA rating instantly.
+        Describe your condition and get your likely rating, what you're missing, and how to improve it.
       </div>
 
       <div class="actions" style="margin-top:0;">
@@ -188,22 +197,22 @@ function toggleOptional() {
       <textarea id="serviceContext" placeholder='Example: "back pain from service"&#10;"PTSD from deployment"&#10;"knee injury getting worse over time"'></textarea>
 
       <div class="actions">
-        <button id="analyzeBtn" class="btn-analyze" type="button">Check My Claim</button>
+        <button id="analyzeBtn" class="btn-analyze" type="button">See My Likely VA Rating</button>
 
     <button
       type="button"
       style="margin-top:10px;width:100%;padding:14px;background:#2563eb;color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;"
       onclick="window.location.href='/va-calculator.html'"
     >
-      Use VA Calculator Instead
+      Calculate My Current Rating
     </button>
-      </div>\n\n<!-- FEATURED ARENA -->
+      </div><!-- FEATURED ARENA -->
 <div id="featuredArena" style="max-width:900px;margin:24px auto 10px;padding:20px;border:1px solid #ddd;border-radius:12px;background:#fff;color:#111;">
   <div style="font-size:24px;font-weight:800;margin-bottom:8px;color:#111;">
-    See how real claims are being analyzed
+    Real Example (What the VA is actually looking for)
   </div>
   <div style="font-size:14px;color:#444;margin-bottom:14px;">
-    Live example from Arena.
+    Most veterans are rated wrong the first time. Here's what a real claim looks like when analyzed correctly:
   </div>
 
   <div id="top-post-card" style="display:none;color:#111;">
@@ -265,7 +274,7 @@ async function loadTopArenaPost() {
 
 loadTopArenaPost();
 </script>
-<!-- END FEATURED ARENA -->\n
+<!-- END FEATURED ARENA -->
 
       <div id="errorCard" class="error hidden"></div>
     </div>

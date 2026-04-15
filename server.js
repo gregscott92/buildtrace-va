@@ -5381,13 +5381,14 @@ app.post("/arena/bet", async (req, res) => {
 
 
 
+
 app.get("/arena/top-va", async (req, res) => {
   try {
     const { data: posts, error } = await supabase
       .from("arena_posts")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(100);
 
     if (error) throw error;
 
@@ -5425,7 +5426,21 @@ app.get("/arena/top-va", async (req, res) => {
       return keywords.some(k => t.includes(k));
     }
 
+    function hasStrongVAAnswer(post) {
+  const a = (byPostAnswers[post.id] || [])[0];
+  const r = (a?.reasoning || "").toLowerCase();
+
+  return (
+    r.includes("va rating") ||
+    r.includes("likely va rating") ||
+    r.includes("service connection") ||
+    r.includes("diagnostic code") ||
+    r.includes("confidence")
+  );
+}
+
     const scored = (posts || [])
+      .filter(post => isVAPost(post) && hasStrongVAAnswer(post))
       .map((post) => {
         const ans = byPostAnswers[post.id] || [];
         const postBets = byPostBets[post.id] || [];
@@ -5444,49 +5459,6 @@ app.get("/arena/top-va", async (req, res) => {
           total_stake: postBets.reduce((sum, b) => sum + (b.amount || 0), 0),
           score
         };
-      })
-      // prefer posts with VA analysis
-      let filtered = (posts || [])
-        .map((post) => {
-          const ans = byPostAnswers[post.id] || [];
-          const postBets = byPostBets[post.id] || [];
-          const ageHours = (Date.now() - new Date(post.created_at).getTime()) / 3600000;
-
-          let score = 0;
-          score += ans.length * 2;
-          score += (post.views || 0) * 0.2;
-          score += postBets.reduce((sum, b) => sum + (b.amount || 0), 0);
-          score += Math.max(0, 24 - ageHours);
-
-          return {
-            ...post,
-            answers: ans,
-            bets: postBets.length,
-            total_stake: postBets.reduce((sum, b) => sum + (b.amount || 0), 0),
-            score
-          };
-        });
-
-      // first pass: strong VA analysis only
-      let strong = filtered.filter((post) => {
-        const a = (post.answers || [])[0];
-        const r = a?.reasoning || "";
-        return isVAPost(post) && (
-          r.includes("Diagnostic Code") ||
-          r.includes("Estimated VA Rating")
-        );
-      });
-
-      // fallback: any VA post
-      let fallback = filtered.filter(isVAPost);
-
-      let finalList = strong.length > 0 ? strong : fallback;
-
-      finalList.sort((a, b) => b.score - a.score);
-
-      return res.json({
-        success: true,
-        post: finalList[0] || null
       });
 
     scored.sort((a, b) => b.score - a.score);
