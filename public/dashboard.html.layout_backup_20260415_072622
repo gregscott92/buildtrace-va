@@ -158,50 +158,18 @@ function toggleOptional() {
       </div>
     </div>
     <div class="card">
-      <div class="section-title" style="font-size:30px; line-height:1.15; margin-bottom:10px;">Find Out Your VA Rating in 30 Seconds<br><span style='font-size:16px;font-weight:400;'>See what the VA will likely rate you before you file.</span></div>
+      <div class="section-title" style="font-size:30px; line-height:1.15; margin-bottom:10px;">Find Out Your VA Rating in 30 Seconds</div>
       <div class="muted" style="font-size:16px; margin-bottom:14px;">
         No login. Just describe your condition and get an estimate + what you're missing.
       </div>
 
-      <div class="actions" style="margin-top:0;">
-        
-      </div>
-
-      <div class="muted" style="margin-top:10px; font-size:14px;">
-  Most people are off by 10–30% before they file.
-</div>
-
-<div class="muted" style="margin-top:6px; font-size:14px;">
-  Takes ~30 seconds. No login required.
-</div>
-    </div>
-
-    <div class="card">
-      <div class="section-title" style="font-size:24px; line-height:1.2; margin-bottom:10px;">Want a deeper breakdown?</div>
-      <div class="muted" style="font-size:16px; margin-bottom:14px;">
-        Describe your condition and we’ll show:
-        <ul style="margin-top:10px; padding-left:20px;">
-          <li>your likely % range</li>
-          <li>what you're missing</li>
-          <li>what actually moves you up to the next rating level</li>
-        </ul>
-      </div>
-
-      <div class="muted" style="font-size:15px; margin-bottom:10px;">Paste your condition (doesn’t have to be perfect)</div>
-
-      <textarea id="serviceContext" placeholder='Example: "back pain from service"&#10;"PTSD from deployment"&#10;"knee injury getting worse over time"'></textarea>
+      <textarea id="serviceContext" placeholder="Example: Back pain from military service. Started after lifting equipment. Still ongoing. Limits bending and work."></textarea>
 
       <div class="actions">
-        <button id="analyzeBtn" class="btn-analyze" type="button">Check My Claim</button>
-
-    <button
-      type="button"
-      style="margin-top:10px;width:100%;padding:14px;background:#2563eb;color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;"
-      onclick="window.location.href='/va-calculator.html'"
-    >
-      Use VA Calculator Instead
-    </button>
+        <button id="analyzeBtn" class="btn-analyze" type="button">Get My VA Rating</button>
       </div>
+
+      <div class="muted" style="margin-top:10px; font-size:14px;">Takes ~30 seconds. No account needed. No risk.</div>
 
       <div id="errorCard" class="error hidden"></div>
     </div>
@@ -254,7 +222,7 @@ function toggleOptional() {
       <div class="section-title" style="font-size:16px;">Other Tools</div>
       <div class="actions" style="margin-top:0;">
         <button class="btn-saved" type="button" onclick="window.location.href='/saved-claims.html'" style="font-size:18px; padding:16px 18px;">View Saved Claims</button>
-        
+        <button class="btn-upload" type="button" onclick="window.location.href='/va-calculator.html'" style="font-size:18px; padding:16px 18px;">Open VA Calculator</button>
       </div>
     </div>
 

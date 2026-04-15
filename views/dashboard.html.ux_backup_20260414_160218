@@ -34,11 +34,6 @@
       font-size: 14px;
       line-height: 1.45;
     }
-    .helper-copy {
-      color: #cbd5e1;
-      font-size: 14px;
-      line-height: 1.45;
-    }
     textarea {
       width: 100%;
       min-height: 150px;
@@ -131,14 +126,7 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
   capture_pageview: true,
   disable_session_recording: false
 });
-
-function toggleOptional() {
-  const el = document.getElementById("optionalSection");
-  if (!el) return;
-  el.style.display = el.style.display === "none" ? "block" : "none";
-}
 </script>
-
 </head>
 <body>
   <div class="wrap">
@@ -158,62 +146,30 @@ function toggleOptional() {
       </div>
     </div>
     <div class="card">
-      <div class="section-title" style="font-size:30px; line-height:1.15; margin-bottom:10px;">Find Out Your VA Rating in 30 Seconds<br><span style='font-size:16px;font-weight:400;'>See what the VA will likely rate you before you file.</span></div>
-      <div class="muted" style="font-size:16px; margin-bottom:14px;">
-        No login. Just describe your condition and get an estimate + what you're missing.
+      <div class="section-title">Describe the claim</div>
+      <div class="muted" style="margin-bottom:12px;">
+        Describe your condition and I’ll estimate how strong the claim looks, what’s missing, and what to do next.
       </div>
-
-      <div class="actions" style="margin-top:0;">
-        
+      <textarea id="serviceContext" placeholder="Describe the condition, symptoms, when it started, treatment, severity, flare-ups, and work/life impact..."></textarea>
+      <div class="field-note">
+        Example: “Lower back pain started during active duty after lifting equipment. Still treated today. Flare-ups limit bending and missed work.”
       </div>
-
-      <div class="muted" style="margin-top:10px; font-size:14px;">
-  Most people are off by 10–30% before they file.
-</div>
-
-<div class="muted" style="margin-top:6px; font-size:14px;">
-  Takes ~30 seconds. No login required.
-</div>
-    </div>
-
-    <div class="card">
-      <div class="section-title" style="font-size:24px; line-height:1.2; margin-bottom:10px;">Want a deeper breakdown?</div>
-      <div class="muted" style="font-size:16px; margin-bottom:14px;">
-        Describe your condition and we’ll show:
-        <ul style="margin-top:10px; padding-left:20px;">
-          <li>your likely % range</li>
-          <li>what you're missing</li>
-          <li>what actually moves you up to the next rating level</li>
-        </ul>
-      </div>
-
-      <div class="muted" style="font-size:15px; margin-bottom:10px;">Paste your condition (doesn’t have to be perfect)</div>
-
-      <textarea id="serviceContext" placeholder='Example: "back pain from service"&#10;"PTSD from deployment"&#10;"knee injury getting worse over time"'></textarea>
 
       <div class="actions">
         <button id="analyzeBtn" class="btn-analyze" type="button">Check My Claim</button>
+        <button class="btn-saved" type="button" onclick="window.location.href='/saved-claims.html'">View Saved Claims</button>
+        <button class="btn-upload" type="button" onclick="window.location.href='/va-calculator.html'">Open VA Calculator</button>
+      </div>
 
-    <button
-      type="button"
-      style="margin-top:10px;width:100%;padding:14px;background:#2563eb;color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;"
-      onclick="window.location.href='/va-calculator.html'"
-    >
-      Use VA Calculator Instead
-    </button>
+      <div class="field-note">
+        Built to reflect how VA claims are commonly evaluated based on rating criteria, evidence strength, and missing documentation.
       </div>
 
       <div id="errorCard" class="error hidden"></div>
     </div>
 
     <div class="card">
-      
-<div style="margin-top:20px;">
-  <div onclick="toggleOptional()" style="cursor:pointer;font-weight:700;">
-    + Optional Details (improves accuracy)
-  </div>
-  <div id="optionalSection" style="display:none;margin-top:12px;">
-
+      <div class="section-title">Quick Claim Inputs</div>
 
       <label class="check-row">
         <input id="inServiceEvent" type="checkbox" />
@@ -244,21 +200,12 @@ function toggleOptional() {
 
     <div class="card">
       <div class="actions" style="margin-top:0;">
-        
-        
+        <button class="btn-access" type="button" onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=Request%20Full%20Access%20to%20BuildTrace%20VA'">Request Full Access</button>
+        <button class="btn-report" type="button" onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=BuildTrace%20VA%20Issue%20or%20Suggested%20Fix'">Report Issue / Suggest Fix</button>
       </div>
     </div>
 
-  
-    <div class="card" id="secondaryToolsCard" style="opacity:0.92;">
-      <div class="section-title" style="font-size:16px;">Other Tools</div>
-      <div class="actions" style="margin-top:0;">
-        <button class="btn-saved" type="button" onclick="window.location.href='/saved-claims.html'" style="font-size:18px; padding:16px 18px;">View Saved Claims</button>
-        
-      </div>
-    </div>
-
-</div>
+  </div>
 
   <script>
 
@@ -506,9 +453,9 @@ function toggleOptional() {
           </div>
 
           <div class="mini-card" style="margin-top:20px; background:#081d4f; border:1px solid rgba(255,255,255,0.08);">
-            <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Unlock My Full Claim Plan</div>
+            <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Want a more accurate answer?</div>
             <div class="muted" style="margin-bottom:12px;">
-              See exactly what you're missing and how to improve your claim.
+              The free version gives you a fast estimate. The full version can use your actual evidence and claim details for a tighter read.
             </div>
 
             <ul style="margin-top:8px; margin-bottom:14px; padding-left:20px;">
@@ -521,9 +468,9 @@ function toggleOptional() {
               type="button"
               class="btn-access"
               style="margin-top:6px;"
-              onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=Request%20Premium%20Access%20to%20VA%20Claim%20Check'"
+              onclick="window.location.href='mailto:greg.scott92@icloud.com?subject=Request%20Full%20Access%20to%20VA%20Claim%20Check'"
             >
-              Unlock My Full Claim Plan
+              Unlock Full Analysis
             </button>
           </div>
 
@@ -575,13 +522,6 @@ function toggleOptional() {
       logoutBtn.style.display = "none";
     }
 
-  
-function toggleOptional() {
-  const el = document.getElementById("optionalSection");
-  if (!el) return;
-  el.style.display = el.style.display === "none" ? "block" : "none";
-}
-</script>
-
+  </script>
 </body>
 </html>
