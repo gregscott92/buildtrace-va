@@ -109,6 +109,10 @@ app.get("/dashboard", (req, res) => {
   return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
 });
 
+app.get("/arena", (req, res) => {
+  return res.sendFile(path.join(__dirname, "views", "arena.html"));
+});
+
 const { runFivePassPipeline } = require("./lib/ai-pipeline");
 const { finalizePost, choosePersona } = require("./lib/persona");
 const { upsertXMetric } = require("./lib/metrics");
@@ -780,6 +784,7 @@ app.use((req, res, next) => {
   if (
     req.path === "/" ||
     req.path === "/dashboard" ||
+    req.path === "/arena" ||
     req.path === "/analyze" ||
     req.path === "/lead" ||
     req.path === "/va-calculator.html" ||
