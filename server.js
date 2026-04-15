@@ -5252,6 +5252,135 @@ app.post("/track", (req, res) => {
   }
 });
 
+
+app.get("/arena/top", async (req, res) => {
+  try {
+    const { data: posts, error } = await supabase
+      .from("arena_posts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    const { data: answers, error: answersError } = await supabase
+      .from("arena_answers")
+      .select("*");
+
+    if (answersError) throw answersError;
+
+    const { data: bets, error: betsError } = await supabase
+      .from("arena_bets")
+      .select("*");
+
+    if (betsError) throw betsError;
+
+    const byPostAnswers = {};
+    for (const a of answers || []) {
+      if (!byPostAnswers[a.post_id]) byPostAnswers[a.post_id] = [];
+      byPostAnswers[a.post_id].push(a);
+    }
+
+    const byPostBets = {};
+    for (const b of bets || []) {
+      if (!byPostBets[b.post_id]) byPostBets[b.post_id] = [];
+      byPostBets[b.post_id].push(b);
+    }
+
+    const scored = (posts || []).map((post) => {
+      const ans = byPostAnswers[post.id] || [];
+      const postBets = byPostBets[post.id] || [];
+      const ageHours = (Date.now() - new Date(post.created_at).getTime()) / 3600000;
+
+      let score = 0;
+      score += ans.length * 2;
+      score += (post.views || 0) * 0.2;
+      score += postBets.length * 3;
+      score += Math.max(0, 24 - ageHours);
+
+      return {
+        ...post,
+        answers: ans,
+        bets: postBets.length,
+        score
+      };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+
+    return res.json({
+      success: true,
+      post: scored[0] || null
+    });
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+
+
+
+app.post("/arena/view/:id", async (req, res) => {
+  try {
+    const postId = req.params.id;
+
+    const { data: post, error: fetchError } = await supabase
+      .from("arena_posts")
+      .select("id, views")
+      .eq("id", postId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const nextViews = (post?.views || 0) + 1;
+
+    const { error: updateError } = await supabase
+      .from("arena_posts")
+      .update({ views: nextViews })
+      .eq("id", postId);
+
+    if (updateError) throw updateError;
+
+    return res.json({ success: true, views: nextViews });
+  } catch (err) {
+    return res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+
+
+app.post("/arena/bet", async (req, res) => {
+  try {
+    const { post_id, direction = "up", amount = 1, user_id = null } = req.body || {};
+
+    if (!post_id) {
+      return res.status(400).json({ success: false, error: "post_id is required" });
+    }
+
+    const { data, error } = await supabase
+      .from("arena_bets")
+      .insert([{
+        post_id,
+        direction,
+        amount,
+        user_id
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return res.json({ success: true, bet: data });
+  } catch (err) {
+    return res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 app.listen(PORT, function () {
   console.log("Build Logger API running on port " + PORT);
 });
+
+

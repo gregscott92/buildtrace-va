@@ -597,3 +597,73 @@ function toggleOptional() {
 
 </body>
 </html>
+
+
+
+<!-- FEATURED ARENA -->
+<div id="featuredArena" style="max-width:900px;margin:40px auto;padding:20px;border:1px solid #ddd;border-radius:12px;background:#fff;">
+  <div style="font-size:26px;font-weight:700;margin-bottom:10px;">
+    Top Arena Post
+  </div>
+
+  <div id="top-post-card" style="display:none;">
+    <div id="top-post-title" style="font-size:20px;font-weight:700;margin-bottom:8px;">Loading...</div>
+    <div id="top-post-body" style="font-size:15px;opacity:0.9;margin-bottom:12px;"></div>
+
+    <div style="font-size:13px;opacity:0.7;margin-bottom:12px;">
+      <span id="top-post-views">0</span> views ·
+      <span id="top-post-answers">0</span> answers ·
+      score <span id="top-post-score">0</span>
+    </div>
+
+    <div style="padding:12px;border:1px solid #eee;border-radius:8px;background:#fafafa;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Top Answer</div>
+      <div id="top-post-answer" style="font-size:14px;line-height:1.45;white-space:pre-wrap;"></div>
+    </div>
+  </div>
+
+  <div id="top-post-empty" style="display:none;opacity:0.7;">No Arena posts yet.</div>
+
+  <button onclick="window.location.href='/arena'"
+    style="margin-top:15px;padding:10px 14px;border:none;border-radius:8px;background:#111;color:#fff;cursor:pointer;">
+    See more in Arena
+  </button>
+</div>
+
+<script>
+async function loadTopArenaPost() {
+  try {
+    const res = await fetch('/arena/top');
+    const data = await res.json();
+
+    const card = document.getElementById('top-post-card');
+    const empty = document.getElementById('top-post-empty');
+
+    if (!data.success || !data.post) {
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+
+    const p = data.post;
+    const a = (p.answers || [])[0];
+
+    const esc = (s) => String(s || '');
+
+    if (card) card.style.display = 'block';
+    if (empty) empty.style.display = 'none';
+
+    document.getElementById('top-post-title').textContent = esc(p.title);
+    document.getElementById('top-post-body').textContent = esc(p.body);
+    document.getElementById('top-post-views').textContent = String(p.views || 0);
+    document.getElementById('top-post-answers').textContent = String((p.answers || []).length);
+    document.getElementById('top-post-score').textContent = String(Math.round(p.score || 0));
+    document.getElementById('top-post-answer').textContent = a ? esc(a.reasoning) : 'No analysis yet.';
+  } catch (e) {
+    console.log('Failed to load top arena post', e);
+  }
+}
+
+loadTopArenaPost();
+</script>
+<!-- END FEATURED ARENA -->
+
