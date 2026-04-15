@@ -60,7 +60,13 @@ function isVAClaim(text) {
     "injury"
   ].some(k => t.includes(k));
 
-  return hasService && hasCondition;
+  return hasCondition && (
+  hasService ||
+  t.includes("deployment") ||
+  t.includes("afghanistan") ||
+  t.includes("iraq") ||
+  t.includes("combat")
+);
 }
 
 module.exports = function createArenaRouter(supabase) {
@@ -137,7 +143,8 @@ if (isVAClaim((post.title || "") + " " + (post.body || ""))) {
   console.log("VA CLAIM DETECTED");
 
   try {
-    const analysis = await analyzeCfr38(post.body || "");
+    const input = (post.title || "") + " " + (post.body || "");
+const analysis = await analyzeCfr38(input);
     console.log("ANALYSIS RESULT:", analysis);
 
     generated = [
@@ -161,7 +168,9 @@ if (isVAClaim((post.title || "") + " " + (post.body || ""))) {
 
 } else {
   console.log("FALLBACK AI USED");
+  if (!generated) {
   generated = await generateArenaAnswer(post);
+}
 }
 
         if (generated) {
