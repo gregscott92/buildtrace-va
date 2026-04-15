@@ -7,6 +7,7 @@ const upload = multer({ dest: "uploads/" });
 require("dotenv").config();
 
 const express = require("express");
+const createArenaRouter = require("./arena.routes");
 const cookieParser = require("cookie-parser");
 const { createClient } = require("@supabase/supabase-js");
 const OpenAI = require("openai");
@@ -492,6 +493,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Arena routes
+app.use("/arena", createArenaRouter(supabase));
+
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -783,6 +787,7 @@ app.use((req, res, next) => {
     req.path.startsWith("/login") ||
     req.path.startsWith("/signup") ||
     req.path === "/health" ||
+    req.path.startsWith("/arena") ||
     req.path.startsWith("/public") ||
     req.path.endsWith(".css") ||
     req.path.endsWith(".js")
