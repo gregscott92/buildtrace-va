@@ -87,7 +87,27 @@ function isVAClaim(text) {
 module.exports = function createArenaRouter(supabase) {
   const router = express.Router();
 
-  router.get("/posts", async (_req, res) => {
+  
+  router.get("/topics", async (_req, res) => {
+    try {
+      const { data, error } = await supabase
+        .from("arena_topics")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      if (error) throw error;
+
+      return res.json({ success: true, topics: data || [] });
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        error: err.message || "Failed to load topics",
+      });
+    }
+  });
+
+router.get("/posts", async (_req, res) => {
     try {
       const { data: posts, error: postsError } = await supabase
         .from("arena_posts")

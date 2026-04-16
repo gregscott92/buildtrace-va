@@ -67,7 +67,9 @@
       <!-- ARENA SECTION -->
 <div style="max-width:900px; margin:30px auto; padding:20px; border:1px solid #ddd; border-radius:12px; background:#fff;">
   <div style="font-size:28px; font-weight:700; margin-bottom:10px;">Arena</div>
-  <div style="font-size:16px; margin-bottom:16px; opacity:0.8;">
+  
+<div id="arena-topic-nav" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+<div style="font-size:16px; margin-bottom:16px; opacity:0.8;">
     Post your situation, get an AI first response, and build a public knowledge layer.
   </div>
 
@@ -107,6 +109,37 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+
+async function loadTopics() {
+  const nav = document.getElementById("arena-topic-nav");
+  const topicEl = document.getElementById("arena-topic");
+  if (!nav) return;
+
+  try {
+    const res = await fetch("/arena/topics");
+    const data = await res.json();
+
+    if (!data.success || !Array.isArray(data.topics)) {
+      nav.innerHTML = "";
+      return;
+    }
+
+    if (topicEl) topicEl.value = currentTopic;
+
+    nav.innerHTML = data.topics.map(t => {
+      const active = (t.slug || "").toLowerCase() === currentTopic;
+      return `
+        <a
+          href="/arena?topic=${encodeURIComponent(t.slug)}"
+          style="text-decoration:none;padding:8px 12px;border-radius:999px;border:1px solid #ccc;background:${active ? "#111" : "#fff"};color:${active ? "#fff" : "#111"};font-size:14px;font-weight:700;"
+        >${escapeHtml(t.name || t.slug || "")}</a>
+      `;
+    }).join("");
+  } catch (_err) {
+    nav.innerHTML = "";
+  }
 }
 
 async function loadArena() {
@@ -270,7 +303,8 @@ const topic = topicEl ? topicEl.value.trim() : "va";
     }
 
     setTimeout(() => {
-      loadArena();
+      loadTopics();
+loadArena();
     }, 400);
   } catch (err) {
     if (statusEl) statusEl.textContent = "Failed to post: " + (err.message || "unknown error");
