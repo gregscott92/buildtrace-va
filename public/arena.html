@@ -209,7 +209,7 @@ async function loadArena() {
         : '<div style="margin-top:10px; font-size:13px; opacity:0.6;">No answers yet.</div>';
 
       return `
-          <div data-post-id="${data.post?.id || ""}" style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
+          <div data-post-id="${p.id}" style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
           <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${escapeHtml(p.title || "")}</div>
           <div style="font-size:15px; margin-bottom:8px;">${escapeHtml(p.body || "")}</div>
           <div style="font-size:12px; opacity:0.6;">
@@ -362,5 +362,73 @@ async function postComment(postId) {
 <!-- END ARENA SECTION -->
     </div>
   </div>
+
+<script>
+function getArenaDeviceId() {
+  let id = localStorage.getItem("arena_device_id");
+  if (!id) {
+    id = "arena_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem("arena_device_id", id);
+  }
+  return id;
+}
+
+async function reactToPost(postId, reaction) {
+  const el = document.getElementById(`reaction-counts-${postId}`);
+  const device_id = getArenaDeviceId();
+
+  const res = await fetch("/arena/react", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ post_id: postId, reaction, device_id })
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) return;
+
+  if (el) {
+    el.textContent = `Agree ${data.counts.agree} · Disagree ${data.counts.disagree}`;
+  }
+}
+
+function attachReactionUI() {
+  document.querySelectorAll("[data-post-id]").forEach((post) => {
+    const postId = post.getAttribute("data-post-id");
+    if (!postId) return;
+
+    if (post.querySelector(".reaction-bar")) return;
+
+    const bar = document.createElement("div");
+    bar.className = "reaction-bar";
+    bar.style.marginTop = "10px";
+    bar.style.display = "flex";
+    bar.style.gap = "8px";
+
+    const agree = document.createElement("button");
+    agree.textContent = "Agree";
+    agree.onclick = () => reactToPost(postId, "agree");
+
+    const disagree = document.createElement("button");
+    disagree.textContent = "Disagree";
+    disagree.onclick = () => reactToPost(postId, "disagree");
+
+    const counts = document.createElement("div");
+    counts.id = "reaction-counts-" + postId;
+    counts.style.fontSize = "12px";
+    counts.style.color = "#666";
+    counts.textContent = "Agree 0 · Disagree 0";
+
+    bar.appendChild(agree);
+    bar.appendChild(disagree);
+    bar.appendChild(counts);
+
+    post.appendChild(bar);
+  });
+}
+
+// 🔁 Run repeatedly (handles dynamic render)
+setInterval(attachReactionUI, 1000);
+</script>
+
 </body>
 </html>

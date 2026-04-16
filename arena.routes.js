@@ -49,32 +49,35 @@ ${body}`.trim();
         "You are replying in a sports debate forum.",
         "Sound like a sharp sports fan, not a chatbot.",
         "Be direct, opinionated, and concise.",
-        "Answer in 2 to 5 sentences max.",
-        "Take a stance when possible.",
+        "Answer in 2 to 4 sentences max. Keep it tight.",
+        "Take a clear stance. Avoid neutral answers.",
         "Do not ask vague clarification questions unless the post is totally unusable.",
         "Do not mention being an AI.",
-        "Do not sound formal or supportive."
+        "Do not sound formal or supportive.",
+        "Avoid polished or essay-style writing. Write like a real person in a forum."
       ].join("\n");
     } else if (topic === "music") {
       systemPrompt = [
         "You are replying in a music discussion forum.",
         "Sound like someone with taste and conviction.",
         "Be concise, direct, and a little punchy.",
-        "Answer in 2 to 5 sentences max.",
+        "Answer in 2 to 4 sentences max. Keep it tight.",
         "Take a position.",
         "No chatbot filler.",
         "No generic hedging.",
-        "Do not ask for clarification unless absolutely necessary."
+        "Do not ask for clarification unless absolutely necessary.",
+        "Avoid polished or essay-style writing. Write like a real person in a forum."
       ].join("\n");
     } else if (topic === "politics") {
       systemPrompt = [
         "You are replying in a politics discussion forum.",
-        "Be direct, clear, and grounded.",
-        "Answer in 2 to 5 sentences max.",
+        "Be direct and slightly blunt.",
+        "Answer in 2 to 4 sentences max. Keep it tight.",
         "State the strongest case plainly.",
         "No generic neutrality language.",
         "No 'both sides' filler unless the post truly requires it.",
-        "Do not sound like a customer support bot."
+        "Do not sound like a customer support bot.",
+        "Avoid polished or essay-style writing. Write like a real person in a forum."
       ].join("\n");
     } else {
       systemPrompt = [
@@ -92,7 +95,8 @@ ${body}`.trim();
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: 0.8
+      temperature: 0.8,
+      max_tokens: 120
     });
 
     return response?.choices?.[0]?.message?.content?.trim() || null;
@@ -183,10 +187,31 @@ router.get("/posts", async (req, res) => {
         byPost[a.post_id].push(a);
       }
 
-      const merged = (posts || []).map((p) => ({
-        ...p,
-        answers: byPost[p.id] || [],
-      }));
+      let reactions = [];
+
+if (postIds.length) {
+  const { data: reactionRows, error: reactionsError } = await supabase
+    .from("arena_reactions")
+    .select("post_id,reaction");
+
+  if (reactionsError) throw reactionsError;
+  reactions = reactionRows || [];
+}
+
+const reactionByPost = {};
+for (const r of reactions) {
+  if (!reactionByPost[r.post_id]) {
+    reactionByPost[r.post_id] = { agree: 0, disagree: 0 };
+  }
+  if (r.reaction === "agree") reactionByPost[r.post_id].agree += 1;
+  if (r.reaction === "disagree") reactionByPost[r.post_id].disagree += 1;
+}
+
+const merged = (posts || []).map((p) => ({
+  ...p,
+  answers: byPost[p.id] || [],
+  reactions: reactionByPost[p.id] || { agree: 0, disagree: 0 },
+}));
 
       return res.json({ success: true, posts: merged });
     } catch (err) {
@@ -463,6 +488,51 @@ generated = analysis || "VA analysis unavailable";
 
     } catch (err) {
       return res.status(400).json({ success: false, error: err.message });
+    }
+  });
+
+
+  router.post("/react", async (req, res) => {
+    try {
+      const post_id = String(req.body?.post_id || "").trim();
+      const reaction = String(req.body?.reaction || "").trim().toLowerCase();
+      const device_id = String(req.body?.device_id || "").trim();
+
+      if (!post_id || !reaction || !device_id) {
+        return res.status(400).json({ success: false, error: "Missing fields" });
+      }
+
+      if (!["agree", "disagree"].includes(reaction)) {
+        return res.status(400).json({ success: false, error: "Invalid reaction" });
+      }
+
+      const { error: upsertError } = await supabase
+        .from("arena_reactions")
+        .upsert([{ post_id, device_id, reaction }], {
+          onConflict: "post_id,device_id",
+        });
+
+      if (upsertError) throw upsertError;
+
+      const { data: rows, error: countError } = await supabase
+        .from("arena_reactions")
+        .select("reaction")
+        .eq("post_id", post_id);
+
+      if (countError) throw countError;
+
+      const counts = { agree: 0, disagree: 0 };
+      for (const row of rows || []) {
+        if (row.reaction === "agree") counts.agree += 1;
+        if (row.reaction === "disagree") counts.disagree += 1;
+      }
+
+      return res.json({ success: true, counts });
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        error: err.message || "Failed to save reaction",
+      });
     }
   });
 
