@@ -151,14 +151,24 @@ async function loadArena() {
             ${p.created_at ? new Date(p.created_at).toLocaleString() : ""}
           </div>
           ${answersHtml}
-        </div>
-      `;
+
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid #eee;">
+              <div style="font-size:12px;color:#666;margin-bottom:6px;">Comments</div>
+              <div id="comments-${p.id}" style="margin-bottom:8px;"></div>
+              <textarea id="comment-input-${p.id}" placeholder="Add a comment..." style="width:100%;min-height:60px;padding:8px;border:1px solid #ccc;border-radius:6px;"></textarea>
+              <button onclick="postComment('${p.id}')" style="margin-top:6px;background:#111;color:#fff;padding:8px 12px;border:none;border-radius:6px;">Post</button>
+            </div>
+          </div>
+        `;
     }).join("");
 
 setTimeout(() => {
+  setTimeout(() => {
+        setTimeout(() => {
   data.posts.forEach(p => loadComments(p.id));
 }, 50);
-injectCommentsUI();
+      }, 50);
+}, 50);
   } catch (err) {
     container.innerHTML = "Failed to load posts";
   }
@@ -200,7 +210,6 @@ async function createArenaPost() {
   const postsEl = document.getElementById("arena-posts");
 const topicEl = document.getElementById("arena-topic");
 const params = new URLSearchParams(window.location.search);
-const currentTopic = (params.get("topic") || "va").toLowerCase();
 if (topicEl) topicEl.value = currentTopic;
 
   const title = titleEl ? titleEl.value.trim() : "";
@@ -303,36 +312,6 @@ async function postComment(postId) {
 }
 
 
-
-// ===== FORCE COMMENT UI AFTER RENDER =====
-function injectCommentsUI() {
-  const cards = document.querySelectorAll("[data-post-id]");
-
-  cards.forEach(card => {
-    const postId = card.getAttribute("data-post-id");
-    if (!postId) return;
-
-    // prevent duplicate
-    if (card.querySelector(".comment-box")) return;
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "comment-box";
-    wrapper.style.marginTop = "12px";
-    wrapper.innerHTML = `
-      <div style="font-size:12px;color:#666;margin-bottom:6px;">Comments</div>
-      <div id="comments-${postId}" style="margin-bottom:8px;"></div>
-      <textarea id="comment-input-${postId}" placeholder="Add a comment..."
-        style="width:100%;min-height:50px;padding:6px;border:1px solid #ccc;border-radius:6px;"></textarea>
-      <button onclick="postComment('${postId}')"
-        style="margin-top:6px;background:#111;color:#fff;padding:6px 10px;border:none;border-radius:6px;">
-        Post
-      </button>
-    `;
-
-    card.appendChild(wrapper);
-    loadComments(postId);
-  });
-}
 
 </script>
 
