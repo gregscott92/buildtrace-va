@@ -7,6 +7,7 @@ const upload = multer({ dest: "uploads/" });
 require("dotenv").config();
 
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const createArenaRouter = require("./arena.routes");
 const cookieParser = require("cookie-parser");
 const { createClient } = require("@supabase/supabase-js");
@@ -20,6 +21,15 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const app = express();
+
+const arenaLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Too many requests. Slow down." },
+});
+
 
 // ===== CREATOR BYPASS =====
 const CREATOR_EMAIL = "greg.scott92@icloud.com";
@@ -498,6 +508,8 @@ const supabase = createClient(
 );
 
 // Arena routes
+app.use("/arena/posts", arenaLimiter);
+app.use("/arena/comments", arenaLimiter);
 app.use("/arena", createArenaRouter(supabase));
 
 const supabaseAdmin = createClient(
