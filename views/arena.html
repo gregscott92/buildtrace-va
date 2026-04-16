@@ -111,7 +111,7 @@ async function loadArena() {
   container.innerHTML = "Loading posts...";
 
   try {
-    const res = await fetch("/arena/posts");
+    const res = await fetch(`/arena/posts?topic=${encodeURIComponent(currentTopic)}`);
     const data = await res.json();
 
     if (!data.success) {
@@ -157,13 +157,47 @@ injectCommentsUI();
   }
 }
 
+
+async function loadFeaturedPost() {
+  const featuredEl = document.getElementById("featured-post");
+  if (!featuredEl) return;
+
+  try {
+    const res = await fetch("/arena/featured");
+    const data = await res.json();
+
+    if (!data.success || !data.post) {
+      featuredEl.innerHTML = "";
+      return;
+    }
+
+    const p = data.post;
+    featuredEl.innerHTML = `
+      <div style="border:1px solid #ddd;padding:14px;border-radius:10px;background:#fafafa;">
+        <div style="font-size:12px;opacity:0.6;margin-bottom:6px;">Most engaged recent post</div>
+        <div style="font-size:12px;display:inline-block;background:#111;color:#fff;padding:4px 8px;border-radius:999px;margin-bottom:8px;">${p.topic || "va"}</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:6px;">${escapeHtml(p.title || "")}</div>
+        <div style="font-size:14px;margin-bottom:8px;">${escapeHtml(p.body || "")}</div>
+        <div style="font-size:12px;opacity:0.7;">Engagement: ${p.engagement_score || 0}</div>
+      </div>
+    `;
+  } catch (_err) {
+    featuredEl.innerHTML = "";
+  }
+}
+
 async function createArenaPost() {
   const titleEl = document.getElementById("arena-title");
   const bodyEl = document.getElementById("arena-body");
   const statusEl = document.getElementById("arena-status");
   const postsEl = document.getElementById("arena-posts");
+const topicEl = document.getElementById("arena-topic");
+const params = new URLSearchParams(window.location.search);
+const currentTopic = (params.get("topic") || "va").toLowerCase();
+if (topicEl) topicEl.value = currentTopic;
 
   const title = titleEl ? titleEl.value.trim() : "";
+const topic = topicEl ? topicEl.value.trim() : "va";
   const body = bodyEl ? bodyEl.value.trim() : "";
 
   if (!title) {
@@ -177,7 +211,7 @@ async function createArenaPost() {
     const res = await fetch("/arena/posts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body })
+      body: JSON.stringify({ title, body, topic })
     });
 
     const data = await res.json();

@@ -87,11 +87,14 @@ function isVAClaim(text) {
 module.exports = function createArenaRouter(supabase) {
   const router = express.Router();
 
-  router.get("/posts", async (_req, res) => {
+  router.get("/posts", async (req, res) => {
     try {
+      const topic = String(req.query.topic || "va").trim().toLowerCase();
+
       const { data: posts, error: postsError } = await supabase
         .from("arena_posts")
         .select("*")
+        .eq("topic", topic)
         .order("created_at", { ascending: false });
 
       if (postsError) throw postsError;
@@ -132,7 +135,7 @@ module.exports = function createArenaRouter(supabase) {
 
   router.post("/posts", async (req, res) => {
     try {
-      const { title, body = "" } = req.body || {};
+      const { title, body = "", topic = "va" } = req.body || {};
 
       if (!title || !String(title).trim()) {
         return res.status(400).json({
@@ -143,7 +146,7 @@ module.exports = function createArenaRouter(supabase) {
 
       const { data: post, error: postError } = await supabase
         .from("arena_posts")
-        .insert([{ title: String(title).trim(), body }])
+        .insert([{ title: String(title).trim(), body, topic: String(topic || "va").trim().toLowerCase() }])
         .select()
         .single();
 
@@ -202,6 +205,77 @@ generated = analysis || "VA analysis unavailable";
       return res.status(400).json({
         success: false,
         error: err.message || "Failed to create post",
+      });
+    }
+  });
+
+
+  router.get("/featured", async (_req, res) => {
+    try {
+      const { data: posts, error: postsError } = await supabase
+        .from("arena_posts")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (postsError) throw postsError;
+
+      const postIds = (posts || []).map((p) => p.id);
+
+      let answers = [];
+      let comments = [];
+
+      if (postIds.length) {
+        const { data: answerRows, error: answersError } = await supabase
+          .from("arena_answers")
+          .select("*")
+          .in("post_id", postIds)
+          .order("created_at", { ascending: true });
+
+        if (answersError) throw answersError;
+        answers = answerRows || [];
+
+        const { data: commentRows, error: commentsError } = await supabase
+          .from("arena_comments")
+          .select("*")
+          .in("post_id", postIds)
+          .order("created_at", { ascending: true });
+
+        if (commentsError) throw commentsError;
+        comments = commentRows || [];
+      }
+
+      const byPostAnswers = {};
+      for (const a of answers) {
+        if (!byPostAnswers[a.post_id]) byPostAnswers[a.post_id] = [];
+        byPostAnswers[a.post_id].push(a);
+      }
+
+      const byPostComments = {};
+      for (const c of comments) {
+        if (!byPostComments[c.post_id]) byPostComments[c.post_id] = [];
+        byPostComments[c.post_id].push(c);
+      }
+
+      const merged = (posts || []).map((p) => ({
+        ...p,
+        answers: byPostAnswers[p.id] || [],
+        comments: byPostComments[p.id] || [],
+        engagement_score: (byPostAnswers[p.id] || []).length + (byPostComments[p.id] || []).length,
+      }));
+
+      merged.sort((a, b) => {
+        if (b.engagement_score !== a.engagement_score) return b.engagement_score - a.engagement_score;
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+
+      return res.json({
+        success: true,
+        post: merged[0] || null,
+      });
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        error: err.message || "Failed to fetch featured post",
       });
     }
   });
