@@ -87,14 +87,11 @@ function isVAClaim(text) {
 module.exports = function createArenaRouter(supabase) {
   const router = express.Router();
 
-  router.get("/posts", async (req, res) => {
+  router.get("/posts", async (_req, res) => {
     try {
-      const topic = String(req.query.topic || "va").trim().toLowerCase();
-
       const { data: posts, error: postsError } = await supabase
         .from("arena_posts")
         .select("*")
-        .eq("topic", topic)
         .order("created_at", { ascending: false });
 
       if (postsError) throw postsError;
