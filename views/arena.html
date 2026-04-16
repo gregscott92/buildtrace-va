@@ -150,7 +150,7 @@ async function loadArena() {
       `;
     }).join("");
 
-posts.forEach(p => loadComments(p.id));
+data.posts.forEach(p => loadComments(p.id));
   } catch (err) {
     container.innerHTML = "Failed to load posts";
   }
