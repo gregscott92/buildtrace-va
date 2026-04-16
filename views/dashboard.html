@@ -232,7 +232,7 @@ Based on CFR 38 (VA rating criteria)
 
     <button onclick="window.location.href='/arena'"
       style="margin-top:15px;padding:10px 14px;border:none;border-radius:8px;background:#111;color:#fff;cursor:pointer;width:100%;">
-      See more in Arena
+      <span onclick="if (window.posthog) posthog.capture('see_more_arena_clicked',{location:'dashboard'}); window.location='/arena';" style="cursor:pointer;">See more in Arena</span>
     </button>
   </div>
 
