@@ -31,21 +31,19 @@ async function generateArenaAnswer(post) {
       "",
       "Next Steps:",
       "<actions>"
-    ].join("
-");
+    ].join("\n");
   } else {
     systemPrompt = [
       `You are replying to a ${topic} discussion.`,
       "Give a helpful, human answer.",
       "Do NOT mention VA ratings, claims, or service connection.",
       "Keep it short and useful."
-    ].join("
-");
+    ].join("\n");
   }
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: post.body || "" }
