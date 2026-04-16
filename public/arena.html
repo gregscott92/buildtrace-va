@@ -86,7 +86,7 @@
     />
     <textarea
       id="arena-body"
-      placeholder="Write your situation here"
+      placeholder=""
       style="width:100%; min-height:120px; padding:12px; border:1px solid #ccc; border-radius:8px; font-size:16px;"
     ></textarea>
     <input type="hidden" id="arena-topic" value="va" />
@@ -106,6 +106,15 @@
 <script>
 const params = new URLSearchParams(window.location.search);
 const currentTopic = (params.get("topic") || "va").toLowerCase();
+const topicPrompts = {
+  va: "Describe your condition, symptoms, and service connection.",
+  sports: "Make your argument. Who’s right and why?",
+  music: "Drop your take. What’s underrated or overrated?",
+  politics: "State your position clearly. Back it up."
+};
+
+const topicPlaceholder = topicPrompts[currentTopic] || "Write your situation here...";
+
 
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-topic-btn]").forEach((btn) => {
@@ -265,6 +274,8 @@ async function loadFeaturedPost() {
 async function createArenaPost() {
   const titleEl = document.getElementById("arena-title");
   const bodyEl = document.getElementById("arena-body");
+if (bodyEl) bodyEl.placeholder = topicPlaceholder;
+
   const statusEl = document.getElementById("arena-status");
   const postsEl = document.getElementById("arena-posts");
 const params = new URLSearchParams(window.location.search);
