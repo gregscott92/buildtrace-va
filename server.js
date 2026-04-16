@@ -784,6 +784,8 @@ app.use((req, res, next) => {
   if (
     req.path === "/" ||
     req.path === "/dashboard" ||
+    req.path.startsWith("/comments") ||
+    req.path.startsWith("/arena/comments") ||
     req.path === "/arena" ||
     req.path === "/analyze" ||
     req.path === "/lead" ||

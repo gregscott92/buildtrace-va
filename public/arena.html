@@ -139,7 +139,7 @@ async function loadArena() {
         : '<div style="margin-top:10px; font-size:13px; opacity:0.6;">No answers yet.</div>';
 
       return `
-        <div style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
+          <div data-post-id="${p.id}" style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
           <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${escapeHtml(p.title || "")}</div>
           <div style="font-size:15px; margin-bottom:8px;">${escapeHtml(p.body || "")}</div>
           <div style="font-size:12px; opacity:0.6;">
@@ -149,6 +149,8 @@ async function loadArena() {
         </div>
       `;
     }).join("");
+
+posts.forEach(p => loadComments(p.id));
   } catch (err) {
     container.innerHTML = "Failed to load posts";
   }
@@ -225,7 +227,81 @@ async function createArenaPost() {
 }
 
 loadArena();
+
+async function loadComments(postId) {
+  const res = await fetch(`/arena/comments/${postId}`);
+  const data = await res.json();
+  const el = document.getElementById(`comments-${postId}`);
+  if (!el) return;
+
+  const comments = data.comments || [];
+
+  el.innerHTML = comments.length
+    ? comments.map(c => `
+        <div style="padding:6px;border:1px solid #eee;margin-bottom:6px;border-radius:6px;">
+          ${c.body}
+        </div>
+      `).join("")
+    : "<div style='font-size:12px;color:#888;'>No comments</div>";
+}
+
+async function postComment(postId) {
+  const input = document.getElementById(`comment-input-${postId}`);
+  const body = input.value.trim();
+  if (!body) return;
+
+  await fetch("/arena/comments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ post_id: postId, body })
+  });
+
+  input.value = "";
+  loadComments(postId);
+}
+
+
+
+// ===== FORCE COMMENT UI AFTER RENDER =====
+function injectCommentsUI() {
+  const cards = document.querySelectorAll("[data-post-id]");
+
+  cards.forEach(card => {
+    const postId = card.getAttribute("data-post-id");
+    if (!postId) return;
+
+    // prevent duplicate
+    if (card.querySelector(".comment-box")) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "comment-box";
+    wrapper.style.marginTop = "12px";
+    wrapper.innerHTML = `
+      <div style="font-size:12px;color:#666;margin-bottom:6px;">Comments</div>
+      <div id="comments-${postId}" style="margin-bottom:8px;"></div>
+      <textarea id="comment-input-${postId}" placeholder="Add a comment..."
+        style="width:100%;min-height:50px;padding:6px;border:1px solid #ccc;border-radius:6px;"></textarea>
+      <button onclick="postComment('${postId}')"
+        style="margin-top:6px;background:#111;color:#fff;padding:6px 10px;border:none;border-radius:6px;">
+        Post
+      </button>
+    `;
+
+    card.appendChild(wrapper);
+    loadComments(postId);
+  });
+}
+
+// Hook into render cycle
+const oldRender = window.renderPosts;
+window.renderPosts = async function(...args) {
+  const result = await oldRender.apply(this, args);
+  setTimeout(injectCommentsUI, 100);
+  return result;
+};
+
 </script>
+
 <!-- END ARENA SECTION -->
     </div>
   </div>

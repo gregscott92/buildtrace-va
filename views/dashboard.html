@@ -257,6 +257,8 @@ async function loadTopArenaPost() {
     const a = (p.answers || [])[0];
 
     if (card) card.style.display = 'block';
+    await loadArenaComments(p.id);
+    bindArenaCommentForm(p.id);
     if (empty) empty.style.display = 'none';
 
     document.getElementById('top-post-title').textContent = p.title || '';
@@ -271,6 +273,66 @@ async function loadTopArenaPost() {
     if (empty) empty.style.display = 'block';
   }
 }
+
+
+async function loadArenaComments(postId) {
+  try {
+    const res = await fetch(`/arena/comments/${postId}`);
+    const data = await res.json();
+
+    const list = document.getElementById('arena-comments-list');
+    if (!list) return;
+
+    const comments = data?.comments || [];
+    if (!comments.length) {
+      list.innerHTML = '<div style="color:#666;font-size:13px;">No comments yet.</div>';
+      return;
+    }
+
+    list.innerHTML = comments.map(c => `
+      <div style="margin-top:8px;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+        <div style="font-size:13px;color:#222;white-space:pre-wrap;">${(c.body || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div style="margin-top:6px;font-size:11px;color:#777;">${new Date(c.created_at).toLocaleString()}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.log('Failed to load comments', e);
+  }
+}
+
+async function bindArenaCommentForm(postId) {
+  const btn = document.getElementById('arena-comment-btn');
+  const body = document.getElementById('arena-comment-body');
+  if (!btn || !body) return;
+
+  btn.onclick = async () => {
+    const value = (body.value || '').trim();
+    if (!value) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Posting...';
+
+    try {
+      const res = await fetch('/arena/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, body: value })
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Failed to post comment');
+
+      body.value = '';
+      await loadArenaComments(postId);
+    } catch (e) {
+      alert(e.message || 'Failed to post comment');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Post Comment';
+    }
+  };
+}
+
 
 loadTopArenaPost();
 </script>

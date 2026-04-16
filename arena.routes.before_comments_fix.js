@@ -273,57 +273,5 @@ generated = analysis || "VA analysis unavailable";
     }
   });
 
-  
-
-  // ============================
-  // COMMENTS
-  // ============================
-
-  router.post("/comments", async (req, res) => {
-    try {
-      const { post_id, body } = req.body || {};
-
-      if (!post_id) {
-        return res.status(400).json({ success: false, error: "post_id required" });
-      }
-
-      if (!body || !body.trim()) {
-        return res.status(400).json({ success: false, error: "body required" });
-      }
-
-      const { data, error } = await supabase
-        .from("arena_comments")
-        .insert([{ post_id, body: body.trim() }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      return res.json({ success: true, comment: data });
-
-    } catch (err) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
-  });
-
-  router.get("/comments/:post_id", async (req, res) => {
-    try {
-      const { post_id } = req.params;
-
-      const { data, error } = await supabase
-        .from("arena_comments")
-        .select("*")
-        .eq("post_id", post_id)
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-
-      return res.json({ success: true, comments: data || [] });
-
-    } catch (err) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
-  });
-
   return router;
 };
