@@ -68,7 +68,12 @@
 <div style="max-width:900px; margin:30px auto; padding:20px; border:1px solid #ddd; border-radius:12px; background:#fff;">
   <div style="font-size:28px; font-weight:700; margin-bottom:10px;">Arena</div>
   
-<div id="arena-topic-nav" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+<div id="arena-topic-nav" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+  <button type="button" data-topic-btn="va" onclick="changeArenaTopic('va')" style="padding:8px 12px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer;">VA</button>
+  <button type="button" data-topic-btn="sports" onclick="changeArenaTopic('sports')" style="padding:8px 12px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer;">Sports</button>
+  <button type="button" data-topic-btn="music" onclick="changeArenaTopic('music')" style="padding:8px 12px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer;">Music</button>
+  <button type="button" data-topic-btn="politics" onclick="changeArenaTopic('politics')" style="padding:8px 12px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer;">Politics</button>
+</div>
 <div style="font-size:16px; margin-bottom:16px; opacity:0.8;">
     Post your situation, get an AI first response, and build a public knowledge layer.
   </div>
@@ -101,6 +106,24 @@
 <script>
 const params = new URLSearchParams(window.location.search);
 const currentTopic = (params.get("topic") || "va").toLowerCase();
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("[data-topic-btn]").forEach((btn) => {
+    const btnTopic = String(btn.getAttribute("data-topic-btn") || "").toLowerCase();
+    if (btnTopic === currentTopic) {
+      btn.style.background = "#111";
+      btn.style.color = "#fff";
+      btn.style.borderColor = "#111";
+    }
+  });
+});
+
+function changeArenaTopic(topic) {
+  const next = String(topic || "va").trim().toLowerCase();
+  const url = new URL(window.location.href);
+  url.searchParams.set("topic", next);
+  window.location.href = url.toString();
+}
 
 function escapeHtml(str) {
   return String(str || "")
