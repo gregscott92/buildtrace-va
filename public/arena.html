@@ -82,7 +82,8 @@
       placeholder="Write your situation here"
       style="width:100%; min-height:120px; padding:12px; border:1px solid #ccc; border-radius:8px; font-size:16px;"
     ></textarea>
-    <button
+    <input type="hidden" id="arena-topic" value="va" />
+<button
       onclick="createArenaPost()"
       style="margin-top:12px; padding:12px 18px; border:none; border-radius:8px; background:#111; color:#fff; font-size:16px; cursor:pointer;"
     >
@@ -91,10 +92,14 @@
   </div>
 
   <div id="arena-status" style="margin-bottom:12px; font-size:14px; opacity:0.7;"></div>
-  <div id="arena-posts"></div>
+  <div id="featured-post" style="margin-bottom:16px;"></div>
+<div id="arena-posts"></div>
 </div>
 
 <script>
+const params = new URLSearchParams(window.location.search);
+const currentTopic = (params.get("topic") || "va").toLowerCase();
+
 function escapeHtml(str) {
   return String(str || "")
     .replace(/&/g, "&amp;")
@@ -139,7 +144,7 @@ async function loadArena() {
         : '<div style="margin-top:10px; font-size:13px; opacity:0.6;">No answers yet.</div>';
 
       return `
-          <div data-post-id="${p.id}" style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
+          <div data-post-id="${data.post?.id || ""}" style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
           <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${escapeHtml(p.title || "")}</div>
           <div style="font-size:15px; margin-bottom:8px;">${escapeHtml(p.body || "")}</div>
           <div style="font-size:12px; opacity:0.6;">
@@ -222,7 +227,7 @@ const topic = topicEl ? topicEl.value.trim() : "va";
     }
 
     const newPostHtml = `
-      <div data-post-id="${p.id}" style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
+      <div data-post-id="${data.post?.id || ""}" style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
         <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${escapeHtml(data.post?.title || title)}</div>
         <div style="font-size:15px; margin-bottom:8px;">${escapeHtml(data.post?.body || body)}</div>
         <div style="font-size:12px; opacity:0.6;">
