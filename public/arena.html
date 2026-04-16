@@ -295,42 +295,16 @@ const topic = topicEl ? topicEl.value.trim() : "va";
       return;
     }
 
-    const newPostHtml = `
-      <div data-post-id="${data.post?.id || ""}" style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
-        <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${escapeHtml(data.post?.title || title)}</div>
-        <div style="font-size:15px; margin-bottom:8px;">${escapeHtml(data.post?.body || body)}</div>
-        <div style="font-size:12px; opacity:0.6;">
-          ${data.post?.created_at ? new Date(data.post.created_at).toLocaleString() : ""}
-        </div>
-        ${
-          data.ai_answer
-            ? `<div style="margin-top:10px; padding:10px; border-radius:8px; background:#fff; border:1px solid #e8e8e8;">
-                 <div style="font-size:12px; font-weight:700; opacity:0.6; margin-bottom:4px;">AI answer</div>
-                 <div style="font-size:14px; line-height:1.45; white-space:pre-wrap;">${escapeHtml(data.ai_answer.reasoning || "")}</div>
-               </div>`
-            : '<div style="margin-top:10px; font-size:13px; opacity:0.6;">No answers yet.</div>'
-        }
-      </div>
-    `;
-
-    if (postsEl) {
-      const noPosts = postsEl.innerHTML.includes("No posts yet.");
-      postsEl.innerHTML = noPosts ? newPostHtml : newPostHtml + postsEl.innerHTML;
-    }
-
     if (titleEl) titleEl.value = "";
     if (bodyEl) bodyEl.value = "";
 
     if (statusEl) {
       statusEl.textContent = data.ai_answer
-        ? "Posted. AI answer added."
-        : "Posted.";
+        ? "Posted. Reloading..."
+        : "Posted. Reloading...";
     }
 
-    setTimeout(() => {
-      loadTopics();
-loadArena();
-    }, 400);
+    window.location.href = `/arena?topic=${encodeURIComponent(topic)}`;
   } catch (err) {
     if (statusEl) statusEl.textContent = "Failed to post: " + (err.message || "unknown error");
   }
