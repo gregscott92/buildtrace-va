@@ -151,6 +151,7 @@ async function loadArena() {
     }).join("");
 
 data.posts.forEach(p => loadComments(p.id));
+injectCommentsUI();
   } catch (err) {
     container.innerHTML = "Failed to load posts";
   }
@@ -291,20 +292,6 @@ function injectCommentsUI() {
     loadComments(postId);
   });
 }
-
-// Hook into render cycle
-const oldRender = window.renderPosts;
-window.renderPosts = async function(...args) {
-  const result = await oldRender.apply(this, args);
-  setTimeout(() => {
-  injectCommentsUI();
-
-  // retry in case render is slow
-  setTimeout(injectCommentsUI, 500);
-  setTimeout(injectCommentsUI, 1000);
-}, 100);
-  return result;
-};
 
 </script>
 
