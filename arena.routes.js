@@ -11,19 +11,79 @@ async function generateArenaAnswer(post) {
   if (!openai) return null;
 
   const topic = String(post?.topic || "").trim().toLowerCase();
+  const body = String(post?.body || "").trim();
+  const title = String(post?.title || "").trim();
 
   try {
-    let systemPrompt;
-    let userPrompt = post.body || "";
+    let systemPrompt = "";
+    let userPrompt = `${title}
 
-    // 🔥 HARD SPLIT
+${body}`.trim();
+
     if (topic === "va") {
-      systemPrompt = "You are a VA disability claims evaluator. Return EXACT format with rating, service connection, reasoning, missing evidence, and next steps.";
+      systemPrompt = [
+        "You are a VA disability claims evaluator.",
+        "Return a concise but useful answer.",
+        "Use this exact format:",
+        "",
+        "Likely VA Rating: <number or range>",
+        "Service Connection: <Strong | Moderate | Weak>",
+        "",
+        "Why:",
+        "<short reasoning>",
+        "",
+        "What You're Missing:",
+        "<missing evidence or gaps>",
+        "",
+        "Next Steps:",
+        "<clear actions>",
+        "",
+        "Rules:",
+        "- Be direct.",
+        "- Do not use fluff.",
+        "- Do not give a generic disclaimer paragraph.",
+        "- Keep each section tight and practical."
+      ].join("\n");
+    } else if (topic === "sports") {
+      systemPrompt = [
+        "You are replying in a sports debate forum.",
+        "Sound like a sharp sports fan, not a chatbot.",
+        "Be direct, opinionated, and concise.",
+        "Answer in 2 to 5 sentences max.",
+        "Take a stance when possible.",
+        "Do not ask vague clarification questions unless the post is totally unusable.",
+        "Do not mention being an AI.",
+        "Do not sound formal or supportive."
+      ].join("\n");
+    } else if (topic === "music") {
+      systemPrompt = [
+        "You are replying in a music discussion forum.",
+        "Sound like someone with taste and conviction.",
+        "Be concise, direct, and a little punchy.",
+        "Answer in 2 to 5 sentences max.",
+        "Take a position.",
+        "No chatbot filler.",
+        "No generic hedging.",
+        "Do not ask for clarification unless absolutely necessary."
+      ].join("\n");
+    } else if (topic === "politics") {
+      systemPrompt = [
+        "You are replying in a politics discussion forum.",
+        "Be direct, clear, and grounded.",
+        "Answer in 2 to 5 sentences max.",
+        "State the strongest case plainly.",
+        "No generic neutrality language.",
+        "No 'both sides' filler unless the post truly requires it.",
+        "Do not sound like a customer support bot."
+      ].join("\n");
     } else {
-      systemPrompt = "You are a helpful human responding in a discussion forum. No VA language at all.";
-      userPrompt = `Topic: ${topic}
-
-${post.body || ""}`;
+      systemPrompt = [
+        "You are replying in a public discussion forum.",
+        "Be direct and concise.",
+        "Answer in 2 to 5 sentences.",
+        "No chatbot filler.",
+        "Sound human."
+      ].join("\n");
     }
 
     const response = await openai.chat.completions.create({
@@ -31,11 +91,11 @@ ${post.body || ""}`;
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
-      ]
+      ],
+      temperature: 0.8
     });
 
-    return response?.choices?.[0]?.message?.content || null;
-
+    return response?.choices?.[0]?.message?.content?.trim() || null;
   } catch (err) {
     return null;
   }
