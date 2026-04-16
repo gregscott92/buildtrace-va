@@ -229,6 +229,9 @@ async function loadFeaturedPost() {
         <div style="font-size:18px;font-weight:700;margin-bottom:6px;">${escapeHtml(p.title || "")}</div>
         <div style="font-size:14px;margin-bottom:8px;">${escapeHtml(p.body || "")}</div>
         <div style="font-size:12px;opacity:0.7;">Engagement: ${p.engagement_score || 0}</div>
+        <div style="margin-top:10px;">
+          <a href="/arena?topic=${encodeURIComponent(p.topic || "va")}" style="display:inline-block;padding:8px 12px;border-radius:8px;background:#111;color:#fff;text-decoration:none;font-size:13px;">See more in Arena</a>
+        </div>
       </div>
     `;
   } catch (_err) {
@@ -241,7 +244,6 @@ async function createArenaPost() {
   const bodyEl = document.getElementById("arena-body");
   const statusEl = document.getElementById("arena-status");
   const postsEl = document.getElementById("arena-posts");
-const topicEl = document.getElementById("arena-topic");
 const params = new URLSearchParams(window.location.search);
 if (topicEl) topicEl.value = currentTopic;
 
