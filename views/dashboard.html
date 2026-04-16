@@ -390,10 +390,33 @@ function renderResult(data) {
         <div style="font-size:14px;">${lever}</div>
       </div>
 
-      <a href="mailto:Greg.scott92@icloud.com?subject=VA%20Claim%20Review"
-         style="display:block;text-align:center;padding:12px;background:#111;color:#fff;border-radius:10px;font-weight:800;text-decoration:none;">
-        Need a deeper review? Email me
-      </a>
+      
+<form action="https://formsubmit.co/98be0a300ef3a84a84d7ecd13a15e620" method="POST" style="margin-top:12px;">
+  <input type="hidden" name="_subject" value="New VA Claim Review Request">
+  <input type="hidden" name="_captcha" value="false">
+
+  <input
+    type="email"
+    name="email"
+    placeholder="Your email"
+    required
+    style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:none;"
+  />
+
+  <textarea
+    name="details"
+    placeholder="Add anything else about your claim..."
+    style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:none;"
+  ></textarea>
+
+  <button
+    type="submit"
+    style="width:100%;padding:12px;background:#111;color:#fff;border:none;border-radius:10px;font-weight:800;"
+  >
+    Get Full Claim Review
+  </button>
+</form>
+
     </div>
   `;
 
