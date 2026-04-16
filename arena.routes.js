@@ -8,50 +8,51 @@ const openai =
     : null;
 
 async function generateArenaAnswer(post) {
-  if (!openai) {
-    return null;
+  if (!openai) return null;
+
+  const topic = String(post?.topic || "va").trim().toLowerCase();
+
+  let systemPrompt;
+
+  if (topic === "va") {
+    systemPrompt = [
+      "You are a VA disability claims evaluator.",
+      "",
+      "Return EXACT format:",
+      "",
+      "Likely VA Rating: <number or range>",
+      "Service Connection: <Strong | Moderate | Weak>",
+      "",
+      "Why:",
+      "<reasoning>",
+      "",
+      "What You're Missing:",
+      "<missing evidence>",
+      "",
+      "Next Steps:",
+      "<actions>"
+    ].join("
+");
+  } else {
+    systemPrompt = [
+      `You are replying to a ${topic} discussion.`,
+      "Give a helpful, human answer.",
+      "Do NOT mention VA ratings, claims, or service connection.",
+      "Keep it short and useful."
+    ].join("
+");
   }
 
   try {
-
     const response = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
-        {
-          role: "system",
-          content: [
-            "You are a VA disability claims evaluator.",
-            "",
-            "Return EXACT format:",
-            "",
-            "Likely VA Rating: <number or range>",
-            "Service Connection: <Strong | Moderate | Weak>",
-            "",
-            "Why:",
-            "<reasoning>",
-            "",
-            "What You're Missing:",
-            "<missing evidence>",
-            "",
-            "Next Steps:",
-            "<actions>",
-            "",
-            "Rules:",
-            "- Never return Unknown%",
-            "- Always give a best estimate",
-            "- Fill all sections"
-          ].join("\n")
-        },
-        {
-          role: "user",
-          content: post.body || ""
-        }
+        { role: "system", content: systemPrompt },
+        { role: "user", content: post.body || "" }
       ]
     });
 
-    const text = response?.choices?.[0]?.message?.content || "";
-
-    return text || null;
+    return response?.choices?.[0]?.message?.content || null;
   } catch (err) {
     return null;
   }
