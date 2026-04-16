@@ -296,7 +296,13 @@ function injectCommentsUI() {
 const oldRender = window.renderPosts;
 window.renderPosts = async function(...args) {
   const result = await oldRender.apply(this, args);
-  setTimeout(injectCommentsUI, 100);
+  setTimeout(() => {
+  injectCommentsUI();
+
+  // retry in case render is slow
+  setTimeout(injectCommentsUI, 500);
+  setTimeout(injectCommentsUI, 1000);
+}, 100);
   return result;
 };
 
