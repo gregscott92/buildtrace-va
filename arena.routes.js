@@ -12,45 +12,30 @@ async function generateArenaAnswer(post) {
 
   const topic = String(post?.topic || "va").trim().toLowerCase();
 
-  let systemPrompt;
-
-  if (topic === "va") {
-    systemPrompt = [
-      "You are a VA disability claims evaluator.",
-      "",
-      "Return EXACT format:",
-      "",
-      "Likely VA Rating: <number or range>",
-      "Service Connection: <Strong | Moderate | Weak>",
-      "",
-      "Why:",
-      "<reasoning>",
-      "",
-      "What You're Missing:",
-      "<missing evidence>",
-      "",
-      "Next Steps:",
-      "<actions>"
-    ].join("\n");
-  } else {
-    systemPrompt = [
-      `You are replying to a ${topic} discussion.`,
-      "Give a helpful, human answer.",
-      "Do NOT mention VA ratings, claims, or service connection.",
-      "Keep it short and useful."
-    ].join("\n");
-  }
-
   try {
+    let systemPrompt;
+    let userPrompt = post.body || "";
+
+    // 🔥 HARD SPLIT
+    if (topic === "va") {
+      systemPrompt = "You are a VA disability claims evaluator. Return EXACT format with rating, service connection, reasoning, missing evidence, and next steps.";
+    } else {
+      systemPrompt = "You are a helpful human responding in a discussion forum. No VA language at all.";
+      userPrompt = `Topic: ${topic}
+
+${post.body || ""}`;
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: post.body || "" }
+        { role: "user", content: userPrompt }
       ]
     });
 
     return response?.choices?.[0]?.message?.content || null;
+
   } catch (err) {
     return null;
   }
