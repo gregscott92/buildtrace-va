@@ -107,16 +107,15 @@ module.exports = function createArenaRouter(supabase) {
     }
   });
 
-router.get("/posts", async (req, res) => {
+router.get("/posts", async (_req, res) => {
     try {
       const { data: posts, error: postsError } = await supabase
-    const topic = String(req.query.topic || "va").trim().toLowerCase();
+        .from("arena_posts")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    const { data: posts, error: postsError } = await supabase
-      .from("arena_posts")
-      .select("*")
-      .eq("topic", topic)
-      .order("created_at", { ascending: false });
+      if (postsError) throw postsError;
+
       const postIds = (posts || []).map((p) => p.id);
 
       let answers = [];
@@ -231,13 +230,12 @@ generated = analysis || "VA analysis unavailable";
   router.get("/featured", async (_req, res) => {
     try {
       const { data: posts, error: postsError } = await supabase
-    const topic = String(req.query.topic || "va").trim().toLowerCase();
+        .from("arena_posts")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    const { data: posts, error: postsError } = await supabase
-      .from("arena_posts")
-      .select("*")
-      .eq("topic", topic)
-      .order("created_at", { ascending: false });
+      if (postsError) throw postsError;
+
       const postIds = (posts || []).map((p) => p.id);
 
       let answers = [];
