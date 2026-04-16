@@ -10,7 +10,7 @@ const openai =
 async function generateArenaAnswer(post) {
   if (!openai) return null;
 
-  const topic = String(post?.topic || "va").trim().toLowerCase();
+  const topic = String(post?.topic || "").trim().toLowerCase();
 
   try {
     let systemPrompt;
