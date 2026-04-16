@@ -104,6 +104,21 @@
 </div>
 
 <script>
+// INIT_ARENA_ONCE
+let arenaStarted = false;
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (arenaStarted) return;
+  arenaStarted = true;
+
+  try {
+    loadArena();
+  } catch (e) {
+    console.error("INITIAL loadArena failed:", e);
+  }
+});
+
+let arenaLoaded = false;
 const params = new URLSearchParams(window.location.search);
 const currentTopic = (params.get("topic") || "va").toLowerCase();
 const topicPrompts = {
@@ -158,7 +173,7 @@ async function loadTopics() {
       return;
     }
 
-    if (topicEl) topicEl.value = currentTopic;
+    // removed invalid topicEl usage
 
     nav.innerHTML = data.topics.map(t => {
       const active = (t.slug || "").toLowerCase() === currentTopic;
@@ -175,6 +190,11 @@ async function loadTopics() {
 }
 
 async function loadArena() {
+  if (arenaLoaded) {
+    console.warn("loadArena blocked (already ran)");
+    return;
+  }
+  arenaLoaded = true;
   const container = document.getElementById("arena-posts");
   if (!container) return;
 
@@ -203,15 +223,15 @@ async function loadArena() {
               <div style="font-size:12px; font-weight:700; opacity:0.6; margin-bottom:4px;">
                 ${a.used_ai ? "AI answer" : "Answer"}
               </div>
-              <div style="font-size:14px; line-height:1.45;">${escapeHtml(a.reasoning || "")}</div>
+              <div style="font-size:14px; line-height:1.45;">${escapeHtml((a && a.reasoning) || "")}</div>
             </div>
           `).join("")
         : '<div style="margin-top:10px; font-size:13px; opacity:0.6;">No answers yet.</div>';
 
       return `
           <div data-post-id="${p.id}" style="border:1px solid #ddd; padding:14px; margin:12px 0; border-radius:10px; background:#fafafa;">
-          <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${escapeHtml(p.title || "")}</div>
-          <div style="font-size:15px; margin-bottom:8px;">${escapeHtml(p.body || "")}</div>
+          <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${escapeHtml((p && p.title) || "")}</div>
+          <div style="font-size:15px; margin-bottom:8px;">${escapeHtml((p && p.body) || "")}</div>
           <div style="font-size:12px; opacity:0.6;">
             ${p.created_at ? new Date(p.created_at).toLocaleString() : ""}
           </div>
@@ -227,15 +247,13 @@ async function loadArena() {
         `;
     }).join("");
 
-setTimeout(() => {
-  setTimeout(() => {
-        setTimeout(() => {
-  data.posts.forEach(p => loadComments(p.id));
-}, 50);
-      }, 50);
-}, 50);
+    // Non-critical extras temporarily disabled for stabilization
+    return;
   } catch (err) {
-    container.innerHTML = "Failed to load posts";
+    console.error("loadArena failed:", err);
+    if ((container.innerHTML || "").includes("Loading posts")) {
+      container.innerHTML = "Failed to load posts";
+    }
   }
 }
 
@@ -258,8 +276,8 @@ async function loadFeaturedPost() {
       <div style="border:1px solid #ddd;padding:14px;border-radius:10px;background:#fafafa;">
         <div style="font-size:12px;opacity:0.6;margin-bottom:6px;">Most engaged recent post</div>
         <div style="font-size:12px;display:inline-block;background:#111;color:#fff;padding:4px 8px;border-radius:999px;margin-bottom:8px;">${p.topic || "va"}</div>
-        <div style="font-size:18px;font-weight:700;margin-bottom:6px;">${escapeHtml(p.title || "")}</div>
-        <div style="font-size:14px;margin-bottom:8px;">${escapeHtml(p.body || "")}</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:6px;">${escapeHtml((p && p.title) || "")}</div>
+        <div style="font-size:14px;margin-bottom:8px;">${escapeHtml((p && p.body) || "")}</div>
         <div style="font-size:12px;opacity:0.7;">Engagement: ${p.engagement_score || 0}</div>
         <div style="margin-top:10px;">
           <a href="/arena?topic=${encodeURIComponent(p.topic || "va")}" style="display:inline-block;padding:8px 12px;border-radius:8px;background:#111;color:#fff;text-decoration:none;font-size:13px;">See more in Arena</a>
@@ -272,14 +290,15 @@ async function loadFeaturedPost() {
 }
 
 async function createArenaPost() {
+  console.log("createArenaPost triggered manually");
   const titleEl = document.getElementById("arena-title");
   const bodyEl = document.getElementById("arena-body");
-if (bodyEl) bodyEl.placeholder = topicPlaceholder;
+  const topicEl = document.getElementById("arena-topic");
+  if (bodyEl) bodyEl.placeholder = topicPlaceholder;
 
   const statusEl = document.getElementById("arena-status");
-  const postsEl = document.getElementById("arena-posts");
-const params = new URLSearchParams(window.location.search);
-if (topicEl) topicEl.value = currentTopic;
+  // removed unsafe postsEl reference
+  // removed invalid topicEl usage
 
   const title = titleEl ? titleEl.value.trim() : "";
 const topic = topicEl ? topicEl.value.trim() : "va";
@@ -321,7 +340,8 @@ const topic = topicEl ? topicEl.value.trim() : "va";
   }
 }
 
-loadArena();
+// loadArena removed
+// loadFeaturedPost(); // temporarily disabled for stabilization
 
 async function loadComments(postId) {
   const res = await fetch(`/arena/comments/${postId}`);
@@ -391,7 +411,7 @@ async function reactToPost(postId, reaction) {
   }
 }
 
-function attachReactionUI() {
+function attachReactionUI() { return; /* temporarily disabled */
   document.querySelectorAll("[data-post-id]").forEach((post) => {
     const postId = post.getAttribute("data-post-id");
     if (!postId) return;
@@ -426,8 +446,7 @@ function attachReactionUI() {
   });
 }
 
-// 🔁 Run repeatedly (handles dynamic render)
-setInterval(attachReactionUI, 1000);
+// Reactions are attached once after posts render.
 </script>
 
 </body>

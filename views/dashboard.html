@@ -159,52 +159,39 @@ Based on CFR 38 (VA rating criteria)
 
     </div>
 
-    <div class="card" id="disclaimerCard">
+    <div class="card" id="disclaimerCard" style="opacity:0.7;font-size:13px;">
       <div class="section-title">Disclaimer</div>
       <div class="muted">
         This is an estimate and guidance tool only. Final VA decisions depend on your records,
         exams, service connection evidence, and adjudication.
       </div>
     </div>
-    <div class="card">
-      <div class="section-title" style="font-size:30px; line-height:1.15; margin-bottom:10px;">Find Your VA Rating in 30 Seconds</div>
-      <div class="muted" style="font-size:16px; margin-bottom:14px;">
-        Describe your condition. Get your likely rating and what you're missing before you file.
-      </div>
-
-      <div class="actions" style="margin-top:0;">
-        <button class="btn-upload" type="button" onclick="window.location.href='/va-calculator.html'">Check My VA Rating</button>
-      </div>
-
-      <div class="muted" style="margin-top:10px; font-size:14px;">
-        Most veterans are off by 10–30% before they file.
-      </div>
-    </div>
+    
 
     <div class="card">
-      <div class="section-title" style="font-size:24px; line-height:1.2; margin-bottom:10px;">Check your likely VA rating</div>
+      <div class="section-title" style="font-size:24px; line-height:1.2; margin-bottom:10px;">Find your VA rating in 30 seconds</div>
       <div class="muted" style="font-size:16px; margin-bottom:14px;">
-        Describe your condition and we’ll show:
+        Type your condition. We’ll instantly show:
         <ul style="margin-top:10px; padding-left:20px;">
-          <li>your likely rating</li>
-          <li>what you're missing</li>
-          <li>what evidence or details you're missing</li>
+          <li>your likely VA % rating</li>
+          <li>exactly what you're missing</li>
+          <li>what would increase your rating</li>
         </ul>
       </div>
 
       <div class="muted" style="font-size:15px; margin-bottom:10px;">Paste your condition (doesn’t have to be perfect)</div>
 
-      <textarea id="serviceContext" placeholder='Example: "back pain from service"&#10;"PTSD from deployment"&#10;"knee injury getting worse over time"'></textarea>
+      <textarea id="serviceContext" placeholder="Example:&#10;Back pain from service (started in 2018)&#10;Worse when standing long periods&#10;Seen by medical twice&#10;&#10;Just type like this..."></textarea>
 
       <div class="actions">
-        <button id="analyzeBtn" class="btn-analyze" type="button">Check My VA Rating</button>
+        <button id="analyzeBtn" class="btn-analyze" type="button">Get My VA Rating</button>
 
     <button
       type="button"
-      style="margin-top:10px;width:100%;padding:14px;background:#2563eb;color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;"
+      style="margin-top:10px;width:100%;padding:14px;background:#1e40af;color:white;opacity:0.85;border:none;border-radius:10px;font-size:16px;font-weight:700;"
       onclick="window.location.href='/va-calculator.html'"
     >
-      Calculate My Combined Rating
+      Calculate My Combined Rating (Calculator)
     </button>
       </div><!-- FEATURED ARENA -->
 <div id="featuredArena" style="max-width:900px;margin:24px auto 10px;padding:20px;border:1px solid #ddd;border-radius:12px;background:#fff;color:#111;">
