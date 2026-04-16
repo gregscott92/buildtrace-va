@@ -155,7 +155,9 @@ async function loadArena() {
       `;
     }).join("");
 
-data.posts.forEach(p => loadComments(p.id));
+setTimeout(() => {
+  data.posts.forEach(p => loadComments(p.id));
+}, 50);
 injectCommentsUI();
   } catch (err) {
     container.innerHTML = "Failed to load posts";
