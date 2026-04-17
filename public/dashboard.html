@@ -131,6 +131,10 @@ posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
   capture_pageview: true,
   disable_session_recording: false
 });
+<script>
+posthog.capture('dashboard_view');
+</script>
+
 
 function toggleOptional() {
   const el = document.getElementById("optionalSection");
@@ -182,7 +186,7 @@ Based on CFR 38 (VA rating criteria)
       <textarea id="serviceContext" style="min-height:140px;" placeholder="Example:&#10;Back pain from service (started in 2018)&#10;Worse when standing long periods&#10;Seen by medical twice&#10;&#10;Just type like this..."></textarea>
 
       <div class="actions">
-        <button id="analyzeBtn" class="btn-analyze" type="button">Get My VA Rating</button>
+        <button id="analyzeBtn" class="btn-analyze" type="button" onclick="if(window.posthog) posthog.capture('analyze_clicked')">Get My VA Rating</button>
 
     <button
       type="button"
@@ -369,7 +373,7 @@ function renderResult(data) {
       </div>
 
       
-<form action="https://formsubmit.co/98be0a300ef3a84a84d7ecd13a15e620" method="POST" style="margin-top:12px;">
+<form action="https://formsubmit.co/98be0a300ef3a84a84d7ecd13a15e620" method="POST" style="margin-top:12px;" onsubmit="if(window.posthog) posthog.capture('lead_submitted')">
   <input type="hidden" name="_subject" value="New VA Claim Review Request">
   <input type="hidden" name="_captcha" value="false">
 
@@ -446,6 +450,7 @@ function renderResult(data) {
 
             if (res.ok && data && data.success !== false) {
               renderResult(data);
+if(window.posthog) posthog.capture('result_generated');
 
 setTimeout(() => {
   const el = document.getElementById("vaResultCard") || card;
