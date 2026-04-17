@@ -167,7 +167,45 @@ function trackEvent(eventName, data = {}) {
           <div class="result-row"><b>Final VA Rating:</b> ${data.final}%</div>
           <div class="result-row"><b>Estimated Monthly:</b> $${data.monthly_estimate}</div>
           <div class="result-row"><b>Next tier:</b> ${data.next_needed ? "A new " + data.next_needed + "% rating" : "Already at max tier"}</div>
-          <div class="muted">Standard VA compensation estimate only.</div>
+          <div class="muted">Standard VA compensation estimate only.
+
+<div id="calcLeadBox" style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.12);">
+  <div style="font-size:16px;font-weight:800;margin-bottom:6px;">
+    Want help increasing this rating?
+  </div>
+
+  <div style="font-size:13px;opacity:0.85;margin-bottom:10px;">
+    Send me your situation and I’ll review what could move you higher.
+  </div>
+
+  <form action="https://formsubmit.co/98be0a300ef3a84a84d7ecd13a15e620" method="POST" style="margin:0;">
+    <input type="hidden" name="_subject" value="VA Calculator Lead">
+    <input type="hidden" name="_captcha" value="false">
+    <input type="hidden" name="_next" value="https://buildtrace-va.onrender.com/va-calculator.html">
+
+    <input
+      type="email"
+      name="email"
+      placeholder="Your email"
+      required
+      style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:none;"
+    />
+
+    <textarea
+      name="details"
+      placeholder="Optional: conditions you're claiming, current rating, what you're trying to reach..."
+      style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:none;min-height:100px;"
+    ></textarea>
+
+    <button
+      type="submit"
+      style="width:100%;padding:12px;background:#111;color:#fff;border:none;border-radius:8px;font-weight:700;"
+    >
+      Get Full Claim Review
+    </button>
+  </form>
+</div>
+</div>
         `;
         resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
         setTimeout(() => resultEl.classList.remove("pulse"), 3200);
