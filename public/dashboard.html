@@ -175,7 +175,7 @@ Based on CFR 38 (VA rating criteria)
       <textarea id="serviceContext" style="min-height:140px;" placeholder="Example:&#10;Back pain from service (started in 2018)&#10;Worse when standing long periods&#10;Seen by medical twice&#10;&#10;Just type like this..."></textarea>
 
       <div class="actions">
-        <button id="vaBtn"\1>Get My VA Rating</button>
+        <button id="vaBtn" type="button" onclick="runVaReview()" id="vaBtn" id="vaBtn" id="vaBtn" id="vaBtn" id="vaBtn"\1>Get My VA Rating</button>
 
     <button
       type="button"
@@ -273,370 +273,413 @@ Based on CFR 38 (VA rating criteria)
 
 
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
 
-  const btn = document.getElementById("vaBtn");
-  const input = document.querySelector("textarea");
 
-  if (!btn || !input) return;
 
-  btn.addEventListener("click", async function () {
 
-    const value = input.value.trim();
-    if (!value) {
-      alert("Enter a condition");
-      return;
-    }
 
-    try {
-      const res = await fetch("/va/analyze-base64", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          issue: value,
-          serviceContext: "user input"
-        })
-      });
 
-      const data = await res.json();
-      const r = data.result;
 
-      // ===== UPDATE EXISTING UI =====
 
-      const textBlocks = document.querySelectorAll("div");
 
-      textBlocks.forEach(el => {
-        if (el.innerText.includes("Likely rating")) {
-          el.querySelector("div:last-child").innerText = r.estimatedRating;
-        }
 
-        if (el.innerText.includes("Confidence")) {
-          el.querySelector("div:last-child").innerText = r.confidence;
-        }
 
-        if (el.innerText.includes("Strength")) {
-          el.querySelector("div:last-child").innerText = r.strength;
-        }
 
-        if (el.innerText.includes("Why")) {
-          el.querySelector("div:last-child").innerText = r.why;
-        }
 
-        if (el.innerText.includes("What you're missing")) {
-          el.querySelector("div:last-child").innerText = r.missing.join(", ");
-        }
-      });
 
-      // scroll user to result section
-      window.scrollTo({ top: 500, behavior: "smooth" });
 
-    } catch (err) {
-      console.log("Error:", err);
-    }
 
-  });
 
-});
-</script>
+
+
+
+
+
+
 
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+function isPaidUser() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("paid") === "true";
+}
+
+function esc(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function bulletsFromText(text) {
+  const raw = String(text || "").trim();
+  if (!raw || raw === "N/A") return "Not available.";
+
+  const parts = raw
+    .split(/\\n|•|- /)
+    .map(x => x.trim())
+    .filter(Boolean);
+
+  if (!parts.length) return esc(raw);
+
+  return '<ul style="margin:8px 0 0 18px;">' +
+    parts.map(x => '<li style="margin-bottom:6px;">' + esc(x) + '</li>').join('') +
+    '</ul>';
+}
+
+function firstBullet(text) {
+  const raw = String(text || "").trim();
+  if (!raw || raw === "N/A") return "Review the strongest missing evidence item first.";
+
+  const parts = raw
+    .split(/\\n|•|- /)
+    .map(x => x.trim())
+    .filter(Boolean);
+
+  return parts[0] || "Review the strongest missing evidence item first.";
+}
+
+function isStrongish(rating, confidence) {
+  const r = String(rating || "").toLowerCase();
+  const c = String(confidence || "").toLowerCase();
+  return r.includes("40") || r.includes("50") || r.includes("60") || r.includes("70") || c.includes("medium") || c.includes("high");
+}
+
+function cleanFirstMove(text) {
+  let t = String(text || "").trim();
+  if (!t) return "Fix the strongest missing evidence item first.";
+  t = t.replace(/^Upload\\s+/i, "Gather and organize ");
+  return t;
+}
+
+function convertLeverage(text) {
+  const t = String(text || "").trim();
+  if (!t || t === "N/A") {
+    return "The final rating usually turns on the medical findings, the consistency of the record, and how clearly severity is documented.";
+  }
+  if (/should stay conservative/i.test(t)) {
+    return "Measured findings, especially documented range-of-motion loss and related functional limits, are what will most affect the final rating.";
+  }
+  return t;
+}
+
+function getConditionKey(condition, rawInput) {
+  const c = String(condition || "").toLowerCase();
+  const raw = String(rawInput || "").toLowerCase();
+  const combined = c + " " + raw;
+
+  if (combined.includes("back") || combined.includes("lumbar") || combined.includes("spine") || combined.includes("radiculopathy")) return "back";
+  if (combined.includes("migraine") || combined.includes("headache") || combined.includes("prostrating")) return "migraines";
+  if (combined.includes("mental") || combined.includes("ptsd") || combined.includes("depression") || combined.includes("anxiety") || combined.includes("panic") || combined.includes("nightmare")) return "mental";
+  if (combined.includes("sleep apnea") || combined.includes("cpap")) return "sleep_apnea";
+  if (combined.includes("tinnitus") || combined.includes("hearing") || combined.includes("ringing")) return "hearing";
+  return "generic";
+}
+
+function getSupportText(conditionKey, rawInput, missing) {
+  const raw = String(rawInput || "").toLowerCase();
+  const missingList = Array.isArray(missing) ? missing : [];
+
+  const hasWorkImpact =
+    raw.includes("miss work") ||
+    raw.includes("can't work") ||
+    raw.includes("cannot work") ||
+    raw.includes("trouble working") ||
+    raw.includes("impact work") ||
+    raw.includes("work impact");
+
+  const hasFlareUps =
+    raw.includes("flare") ||
+    raw.includes("3 to 4 times") ||
+    raw.includes("3-4 times") ||
+    raw.includes("weekly") ||
+    raw.includes("every week");
+
+  const hasNumbness =
+    raw.includes("numbness") ||
+    raw.includes("tingling") ||
+    raw.includes("shoots into") ||
+    raw.includes("radiates") ||
+    raw.includes("radiculopathy");
+
+  const missingDiagnosis = missingList.some(x => String(x).toLowerCase().includes("diagnosis"));
+  const missingService = missingList.some(x => String(x).toLowerCase().includes("service"));
+  const missingNexus = missingList.some(x => String(x).toLowerCase().includes("nexus"));
+
+  if (conditionKey === "back") {
+    let parts = [];
+    parts.push("Your description points to a lumbar spine condition with real functional impact.");
+    if (hasFlareUps) parts.push("You mentioned flare-ups, which is important because VA ratings consider how pain worsens with repeated use over time.");
+    if (hasNumbness) parts.push("You also described symptoms like numbness or radiating pain, which often indicates radiculopathy and is used to support higher ratings.");
+    if (hasWorkImpact) parts.push("You noted work impact, which supports functional loss and helps justify a higher evaluation.");
+    if (missingDiagnosis) parts.push("The main thing still missing is objective medical documentation that confirms the diagnosis.");
+    if (missingService) parts.push("Service connection still needs to be clearer in the file.");
+    if (missingNexus) parts.push("A stronger nexus link would make the claim more defensible.");
+    parts.push("Taken together, your description supports more than a minimal rating if the medical evidence matches what you described.");
+    return parts.join(" ");
+  }
+
+  if (conditionKey === "migraines") {
+    let parts = [];
+    parts.push("Your description does support a real migraine pattern rather than a minor headache complaint.");
+    if (hasWorkImpact) parts.push("You described work impact, which matters because migraine ratings often turn on how attacks disrupt normal activity.");
+    if (missingDiagnosis) parts.push("The file still needs stronger medical confirmation.");
+    if (missingService) parts.push("Service connection still needs to be clearer.");
+    if (missingNexus) parts.push("A stronger nexus would make the claim more durable.");
+    parts.push("If frequency and prostrating attacks are properly documented, this can support a higher evaluation.");
+    return parts.join(" ");
+  }
+
+  if (conditionKey === "mental") {
+    let parts = [];
+    parts.push("Your description suggests a real mental health condition with meaningful day-to-day impact.");
+    if (hasWorkImpact) parts.push("You described work impact, which matters because mental health ratings often turn on occupational and social impairment.");
+    if (missingDiagnosis) parts.push("The file still needs stronger clinical documentation.");
+    if (missingService) parts.push("Service connection still needs to be better established.");
+    if (missingNexus) parts.push("A clearer nexus would strengthen the case.");
+    parts.push("If the treatment record supports what you described, that can justify a higher rating.");
+    return parts.join(" ");
+  }
+
+  let generic = [];
+  generic.push("Your description suggests a real condition rather than a minor complaint.");
+  if (missingDiagnosis) generic.push("The file still needs stronger medical confirmation.");
+  if (missingService) generic.push("Service connection still needs to be clearer.");
+  if (missingNexus) generic.push("A stronger nexus would make the claim more defensible.");
+  generic.push("If the supporting records match what you described, the claim becomes much stronger.");
+  return generic.join(" ");
+}
+
+function getRiskText(conditionKey, missingText) {
+  const missing = String(missingText || "").trim();
+  if (!missing || missing === "N/A") {
+    return "The main risk is that the record may not fully document severity, service connection, or the exact rating criteria.";
+  }
+  return missing;
+}
+
+function getLikelyRatingBlock(conditionKey, rating) {
+  if (conditionKey === "back") {
+    return "Based on what you described, this falls in the range where ratings depend heavily on documented range-of-motion loss and functional limitation. If exams confirm reduced motion, flare-ups, and neurological involvement, that supports the higher end of the range. Without that, ratings often stay lower.";
+  }
+  if (conditionKey === "migraines") {
+    return "Based on what you described, this falls in the range where ratings depend heavily on how often attacks are prostrating and how much they disrupt work or normal activity. If that is documented well, the rating can move higher. Without that proof, ratings often stay lower.";
+  }
+  if (conditionKey === "mental") {
+    return "Based on what you described, this falls in the range where ratings depend heavily on documented occupational and social impairment. If treatment records clearly show work, relationship, sleep, and concentration problems, that supports a higher evaluation.";
+  }
+  return "Based on what you described, the rating outcome will depend on how clearly the medical record proves severity, service connection, and functional impact. Stronger documentation usually makes the difference.";
+}
+
+function buildFirstMove(conditionKey, nextSteps, missing) {
+  const missingText = String(missing || "").toLowerCase();
+
+  if (conditionKey === "back") {
+    return "Start by getting objective exam findings that show limited motion, pain during movement, flare-ups, and any nerve symptoms. That is what directly controls the rating.";
+  }
+  if (conditionKey === "migraines") {
+    return "Start by documenting how often migraines are prostrating and how they interfere with work or normal activity. That is what usually moves the rating.";
+  }
+  if (conditionKey === "mental") {
+    return "Start by getting treatment records that clearly show occupational and social impairment. That is what usually drives the rating level.";
+  }
+
+  if (missingText.includes("diagnosis")) return "Start by getting the diagnosis clearly documented in the medical record.";
+  if (missingText.includes("service")) return "Start by strengthening the service connection story with records or statements.";
+  if (missingText.includes("nexus")) return "Start by getting a nexus opinion that clearly links the condition to service.";
+
+  return cleanFirstMove(firstBullet(nextSteps));
+}
+
+function improveNextSteps(text, conditionKey) {
+  const raw = String(text || "").trim();
+  if (!raw || raw === "N/A") return raw;
+
+  let out = raw;
+  if (conditionKey === "back") {
+    out = out.replace(
+      /Upload imaging, treatment records, DBQs, and range-of-motion findings\\./gi,
+      "Gather medical records, imaging, DBQs, and measured range-of-motion findings that document severity."
+    );
+  }
+  return out;
+}
+
+async function runVaReview() {
   const btn = document.getElementById("vaBtn");
-  const input = document.querySelector("textarea");
+  const input = document.getElementById("serviceContext") || document.querySelector("textarea");
+  if (!btn || !input) {
+    alert("UI not ready");
+    return;
+  }
 
-  if (!btn || !input) return;
+  const value = input.value.trim();
+  if (!value) {
+    alert("Enter a condition");
+    return;
+  }
 
-  btn.addEventListener("click", async function () {
-    const value = input.value.trim();
-    if (!value) {
-      alert("Enter a condition");
-      return;
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Analyzing...";
+
+  try {
+    const res = await fetch("/va/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        issue: value,
+        serviceContext: value
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.success === false) {
+      throw new Error(data.error || "Analyze failed");
     }
 
-    try {
-      const res = await fetch("/va/analyze-base64", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          issue: value,
-          serviceContext: "user input"
-        })
-      });
+    const structured = data.structured || {};
+    const paid = isPaidUser();
 
-      const data = await res.json();
-      const r = data.result || {};
+    const condition = structured.condition || value;
+    const rating = structured.estimatedRating || data.likelihood || "Unknown";
+    const confidence = structured.confidence || "Unknown";
+    const missing = structured.evidenceNeeded || "No missing evidence returned.";
+    const nextSteps = improveNextSteps(structured.nextSteps || "No next steps returned.", getConditionKey(condition, value));
+    const important = structured.important || "No additional rating guidance returned.";
 
-      let resultBox = document.getElementById("resultBox");
+    const conditionKey = getConditionKey(condition, value);
+    const strongish = isStrongish(rating, confidence);
 
-      if (!resultBox) {
-        resultBox = document.createElement("div");
-        resultBox.id = "resultBox";
-        resultBox.style.marginTop = "18px";
-        resultBox.style.background = "#243f7a";
-        resultBox.style.borderRadius = "16px";
-        resultBox.style.padding = "18px";
-        resultBox.style.color = "white";
-        resultBox.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
+    const summaryTitle = strongish ? "What supports your claim right now" : "Why your claim is weak right now";
+    const riskTitle = strongish ? "What could still hold this back" : "Why this gets denied";
 
-        btn.parentElement.insertAdjacentElement("afterend", resultBox);
-      }
+    const supportHtml = paid
+      ? esc(getSupportText(conditionKey, value, String(missing).split(/\\n|•|- /).map(x => x.trim()).filter(Boolean)))
+      : "🔒 Unlock a personalized breakdown based on what you actually typed";
 
-      resultBox.innerHTML = `
-        <div style="font-size:30px;font-weight:800;margin-bottom:14px;">Your VA review</div>
+    const riskHtml = paid
+      ? bulletsFromText(getRiskText(conditionKey, missing))
+      : "🔒 Unlock exactly what could still hold this claim back";
 
-        <div style="padding:16px;border-radius:14px;background:rgba(255,255,255,0.06);margin-bottom:12px;">
-          <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Likely rating</div>
-          <div style="font-size:24px;font-weight:800;">${r.estimatedRating || "Unknown"}</div>
-        </div>
+    const nextStepsHtml = paid
+      ? bulletsFromText(nextSteps)
+      : "🔒 Unlock step-by-step next actions";
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
-            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Confidence</div>
-            <div style="font-size:18px;font-weight:800;">${r.confidence || "Unknown"}</div>
-          </div>
-          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
-            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Strength</div>
-            <div style="font-size:18px;font-weight:800;">${r.strength || "Unknown"}</div>
-          </div>
-        </div>
+    const leverageHtml = paid
+      ? esc(convertLeverage(important))
+      : "🔒 Unlock what matters most for approval and rating";
 
-        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
-          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">Why</div>
-          <div style="font-size:16px;">${r.why || "No explanation available."}</div>
-        </div>
+    const firstMoveHtml = paid
+      ? esc(buildFirstMove(conditionKey, nextSteps, missing))
+      : "🔒 Unlock the first thing you should fix";
 
-        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
-          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">What you're missing</div>
-          <div style="font-size:16px;">${Array.isArray(r.missing) ? r.missing.join(", ") : "Not available."}</div>
-        </div>
-      `;
+    const likelyRatingHtml = paid
+      ? esc(getLikelyRatingBlock(conditionKey, rating))
+      : "🔒 Unlock what this likely gets rated as and what controls that outcome";
 
-      resultBox.scrollIntoView({ behavior: "smooth", block: "start" });
-
-    } catch (err) {
-      console.log("Error:", err);
-      alert("Error running review");
-    }
-  });
-});
-</script>
-\n
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const btn = document.getElementById("vaBtn");
-  const input = document.querySelector("textarea");
-
-  if (!btn || !input) return;
-
-  btn.addEventListener("click", async function () {
-    const value = input.value.trim();
-    if (!value) {
-      alert("Enter a condition");
-      return;
+    let resultBox = document.getElementById("resultBox");
+    if (!resultBox) {
+      resultBox = document.createElement("div");
+      resultBox.id = "resultBox";
+      resultBox.style.marginTop = "18px";
+      resultBox.style.background = "#243f7a";
+      resultBox.style.borderRadius = "16px";
+      resultBox.style.padding = "18px";
+      resultBox.style.color = "white";
+      resultBox.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
+      btn.parentElement.insertAdjacentElement("afterend", resultBox);
     }
 
-    try {
-      const res = await fetch("/va/analyze-base64", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          issue: value,
-          serviceContext: "user input"
-        })
-      });
-
-      const data = await res.json();
-      const r = data.result || {};
-
-      let resultBox = document.getElementById("resultBox");
-
-      if (!resultBox) {
-        resultBox = document.createElement("div");
-        resultBox.id = "resultBox";
-        resultBox.style.marginTop = "18px";
-        resultBox.style.background = "#243f7a";
-        resultBox.style.borderRadius = "16px";
-        resultBox.style.padding = "18px";
-        resultBox.style.color = "white";
-        resultBox.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
-        btn.parentElement.insertAdjacentElement("afterend", resultBox);
-      }
-
-      resultBox.innerHTML = `
-        <div style="font-size:30px;font-weight:800;margin-bottom:14px;">Your VA review</div>
-
-        <div style="padding:16px;border-radius:14px;background:rgba(255,255,255,0.06);margin-bottom:12px;">
-          <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Likely rating</div>
-          <div style="font-size:24px;font-weight:800;">${r.estimatedRating || "Unknown"}</div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
-            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Confidence</div>
-            <div style="font-size:18px;font-weight:800;">${r.confidence || "Unknown"}</div>
-          </div>
-          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
-            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Strength</div>
-            <div style="font-size:18px;font-weight:800;">${r.strength || "Unknown"}</div>
+    const ctaHtml = paid
+      ? `
+        <div style="margin-top:14px;padding:14px;border-radius:14px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);">
+          <div style="font-size:16px;font-weight:800;color:#bbf7d0;margin-bottom:6px;">✅ Full Claim Plan Unlocked</div>
+          <div style="font-size:14px;opacity:0.95;">
+            This plan is based on your actual description and CFR-style analysis logic. Final VA decisions still depend on
+            your records, exams, service connection evidence, and adjudication.
           </div>
         </div>
-
-        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
-          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">Why</div>
-          <div style="font-size:16px;opacity:0.9;">🔒 Unlock full breakdown</div>
-        </div>
-
-        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:16px;">
-          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">What you're missing</div>
-          <div style="font-size:16px;opacity:0.9;">🔒 Unlock exactly what’s missing in your claim</div>
-        </div>
-
+      `
+      : `
         <button
-          id="upgradeBtn" onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
+          id="upgradeBtn"
           type="button"
           style="width:100%;padding:16px;background:#22c55e;color:white;border:none;border-radius:12px;font-size:20px;font-weight:800;cursor:pointer;margin-bottom:10px;"
           onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
         >
           Unlock Full Claim Plan — $14.95
         </button>
-
         <div style="text-align:center;font-size:14px;opacity:0.8;">
-          See exactly what’s missing and how to improve your claim.
+          See the actual reasoning, missing evidence, and next steps for your claim.
         </div>
       `;
 
-      resultBox.scrollIntoView({ behavior: "smooth", block: "start" });
+    resultBox.innerHTML = `
+      <div style="font-size:30px;font-weight:800;margin-bottom:14px;">Your VA review</div>
 
-    } catch (err) {
-      console.log("Error:", err);
-      alert("Error running review");
-    }
-  });
-});
-</script>
-\n
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const btn = document.getElementById("vaBtn");
-  const input = document.querySelector("textarea");
+      <div style="padding:16px;border-radius:14px;background:rgba(255,255,255,0.06);margin-bottom:12px;">
+        <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Condition</div>
+        <div style="font-size:18px;font-weight:800;">${esc(condition)}</div>
+      </div>
 
-  if (!btn || !input) return;
+      <div style="padding:16px;border-radius:14px;background:rgba(255,255,255,0.06);margin-bottom:12px;">
+        <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Likely rating</div>
+        <div style="font-size:24px;font-weight:800;">${esc(rating)}</div>
+      </div>
 
-  function isPaidUser() {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("paid") === "true";
+      <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
+        <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Confidence</div>
+        <div style="font-size:18px;font-weight:800;">${esc(confidence)}</div>
+      </div>
+
+      <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:800;margin-bottom:8px;">${summaryTitle}</div>
+        <div style="font-size:16px;opacity:0.95;">${supportHtml}</div>
+      </div>
+
+      <div style="padding:14px;border-radius:14px;background:rgba(239,68,68,0.10);margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:800;margin-bottom:8px;">${riskTitle}</div>
+        <div style="font-size:16px;opacity:0.95;">${riskHtml}</div>
+      </div>
+
+      <div style="padding:14px;border-radius:14px;background:rgba(168,85,247,0.12);margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:800;margin-bottom:8px;">What this likely gets rated as</div>
+        <div style="font-size:16px;opacity:0.98;">${likelyRatingHtml}</div>
+      </div>
+
+      <div style="padding:14px;border-radius:14px;background:rgba(234,179,8,0.10);margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:800;margin-bottom:8px;">What to do first</div>
+        <div style="font-size:16px;opacity:0.98;">${firstMoveHtml}</div>
+      </div>
+
+      <div style="padding:14px;border-radius:14px;background:rgba(59,130,246,0.10);margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:800;margin-bottom:8px;">Next steps</div>
+        <div style="font-size:16px;opacity:0.98;">${nextStepsHtml}</div>
+      </div>
+
+      <div style="padding:14px;border-radius:14px;background:rgba(34,197,94,0.10);margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:800;margin-bottom:8px;">What matters most for rating</div>
+        <div style="font-size:16px;opacity:0.98;">${leverageHtml}</div>
+      </div>
+
+      ${ctaHtml}
+    `;
+
+    resultBox.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    console.log("Error:", err);
+    alert(err.message || "Error running review");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
   }
-
-  btn.addEventListener("click", async function () {
-    const value = input.value.trim();
-    if (!value) {
-      alert("Enter a condition");
-      return;
-    }
-
-    try {
-      const res = await fetch("/va/analyze-base64", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          issue: value,
-          serviceContext: "user input"
-        })
-      });
-
-      const data = await res.json();
-      const r = data.result || {};
-      const paid = isPaidUser();
-
-      let resultBox = document.getElementById("resultBox");
-
-      if (!resultBox) {
-        resultBox = document.createElement("div");
-        resultBox.id = "resultBox";
-        resultBox.style.marginTop = "18px";
-        resultBox.style.background = "#243f7a";
-        resultBox.style.borderRadius = "16px";
-        resultBox.style.padding = "18px";
-        resultBox.style.color = "white";
-        resultBox.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
-        btn.parentElement.insertAdjacentElement("afterend", resultBox);
-      }
-
-      const whyHtml = paid
-        ? (r.why || "No explanation available.")
-        : "🔒 Unlock full breakdown";
-
-      const missingHtml = paid
-        ? (Array.isArray(r.missing) ? r.missing.join(", ") : "Not available.")
-        : "🔒 Unlock exactly what’s missing in your claim";
-
-      const ctaHtml = paid
-        ? `
-          <div style="margin-top:12px;text-align:center;font-size:14px;color:#bbf7d0;font-weight:700;">
-            ✅ Full Claim Plan Unlocked
-          </div>
-        `
-        : `
-          <button
-            id="upgradeBtn"
-            type="button"
-            style="width:100%;padding:16px;background:#22c55e;color:white;border:none;border-radius:12px;font-size:20px;font-weight:800;cursor:pointer;margin-bottom:10px;"
-            onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
-          >
-            Unlock Full Claim Plan — $14.95
-          </button>
-
-          <div style="text-align:center;font-size:14px;opacity:0.8;">
-            See exactly what’s missing and how to improve your claim.
-          </div>
-        `;
-
-      resultBox.innerHTML = `
-        <div style="font-size:30px;font-weight:800;margin-bottom:14px;">Your VA review</div>
-
-        <div style="padding:16px;border-radius:14px;background:rgba(255,255,255,0.06);margin-bottom:12px;">
-          <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Likely rating</div>
-          <div style="font-size:24px;font-weight:800;">${r.estimatedRating || "Unknown"}</div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
-            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Confidence</div>
-            <div style="font-size:18px;font-weight:800;">${r.confidence || "Unknown"}</div>
-          </div>
-          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
-            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Strength</div>
-            <div style="font-size:18px;font-weight:800;">${r.strength || "Unknown"}</div>
-          </div>
-        </div>
-
-        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
-          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">Why</div>
-          <div style="font-size:16px;opacity:0.95;">${whyHtml}</div>
-        </div>
-
-        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:16px;">
-          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">What you're missing</div>
-          <div style="font-size:16px;opacity:0.95;">${missingHtml}</div>
-        </div>
-
-        ${ctaHtml}
-      `;
-
-      resultBox.scrollIntoView({ behavior: "smooth", block: "start" });
-
-    } catch (err) {
-      console.log("Error:", err);
-      alert("Error running review");
-    }
-  });
-});
+}
 </script>
-\n</body>
+
+</body>
 
 </html>
 
