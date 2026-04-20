@@ -122,25 +122,14 @@
     .check-row { display:block; margin-bottom:12px; font-size:16px; }
     ul { margin-top: 8px; padding-left: 22px; }
   </style>
-<script>
-
-!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once group identify_group reset isFeatureEnabled onFeatureFlags reloadFeatureFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-posthog.init('phc_nSRmZ7SWGPUv6pZUp2iw9oZ4rCVmp7nArwDtHz2t2rpC', {
-  api_host: 'https://us.i.posthog.com',
-  autocapture: true,
-  capture_pageview: true,
-  disable_session_recording: false
-});
-<script>
-posthog.capture('dashboard_view');
-</script>
 
 
-function toggleOptional() {
-  const el = document.getElementById("optionalSection");
-  if (!el) return;
-  el.style.display = el.style.display === "none" ? "block" : "none";
-}
+
+
+
+
+
+
 </script>
 
 </head>
@@ -186,7 +175,7 @@ Based on CFR 38 (VA rating criteria)
       <textarea id="serviceContext" style="min-height:140px;" placeholder="Example:&#10;Back pain from service (started in 2018)&#10;Worse when standing long periods&#10;Seen by medical twice&#10;&#10;Just type like this..."></textarea>
 
       <div class="actions">
-        <button id="analyzeBtn" class="btn-analyze" type="button" onclick="if(window.posthog) posthog.capture('analyze_clicked')">Get My VA Rating</button>
+        <button id="vaBtn"\1>Get My VA Rating</button>
 
     <button
       type="button"
@@ -252,25 +241,7 @@ Based on CFR 38 (VA rating criteria)
   </div>
 </div>
 
-<script>
 
-
-
-
-
-<!-- END ARENA CTA -->
-
-
-<script>
-window.addEventListener("load", () => {
-  const el =
-    document.getElementById("va-input") ||
-    document.getElementById("condition-input") ||
-    document.getElementById("claim-input") ||
-    document.querySelector("textarea");
-  if (el) el.focus();
-});
-</script>
 
 
 
@@ -285,206 +256,388 @@ window.addEventListener("load", () => {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("analyzeBtn");
-  const input = document.getElementById("serviceContext");
-  const card = document.getElementById("vaResultCard");
-  const body = document.getElementById("vaResultBody");
+document.addEventListener("DOMContentLoaded", function () {
 
-  if (!btn || !input || !card || !body) return;
-  if (btn.dataset.vaBound === "1") return;
-  btn.dataset.vaBound = "1";
+  const btn = document.getElementById("vaBtn");
+  const input = document.querySelector("textarea");
 
-  const esc = (value) =>
-    String(value || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+  if (!btn || !input) return;
 
-  
-function renderResult(data) {
-  const result =
-    data?.answer ||
-    data?.analysis ||
-    data?.result ||
-    data?.message ||
-    data?.output ||
-    data?.text ||
-    data?.content ||
-    data;
+  btn.addEventListener("click", async function () {
 
-  const issues = Array.isArray(result?.top_issues) ? result.top_issues : [];
-  const missing = Array.isArray(result?.missing) ? result.missing : [];
-
-  const bullets = (items, maxItems = 3) => {
-    const list = items.slice(0, maxItems);
-    if (!list.length) return '<div style="opacity:0.75;">None listed.</div>';
-    return `<ul style="margin:6px 0 0 18px;">${
-      list.map(x => `<li style="margin-bottom:4px;">${esc(x)}</li>`).join("")
-    }</ul>`;
-  };
-
-  const rating = esc(result?.estimated_rating || "Unknown");
-  const confidence = esc(result?.confidence || "Unknown");
-  const strength = esc(result?.claim_strength || "Unknown");
-  const why = esc(result?.why || "No explanation returned.");
-  const fastest = esc(result?.fastest_improvement || "Not provided.");
-  const lever = esc(result?.biggest_lever || "Not provided.");
-
-  body.innerHTML = `
-    <div style="display:grid;gap:10px;">
-      <div style="padding:12px;border-radius:12px;background:rgba(255,255,255,0.06);">
-        <div style="font-size:11px;opacity:0.7;">Likely rating</div>
-        <div style="font-size:24px;font-weight:800;">${rating}</div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div style="padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
-          <div style="font-size:11px;opacity:0.7;">Confidence</div>
-          <div style="font-weight:800;">${confidence}</div>
-        </div>
-        <div style="padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
-          <div style="font-size:11px;opacity:0.7;">Strength</div>
-          <div style="font-weight:800;">${strength}</div>
-        </div>
-      </div>
-
-      <div style="padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
-        <div style="font-size:12px;font-weight:800;margin-bottom:4px;">Why</div>
-        <div style="font-size:14px;">${why}</div>
-      </div>
-
-      <div style="padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
-        <div style="font-size:12px;font-weight:800;margin-bottom:4px;">What you're missing</div>
-        ${bullets(missing, 3)}
-      </div>
-
-      <div style="padding:10px;background:rgba(16,185,129,0.10);border-radius:10px;">
-        <div style="font-size:12px;font-weight:800;">Fastest fix</div>
-        <div style="font-size:14px;">${fastest}</div>
-      </div>
-
-      <div style="padding:10px;background:rgba(59,130,246,0.10);border-radius:10px;">
-        <div style="font-size:12px;font-weight:800;">Biggest lever</div>
-        <div style="font-size:14px;">${lever}</div>
-      </div>
-
-      
-<form action="https://formsubmit.co/98be0a300ef3a84a84d7ecd13a15e620" method="POST" style="margin-top:12px;" onsubmit="if(window.posthog) posthog.capture('lead_submitted')">
-  <input type="hidden" name="_subject" value="New VA Claim Review Request">
-  <input type="hidden" name="_captcha" value="false">
-
-  <input
-    type="email"
-    name="email"
-    placeholder="Your email"
-    required
-    style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:none;"
-  />
-
-  <textarea
-    name="details"
-    placeholder="Add anything else about your claim..."
-    style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:none;"
-  ></textarea>
-
-  <button
-    type="submit"
-    style="width:100%;padding:12px;background:#111;color:#fff;border:none;border-radius:10px;font-weight:800;"
-  >
-    Get Full Claim Review
-  </button>
-</form>
-
-    </div>
-  `;
-
-  card.style.display = "block";
-}
-
-
-  btn.addEventListener("click", async () => {
-    const text = (input.value || "").trim();
-    if (!text) {
-      alert("Enter your condition first.");
+    const value = input.value.trim();
+    if (!value) {
+      alert("Enter a condition");
       return;
     }
 
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "Analyzing...";
+    try {
+      const res = await fetch("/va/analyze-base64", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          issue: value,
+          serviceContext: "user input"
+        })
+      });
+
+      const data = await res.json();
+      const r = data.result;
+
+      // ===== UPDATE EXISTING UI =====
+
+      const textBlocks = document.querySelectorAll("div");
+
+      textBlocks.forEach(el => {
+        if (el.innerText.includes("Likely rating")) {
+          el.querySelector("div:last-child").innerText = r.estimatedRating;
+        }
+
+        if (el.innerText.includes("Confidence")) {
+          el.querySelector("div:last-child").innerText = r.confidence;
+        }
+
+        if (el.innerText.includes("Strength")) {
+          el.querySelector("div:last-child").innerText = r.strength;
+        }
+
+        if (el.innerText.includes("Why")) {
+          el.querySelector("div:last-child").innerText = r.why;
+        }
+
+        if (el.innerText.includes("What you're missing")) {
+          el.querySelector("div:last-child").innerText = r.missing.join(", ");
+        }
+      });
+
+      // scroll user to result section
+      window.scrollTo({ top: 500, behavior: "smooth" });
+
+    } catch (err) {
+      console.log("Error:", err);
+    }
+
+  });
+
+});
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const btn = document.getElementById("vaBtn");
+  const input = document.querySelector("textarea");
+
+  if (!btn || !input) return;
+
+  btn.addEventListener("click", async function () {
+    const value = input.value.trim();
+    if (!value) {
+      alert("Enter a condition");
+      return;
+    }
 
     try {
-      const endpoints = ["/va/analyze", "/api/va/analyze", "/analyze"];
-      const payloads = [
-        { text },
-        { condition: text },
-        { serviceContext: text },
-        { input: text },
-        { prompt: text },
-        { body: text }
-      ];
+      const res = await fetch("/va/analyze-base64", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issue: value,
+          serviceContext: "user input"
+        })
+      });
 
-      let success = false;
-      let lastError = "Analyze failed.";
+      const data = await res.json();
+      const r = data.result || {};
 
-      for (const url of endpoints) {
-        for (const payload of payloads) {
-          try {
-            const res = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
-            });
+      let resultBox = document.getElementById("resultBox");
 
-            const raw = await res.text();
-            let data = {};
-            try {
-              data = JSON.parse(raw);
-            } catch {
-              data = { result: raw };
-            }
+      if (!resultBox) {
+        resultBox = document.createElement("div");
+        resultBox.id = "resultBox";
+        resultBox.style.marginTop = "18px";
+        resultBox.style.background = "#243f7a";
+        resultBox.style.borderRadius = "16px";
+        resultBox.style.padding = "18px";
+        resultBox.style.color = "white";
+        resultBox.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
 
-            if (res.ok && data && data.success !== false) {
-              renderResult(data);
-if(window.posthog) posthog.capture('result_generated');
-
-setTimeout(() => {
-  const el = document.getElementById("vaResultCard") || card;
-  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-}, 150);
-
-              success = true;
-              break;
-            } else {
-              lastError = data?.error || raw || lastError;
-            }
-          } catch (err) {
-            lastError = err.message || lastError;
-          }
-        }
-        if (success) break;
+        btn.parentElement.insertAdjacentElement("afterend", resultBox);
       }
 
-      if (!success) {
-        body.innerHTML = esc(lastError);
-        card.style.display = "block";
-      }
+      resultBox.innerHTML = `
+        <div style="font-size:30px;font-weight:800;margin-bottom:14px;">Your VA review</div>
+
+        <div style="padding:16px;border-radius:14px;background:rgba(255,255,255,0.06);margin-bottom:12px;">
+          <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Likely rating</div>
+          <div style="font-size:24px;font-weight:800;">${r.estimatedRating || "Unknown"}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
+            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Confidence</div>
+            <div style="font-size:18px;font-weight:800;">${r.confidence || "Unknown"}</div>
+          </div>
+          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
+            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Strength</div>
+            <div style="font-size:18px;font-weight:800;">${r.strength || "Unknown"}</div>
+          </div>
+        </div>
+
+        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">Why</div>
+          <div style="font-size:16px;">${r.why || "No explanation available."}</div>
+        </div>
+
+        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">What you're missing</div>
+          <div style="font-size:16px;">${Array.isArray(r.missing) ? r.missing.join(", ") : "Not available."}</div>
+        </div>
+      `;
+
+      resultBox.scrollIntoView({ behavior: "smooth", block: "start" });
+
     } catch (err) {
-      body.innerHTML = esc(err.message || "Analyze failed.");
-      card.style.display = "block";
-    } finally {
-      btn.disabled = false;
-      btn.textContent = original;
+      console.log("Error:", err);
+      alert("Error running review");
     }
   });
 });
 </script>
+\n
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const btn = document.getElementById("vaBtn");
+  const input = document.querySelector("textarea");
 
-</body>
+  if (!btn || !input) return;
+
+  btn.addEventListener("click", async function () {
+    const value = input.value.trim();
+    if (!value) {
+      alert("Enter a condition");
+      return;
+    }
+
+    try {
+      const res = await fetch("/va/analyze-base64", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issue: value,
+          serviceContext: "user input"
+        })
+      });
+
+      const data = await res.json();
+      const r = data.result || {};
+
+      let resultBox = document.getElementById("resultBox");
+
+      if (!resultBox) {
+        resultBox = document.createElement("div");
+        resultBox.id = "resultBox";
+        resultBox.style.marginTop = "18px";
+        resultBox.style.background = "#243f7a";
+        resultBox.style.borderRadius = "16px";
+        resultBox.style.padding = "18px";
+        resultBox.style.color = "white";
+        resultBox.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
+        btn.parentElement.insertAdjacentElement("afterend", resultBox);
+      }
+
+      resultBox.innerHTML = `
+        <div style="font-size:30px;font-weight:800;margin-bottom:14px;">Your VA review</div>
+
+        <div style="padding:16px;border-radius:14px;background:rgba(255,255,255,0.06);margin-bottom:12px;">
+          <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Likely rating</div>
+          <div style="font-size:24px;font-weight:800;">${r.estimatedRating || "Unknown"}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
+            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Confidence</div>
+            <div style="font-size:18px;font-weight:800;">${r.confidence || "Unknown"}</div>
+          </div>
+          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
+            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Strength</div>
+            <div style="font-size:18px;font-weight:800;">${r.strength || "Unknown"}</div>
+          </div>
+        </div>
+
+        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">Why</div>
+          <div style="font-size:16px;opacity:0.9;">🔒 Unlock full breakdown</div>
+        </div>
+
+        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">What you're missing</div>
+          <div style="font-size:16px;opacity:0.9;">🔒 Unlock exactly what’s missing in your claim</div>
+        </div>
+
+        <button
+          id="upgradeBtn" onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
+          type="button"
+          style="width:100%;padding:16px;background:#22c55e;color:white;border:none;border-radius:12px;font-size:20px;font-weight:800;cursor:pointer;margin-bottom:10px;"
+          onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
+        >
+          Unlock Full Claim Plan — $14.95
+        </button>
+
+        <div style="text-align:center;font-size:14px;opacity:0.8;">
+          See exactly what’s missing and how to improve your claim.
+        </div>
+      `;
+
+      resultBox.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    } catch (err) {
+      console.log("Error:", err);
+      alert("Error running review");
+    }
+  });
+});
+</script>
+\n
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const btn = document.getElementById("vaBtn");
+  const input = document.querySelector("textarea");
+
+  if (!btn || !input) return;
+
+  function isPaidUser() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("paid") === "true";
+  }
+
+  btn.addEventListener("click", async function () {
+    const value = input.value.trim();
+    if (!value) {
+      alert("Enter a condition");
+      return;
+    }
+
+    try {
+      const res = await fetch("/va/analyze-base64", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issue: value,
+          serviceContext: "user input"
+        })
+      });
+
+      const data = await res.json();
+      const r = data.result || {};
+      const paid = isPaidUser();
+
+      let resultBox = document.getElementById("resultBox");
+
+      if (!resultBox) {
+        resultBox = document.createElement("div");
+        resultBox.id = "resultBox";
+        resultBox.style.marginTop = "18px";
+        resultBox.style.background = "#243f7a";
+        resultBox.style.borderRadius = "16px";
+        resultBox.style.padding = "18px";
+        resultBox.style.color = "white";
+        resultBox.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
+        btn.parentElement.insertAdjacentElement("afterend", resultBox);
+      }
+
+      const whyHtml = paid
+        ? (r.why || "No explanation available.")
+        : "🔒 Unlock full breakdown";
+
+      const missingHtml = paid
+        ? (Array.isArray(r.missing) ? r.missing.join(", ") : "Not available.")
+        : "🔒 Unlock exactly what’s missing in your claim";
+
+      const ctaHtml = paid
+        ? `
+          <div style="margin-top:12px;text-align:center;font-size:14px;color:#bbf7d0;font-weight:700;">
+            ✅ Full Claim Plan Unlocked
+          </div>
+        `
+        : `
+          <button
+            id="upgradeBtn"
+            type="button"
+            style="width:100%;padding:16px;background:#22c55e;color:white;border:none;border-radius:12px;font-size:20px;font-weight:800;cursor:pointer;margin-bottom:10px;"
+            onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
+          >
+            Unlock Full Claim Plan — $14.95
+          </button>
+
+          <div style="text-align:center;font-size:14px;opacity:0.8;">
+            See exactly what’s missing and how to improve your claim.
+          </div>
+        `;
+
+      resultBox.innerHTML = `
+        <div style="font-size:30px;font-weight:800;margin-bottom:14px;">Your VA review</div>
+
+        <div style="padding:16px;border-radius:14px;background:rgba(255,255,255,0.06);margin-bottom:12px;">
+          <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Likely rating</div>
+          <div style="font-size:24px;font-weight:800;">${r.estimatedRating || "Unknown"}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
+            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Confidence</div>
+            <div style="font-size:18px;font-weight:800;">${r.confidence || "Unknown"}</div>
+          </div>
+          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);">
+            <div style="font-size:12px;opacity:0.75;margin-bottom:6px;">Strength</div>
+            <div style="font-size:18px;font-weight:800;">${r.strength || "Unknown"}</div>
+          </div>
+        </div>
+
+        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">Why</div>
+          <div style="font-size:16px;opacity:0.95;">${whyHtml}</div>
+        </div>
+
+        <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:800;margin-bottom:8px;">What you're missing</div>
+          <div style="font-size:16px;opacity:0.95;">${missingHtml}</div>
+        </div>
+
+        ${ctaHtml}
+      `;
+
+      resultBox.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    } catch (err) {
+      console.log("Error:", err);
+      alert("Error running review");
+    }
+  });
+});
+</script>
+\n</body>
+
 </html>
 
 
