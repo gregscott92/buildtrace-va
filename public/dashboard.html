@@ -175,7 +175,7 @@ Based on CFR 38 (VA rating criteria)
       <textarea id="serviceContext" style="min-height:140px;" placeholder="Example:&#10;Back pain from service (started in 2018)&#10;Worse when standing long periods&#10;Seen by medical twice&#10;&#10;Just type like this..."></textarea>
 
       <div class="actions">
-        <button id="vaBtn" type="button" onclick="runVaReview()" id="vaBtn" id="vaBtn" id="vaBtn" id="vaBtn" id="vaBtn"\1>Get My VA Rating</button>
+        <button id="vaBtn" type="button" onclick="runVaReview()">Get My VA Rating</button>
 
     <button
       type="button"
@@ -526,7 +526,7 @@ async function runVaReview() {
   btn.textContent = "Analyzing...";
 
   try {
-    const res = await fetch("/va/analyze", {
+    const res = await fetch("/va/analyze-base64", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -540,7 +540,7 @@ async function runVaReview() {
       throw new Error(data.error || "Analyze failed");
     }
 
-    const structured = data.structured || {};
+    const structured = data.result || data.structured || {};
     const paid = isPaidUser();
 
     const condition = structured.condition || value;
