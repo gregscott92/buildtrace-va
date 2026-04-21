@@ -558,11 +558,11 @@ async function runVaReview() {
 
     const supportHtml = paid
       ? esc(getSupportText(conditionKey, value, String(missing).split(/\\n|•|- /).map(x => x.trim()).filter(Boolean)))
-      : "🔒 Unlock a personalized breakdown based on what you actually typed";
+      : "🔒 Your claim likely gets stuck at 10% because the VA needs documented range-of-motion loss and functional impact.<br><br>Right now, that evidence is missing or unclear.";
 
     const riskHtml = paid
       ? bulletsFromText(getRiskText(conditionKey, missing))
-      : "🔒 Unlock exactly what could still hold this claim back";
+      : "🔒 Most claims like this get denied because there’s no clear medical proof tying the condition to measurable limitations.<br><br>That’s the gap the VA looks for.";
 
     const nextStepsHtml = paid
       ? bulletsFromText(nextSteps)
@@ -596,7 +596,7 @@ async function runVaReview() {
     const ctaHtml = paid
       ? `
         <div style="margin-top:14px;padding:14px;border-radius:14px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);">
-          <div style="font-size:16px;font-weight:800;color:#bbf7d0;margin-bottom:6px;">✅ Full Claim Plan Unlocked</div>
+          <div style="font-size:16px;font-weight:800;color:#bbf7d0;margin-bottom:6px;">✅ Full Claim Plan (Built From Your Input)</div>
           <div style="font-size:14px;opacity:0.95;">
             This plan is based on your actual description and CFR-style analysis logic. Final VA decisions still depend on
             your records, exams, service connection evidence, and adjudication.
@@ -609,7 +609,7 @@ async function runVaReview() {
           type="button"
           style="width:100%;padding:16px;background:#22c55e;color:white;border:none;border-radius:12px;font-size:20px;font-weight:800;cursor:pointer;margin-bottom:10px;"
           onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
-        >
+        ><div style="margin-bottom:10px;font-size:14px;line-height:1.4;font-weight:700;text-align:center;opacity:0.96;">Most veterans miss this step and get stuck at a low rating.<br>This shows you exactly what to fix before you file.</div>
           Unlock Full Claim Plan — $14.95
         </button>
         <div style="text-align:center;font-size:14px;opacity:0.8;">
