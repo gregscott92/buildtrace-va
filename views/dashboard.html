@@ -529,6 +529,17 @@ async function runVaReview() {
     return;
   }
 
+  try {
+    if (typeof trackEvent === "function") {
+      trackEvent("analyzer_run_clicked", {
+        source: "dashboard",
+        input_length: value.length
+      });
+    }
+  } catch (e) {
+    console.error("track analyzer_run_clicked failed", e);
+  }
+
   const original = btn.textContent;
   btn.disabled = true;
   btn.textContent = "Analyzing...";
@@ -616,7 +627,7 @@ async function runVaReview() {
           id="upgradeBtn"
           type="button"
           style="width:100%;padding:16px;background:#22c55e;color:white;border:none;border-radius:12px;font-size:20px;font-weight:800;cursor:pointer;margin-bottom:10px;"
-          onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
+          onclick="try { if (typeof trackEvent === 'function') { trackEvent('analyzer_upgrade_clicked', { source: 'dashboard' }); } } catch (e) { console.error('track analyzer_upgrade_clicked failed', e); } window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
         ><div style="margin-bottom:10px;font-size:14px;line-height:1.4;font-weight:700;text-align:center;opacity:0.96;">Most veterans miss this step and get stuck at a low rating.<br>This shows you exactly what to fix before you file.</div>
           Unlock Full Claim Plan — $14.95
         </button>

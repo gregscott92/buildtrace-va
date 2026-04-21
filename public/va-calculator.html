@@ -306,14 +306,46 @@ trackEvent("page_view", { page: "va_calculator" });
         console.error("localStorage save failed", e);
       }
 
+      try {
+        if (typeof trackEvent === "function") {
+          trackEvent("calc_to_analyzer_clicked", {
+            source: "va_calculator",
+            has_context: true
+          });
+        }
+      } catch (e) {
+        console.error("track calc_to_analyzer_clicked failed", e);
+      }
+
       window.location.href = "/dashboard?autorun=1&from=calculator";
     });
   }
 
+  function bindUpgrade() {
+    const upgradeBtn = document.getElementById("calcUpgradeBtn");
+    if (!upgradeBtn) return;
+
+    upgradeBtn.addEventListener("click", function () {
+      try {
+        if (typeof trackEvent === "function") {
+          trackEvent("calc_upgrade_clicked", {
+            source: "va_calculator"
+          });
+        }
+      } catch (e) {
+        console.error("track calc_upgrade_clicked failed", e);
+      }
+    });
+  }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bind);
+    document.addEventListener("DOMContentLoaded", function () {
+      bind();
+      bindUpgrade();
+    });
   } else {
     bind();
+    bindUpgrade();
   }
 })();
 </script>
