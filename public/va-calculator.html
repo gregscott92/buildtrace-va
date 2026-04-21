@@ -186,7 +186,7 @@ function trackEvent(eventName, data = {}) {
     
 
   <div style="margin:10px 0 14px 0;padding:10px 12px;background:#1e3a8a;border-radius:8px;font-size:13px;line-height:1.4;">
-  Most claims don’t get approved because of how they’re written — not because of the condition.
+  
 </div>
 </div>
 
@@ -206,7 +206,6 @@ function trackEvent(eventName, data = {}) {
   <button
     id="calcUpgradeBtn"
     type="button"
-    onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
     style="width:100%;padding:14px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:16px;cursor:pointer;"
   >
     Get Full Strategy (Exact Steps to Increase Rating) — $14.95
@@ -247,11 +246,6 @@ trackEvent("page_view", { page: "va_calculator" });
   if (window.__calculatorFunnelBound) return;
   window.__calculatorFunnelBound = true;
 
-  function getText(selector) {
-    const el = document.querySelector(selector);
-    return el ? (el.value || el.textContent || "").trim() : "";
-  }
-
   function findMetric(label) {
     const text = document.body ? document.body.innerText : "";
     const re = new RegExp(label + String.raw`\s*:\s*([^\n]+)`, "i");
@@ -261,7 +255,6 @@ trackEvent("page_view", { page: "va_calculator" });
 
   function buildClaimContext() {
     const detailsBox = document.getElementById("calcClaimDetails");
-
     const userText =
       (detailsBox && detailsBox.value.trim()) ||
       "";
@@ -290,11 +283,9 @@ trackEvent("page_view", { page: "va_calculator" });
     return parts.join("\n\n").trim();
   }
 
-  function bind() {
-    const btn = document.getElementById("calcToAnalyzerBtn");
-    if (!btn) return;
-
-    btn.addEventListener("click", function () {
+  document.addEventListener("click", function (e) {
+    const analyzeBtn = e.target.closest("#calcToAnalyzerBtn");
+    if (analyzeBtn) {
       const context = buildClaimContext();
 
       if (!context) {
@@ -303,52 +294,40 @@ trackEvent("page_view", { page: "va_calculator" });
       }
 
       try {
-        localStorage.setItem("va_claim_context", context);
-      } catch (e) {
-        console.error("localStorage save failed", e);
+        if (typeof trackEvent === "function") {
+          trackEvent("calc_to_analyzer_clicked", {
+            source: "va_calculator"
+          });
+        }
+      } catch (err) {
+        console.error("track calc_to_analyzer_clicked failed", err);
       }
 
       try {
-        if (typeof trackEvent === "function") {
-          trackEvent("calc_to_analyzer_clicked", {
-            source: "va_calculator",
-            has_context: true
-          });
-        }
-      } catch (e) {
-        console.error("track calc_to_analyzer_clicked failed", e);
+        localStorage.setItem("va_claim_context", context);
+      } catch (err) {
+        console.error("localStorage save failed", err);
       }
 
       window.location.href = "/dashboard?autorun=1&from=calculator";
-    });
-  }
+      return;
+    }
 
-  function bindUpgrade() {
-    const upgradeBtn = document.getElementById("calcUpgradeBtn");
-    if (!upgradeBtn) return;
-
-    upgradeBtn.addEventListener("click", function () {
+    const upgradeBtn = e.target.closest("#calcUpgradeBtn");
+    if (upgradeBtn) {
       try {
         if (typeof trackEvent === "function") {
           trackEvent("calc_upgrade_clicked", {
             source: "va_calculator"
           });
         }
-      } catch (e) {
-        console.error("track calc_upgrade_clicked failed", e);
+      } catch (err) {
+        console.error("track calc_upgrade_clicked failed", err);
       }
-    });
-  }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-      bind();
-      bindUpgrade();
-    });
-  } else {
-    bind();
-    bindUpgrade();
-  }
+      window.location.href = "https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01";
+    }
+  });
 })();
 </script>
 <!-- calculator_funnel_script_end -->
