@@ -92,7 +92,6 @@ function trackEvent(eventName, data = {}) {
   }
 }
 
-
     function getToken() {
       return localStorage.getItem("token") || "";
     }
@@ -170,40 +169,58 @@ function trackEvent(eventName, data = {}) {
           <div class="muted">Standard VA compensation estimate only.
 
 <div id="calcLeadBox" style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.12);">
-  <div style="font-size:16px;font-weight:800;margin-bottom:6px;">
-    Want help increasing this rating?
+  <div style="font-size:18px;font-weight:800;margin-bottom:8px;">
+    Want to know if this claim actually gets approved?
   </div>
 
-  <div style="font-size:13px;opacity:0.85;margin-bottom:10px;">
-    Send me your situation and I’ll review what could move you higher.
+  <div style="font-size:14px;opacity:0.9;line-height:1.45;margin-bottom:10px;">
+    Use the analyzer next. It will show:
+    <ul style="margin:8px 0 0 18px;padding:0;line-height:1.5;">
+      <li>what evidence you’re missing</li>
+      <li>what could get the claim denied</li>
+      <li>what to fix before you file</li>
+    </ul>
   </div>
 
-  <form action="https://formsubmit.co/98be0a300ef3a84a84d7ecd13a15e620" method="POST" style="margin:0;">
-    <input type="hidden" name="_subject" value="VA Calculator Lead">
-    <input type="hidden" name="_captcha" value="false">
-    <input type="hidden" name="_next" value="https://buildtrace-va.onrender.com/va-calculator.html">
+  <textarea
+    
 
-    <input
-      type="email"
-      name="email"
-      placeholder="Your email"
-      required
-      style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:none;"
-    />
+  <div style="margin:10px 0 14px 0;padding:10px 12px;background:#1e3a8a;border-radius:8px;font-size:13px;line-height:1.4;">
+  Most claims don’t get approved because of how they’re written — not because of the condition.
+</div>
+</div>
 
-    <textarea
-      name="details"
-      placeholder="Optional: conditions you're claiming, current rating, what you're trying to reach..."
-      style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:none;min-height:100px;"
-    ></textarea>
+<textarea id="calcClaimDetails"
+    placeholder="Example: Lower back pain from service. Worse with standing, lifting, and flare-ups. Missed work. Current VA rating is 60% and I want to get higher."
+    style="width:100%;padding:12px;margin-bottom:10px;border-radius:10px;border:none;min-height:110px;"
+  ></textarea>
 
-    <button
-      type="submit"
-      style="width:100%;padding:12px;background:#111;color:#fff;border:none;border-radius:8px;font-weight:700;"
-    >
-      Get Full Claim Review
-    </button>
-  </form>
+  <button
+    id="calcToAnalyzerBtn"
+    type="button"
+    style="width:100%;padding:14px;background:#f3f4f6;color:#111827;border:none;border-radius:10px;font-weight:800;font-size:16px;margin-bottom:10px;cursor:pointer;"
+  >
+    Analyze My Claim
+
+  <button
+    id="calcUpgradeBtn"
+    type="button"
+    onclick="window.location.href='https://buy.stripe.com/14A14pd8G5IC5pV1OL9EI01'"
+    style="width:100%;padding:14px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:16px;cursor:pointer;"
+  >
+    Get Full Strategy (Exact Steps to Increase Rating) — $14.95</button>
+
+<div style="font-size:12px;opacity:0.8;margin-top:6px;text-align:center;">
+  Shows what to file, what to say, and how to increase your rating step-by-step.
+</div>
+
+  <div style="font-size:12px;opacity:0.78;line-height:1.4;margin-top:8px;text-align:center;">
+    Calculator = your current combined rating.<br>
+    Analyzer = why the VA would approve, deny, or underrate the specific claim.
+  </div>
+</div>
+<!-- calculator_funnel_end -->
+
 </div>
 </div>
         `;
@@ -221,4 +238,85 @@ function trackEvent(eventName, data = {}) {
 trackEvent("page_view", { page: "va_calculator" });
   </script>
 </body>
+
+<!-- calculator_funnel_script_start -->
+<script>
+(function () {
+  if (window.__calculatorFunnelBound) return;
+  window.__calculatorFunnelBound = true;
+
+  function getText(selector) {
+    const el = document.querySelector(selector);
+    return el ? (el.value || el.textContent || "").trim() : "";
+  }
+
+  function findMetric(label) {
+    const text = document.body ? document.body.innerText : "";
+    const re = new RegExp(label + String.raw`\s*:\s*([^\n]+)`, "i");
+    const match = text.match(re);
+    return match ? match[1].trim() : "";
+  }
+
+  function buildClaimContext() {
+    const detailsBox = document.getElementById("calcClaimDetails");
+
+    const userText =
+      (detailsBox && detailsBox.value.trim()) ||
+      "";
+
+    const rawCombined = findMetric("Raw Combined");
+    const finalRating = findMetric("Final VA Rating");
+    const estimatedMonthly = findMetric("Estimated Monthly");
+    const nextTier = findMetric("Next tier");
+
+    let parts = [];
+
+    if (userText) {
+      parts.push(userText);
+    }
+
+    let calcSummary = [];
+    if (rawCombined) calcSummary.push("Raw Combined: " + rawCombined);
+    if (finalRating) calcSummary.push("Final VA Rating: " + finalRating);
+    if (estimatedMonthly) calcSummary.push("Estimated Monthly: " + estimatedMonthly);
+    if (nextTier) calcSummary.push("Next tier: " + nextTier);
+
+    if (calcSummary.length) {
+      parts.push("Current calculator result:\n" + calcSummary.join("\n"));
+    }
+
+    return parts.join("\n\n").trim();
+  }
+
+  function bind() {
+    const btn = document.getElementById("calcToAnalyzerBtn");
+    if (!btn) return;
+
+    btn.addEventListener("click", function () {
+      const context = buildClaimContext();
+
+      if (!context) {
+        alert("Add a little detail first so the analyzer has something to review.");
+        return;
+      }
+
+      try {
+        localStorage.setItem("va_claim_context", context);
+      } catch (e) {
+        console.error("localStorage save failed", e);
+      }
+
+      window.location.href = "/dashboard?autorun=1&from=calculator";
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bind);
+  } else {
+    bind();
+  }
+})();
+</script>
+<!-- calculator_funnel_script_end -->
+
 </html>

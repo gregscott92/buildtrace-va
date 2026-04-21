@@ -689,6 +689,52 @@ async function runVaReview() {
 
 </body>
 
+<!-- dashboard_prefill_from_calculator_start -->
+<script>
+(function () {
+  if (window.__dashboardCalculatorPrefillBound) return;
+  window.__dashboardCalculatorPrefillBound = true;
+
+  function bindPrefill() {
+    const input = document.getElementById("serviceContext");
+    if (!input) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const shouldAutorun = params.get("autorun") === "1";
+
+    let saved = "";
+    try {
+      saved = localStorage.getItem("va_claim_context") || "";
+    } catch (e) {
+      console.error("localStorage read failed", e);
+    }
+
+    if (saved && !input.value.trim()) {
+      input.value = saved;
+    }
+
+    if (shouldAutorun && input.value.trim()) {
+      setTimeout(function () {
+        if (typeof runVaReview === "function") {
+          runVaReview();
+        } else {
+          const btn = document.getElementById("vaBtn");
+          if (btn) btn.click();
+        }
+      }, 350);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindPrefill);
+  } else {
+    bindPrefill();
+  }
+})();
+</script>
+<!-- dashboard_prefill_from_calculator_end -->
+
+
 </html>
 
 
