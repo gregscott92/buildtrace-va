@@ -183,15 +183,8 @@ function trackEvent(eventName, data = {}) {
   </div>
 
   <textarea
-    
-
-  <div style="margin:10px 0 14px 0;padding:10px 12px;background:#1e3a8a;border-radius:8px;font-size:13px;line-height:1.4;">
-  
-</div>
-</div>
-
-<textarea id="calcClaimDetails"
-    placeholder="Example: Lower back pain from service. Worse with standing, lifting, and flare-ups. Missed work. Current VA rating is 60% and I want to get higher."
+    id="calcClaimDetails"
+    placeholder="Example: Back pain from service, worse with movement, flare ups, missed work"
     style="width:100%;padding:12px;margin-bottom:10px;border-radius:10px;border:none;min-height:110px;"
   ></textarea>
 
@@ -246,65 +239,27 @@ trackEvent("page_view", { page: "va_calculator" });
   if (window.__calculatorFunnelBound) return;
   window.__calculatorFunnelBound = true;
 
-  function findMetric(label) {
-    const text = document.body ? document.body.innerText : "";
-    const re = new RegExp(label + String.raw`\s*:\s*([^\n]+)`, "i");
-    const match = text.match(re);
-    return match ? match[1].trim() : "";
-  }
-
-  function buildClaimContext() {
-    const detailsBox = document.getElementById("calcClaimDetails");
-    const userText =
-      (detailsBox && detailsBox.value.trim()) ||
-      "";
-
-    const rawCombined = findMetric("Raw Combined");
-    const finalRating = findMetric("Final VA Rating");
-    const estimatedMonthly = findMetric("Estimated Monthly");
-    const nextTier = findMetric("Next tier");
-
-    let parts = [];
-
-    if (userText) {
-      parts.push(userText);
-    }
-
-    let calcSummary = [];
-    if (rawCombined) calcSummary.push("Raw Combined: " + rawCombined);
-    if (finalRating) calcSummary.push("Final VA Rating: " + finalRating);
-    if (estimatedMonthly) calcSummary.push("Estimated Monthly: " + estimatedMonthly);
-    if (nextTier) calcSummary.push("Next tier: " + nextTier);
-
-    if (calcSummary.length) {
-      parts.push("Current calculator result:\n" + calcSummary.join("\n"));
-    }
-
-    return parts.join("\n\n").trim();
-  }
-
   document.addEventListener("click", function (e) {
     const analyzeBtn = e.target.closest("#calcToAnalyzerBtn");
     if (analyzeBtn) {
-      const context = buildClaimContext();
+      const input = document.getElementById("calcClaimDetails");
+      const value = input ? input.value.trim() : "";
 
-      if (!context) {
-        alert("Add a little detail first so the analyzer has something to review.");
+      if (!value) {
+        alert("Enter a condition");
         return;
       }
 
       try {
         if (typeof trackEvent === "function") {
-          trackEvent("calc_to_analyzer_clicked", {
-            source: "va_calculator"
-          });
+          trackEvent("calc_to_analyzer_clicked", { source: "va_calculator" });
         }
       } catch (err) {
         console.error("track calc_to_analyzer_clicked failed", err);
       }
 
       try {
-        localStorage.setItem("va_claim_context", context);
+        localStorage.setItem("va_claim_context", value);
       } catch (err) {
         console.error("localStorage save failed", err);
       }
@@ -317,9 +272,7 @@ trackEvent("page_view", { page: "va_calculator" });
     if (upgradeBtn) {
       try {
         if (typeof trackEvent === "function") {
-          trackEvent("calc_upgrade_clicked", {
-            source: "va_calculator"
-          });
+          trackEvent("calc_upgrade_clicked", { source: "va_calculator" });
         }
       } catch (err) {
         console.error("track calc_upgrade_clicked failed", err);

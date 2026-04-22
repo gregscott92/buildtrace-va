@@ -698,6 +698,86 @@ async function runVaReview() {
 }
 </script>
 
+
+<!-- calc_prefill_guard_start -->
+<script>
+(function () {
+  function sanitizeCalcContext(value) {
+    let v = String(value || "").trim();
+
+    v = v.replace(/Current calculator result:\s*[\s\S]*$/i, "").trim();
+    v = v
+      .replace(/^Raw Combined:.*$/gim, "")
+      .replace(/^Final VA Rating:.*$/gim, "")
+      .replace(/^Estimated Monthly:.*$/gim, "")
+      .replace(/^Next tier:.*$/gim, "")
+      .trim();
+
+    v = v.replace(/\n{3,}/g, "\n\n").trim();
+    return v;
+  }
+
+  function looksLikeCalculatorSummary(value) {
+    const v = String(value || "");
+    return (
+      /Current calculator result:/i.test(v) ||
+      /Raw Combined:/i.test(v) ||
+      /Final VA Rating:/i.test(v) ||
+      /Estimated Monthly:/i.test(v) ||
+      /Next tier:/i.test(v)
+    );
+  }
+
+  window.addEventListener("load", function () {
+    const input =
+      document.getElementById("serviceContext") ||
+      document.querySelector("textarea");
+
+    if (!input) return;
+
+    let stored = "";
+    try {
+      stored = localStorage.getItem("va_claim_context") || "";
+    } catch (err) {
+      console.error("read va_claim_context failed", err);
+    }
+
+    const cleanStored = sanitizeCalcContext(stored);
+    const currentValue = String(input.value || "");
+    const cleanCurrent = sanitizeCalcContext(currentValue);
+
+    const params = new URLSearchParams(window.location.search);
+    const fromCalculator = params.get("from") === "calculator";
+
+    if (looksLikeCalculatorSummary(stored) || !cleanStored) {
+      try {
+        localStorage.removeItem("va_claim_context");
+      } catch (err) {
+        console.error("clear va_claim_context failed", err);
+      }
+    }
+
+    if (looksLikeCalculatorSummary(currentValue) || !cleanCurrent) {
+      input.value = "";
+    }
+
+    if (
+      fromCalculator &&
+      cleanStored &&
+      !looksLikeCalculatorSummary(stored) &&
+      !String(input.value || "").trim()
+    ) {
+      input.value = cleanStored;
+    }
+
+    if (window.location.search) {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, "", cleanUrl);
+    }
+  });
+})();
+</script>
+<!-- calc_prefill_guard_end -->
 </body>
 
 <!-- dashboard_prefill_from_calculator_start -->
@@ -747,8 +827,3 @@ async function runVaReview() {
 
 
 </html>
-
-
-
-
-
